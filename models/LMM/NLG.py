@@ -1,4 +1,4 @@
-# backend/models/LMM/NLG.py
+# backend/app/models/LMM/NLG.py
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, List, Tuple, Optional
@@ -10,6 +10,8 @@ class PlantSpeechConfig:
     topk_diseases: int = 2
     locale: str = "ko"
     seed: Optional[int] = 2025  # 재현성 유지(랜덤 문구 셔플)
+    # 신규: DB에서 넘어오는 식물 별명(없으면 종(common name)으로 대체)
+    plant_nick: Optional[str] = None
 
 # 질병 이름 → 간단 설명/권장 조치 (데이터셋 라벨명에 맞춰 확장)
 DISEASE_TIPS_KO: Dict[str, Dict[str, List[str]]] = {
@@ -31,6 +33,7 @@ DISEASE_TIPS_KO: Dict[str, Dict[str, List[str]]] = {
     },
 }
 
+# [추후 활성화 예정: 습도 기반 문장]
 # HUMIDITY_LINES_KO = {
 #     "dry": [
 #         "조금 목이 말라요.",
@@ -64,15 +67,13 @@ MOOD_OPENERS_KO = {
 CLOSERS_KO = [
     "항상 돌봐주셔서 고마워요.",
     "천천히 성장해 나아가요. 고마워요!",
-    "내일도도 열심히 자라볼게요.",
+    "내일도 열심히 자라볼게요.",
     "주인님 내일도 꽃같은 하루되세요.",
     "오늘도 곁에 있어 주셔서 고마워요.",
     "내일도 함께 자라볼게요.",
     "내일도 행복한 하루 되세요.",
-    "내일도 장미가시밭길만 걸으세요.",
     "내일도 푸릇푸릇한 하루 보내세요.",
     "당신의 사랑스러운 시선이 느껴져요. 함께 성장해봐요!",
-    "목마름이 해소되었어요. 당신의 세심한 배려에 감사드려요.",
     "따뜻한 햇살 속에서 더욱 건강하게 자랄게요. 고마워요!",
     "작은 변화지만 큰 기쁨이에요. 함께 이 순간을 축하해요!",
     "오늘도 상쾌한 물방울 목욕 덕분에 다시 활력이 넘쳐요!",
@@ -94,14 +95,15 @@ def classify_humidity(humidity_pct: float) -> str:
     return "ok"
 
 def pick_top_diseases(disease_probs: Dict[str, float], thr: float, k: int) -> List[Tuple[str, float]]:
+    # 모델이 이미 top2만 전달해도 dict 그대로 상한 정렬·필터링
     cand = [(k_, v) for k_, v in disease_probs.items() if v >= thr and k_ != "healthy"]
     cand.sort(key=lambda x: x[1], reverse=True)
     return cand[:k]
 
-def compute_mood(humidity_band: str, has_disease: bool) -> str:
+# def compute_mood(humidity_band: str, has_disease: bool):  # [미래용] 습도 반영 버전
+def compute_mood(has_disease: bool) -> str:
     mood_score = 0
-    if humidity_band in ("dry", "wet"):
-        mood_score -= 1
+    # [미래용] if humidity_band in ("dry", "wet"): mood_score -= 1
     if has_disease:
         mood_score -= 2
     if mood_score >= -1:
@@ -118,23 +120,33 @@ def render_message_ko(
 ) -> str:
     rng = random.Random(cfg.seed)
 
-    humidity_band = classify_humidity(humidity_pct)
+    # [미래용] 습도 밴드(현재 미사용; 아래 문장 생성도 주석 처리)
+    # humidity_band = classify_humidity(humidity_pct)
+
     top_diseases = pick_top_diseases(disease_probs, cfg.disease_prob_threshold, cfg.topk_diseases)
     has_disease = len(top_diseases) > 0
 
-    mood = compute_mood(humidity_band, has_disease)
-    opener_tpl = rng.choice(MOOD_OPENERS_KO[mood])
-    opener = opener_tpl.format(species_name=species_common)
+    # 현재는 질병만으로 무드 결정
+    mood = compute_mood(has_disease)
 
-    # 습도 문장
-    humidity_line = rng.choice(HUMIDITY_LINES_KO[humidity_band])
+    # 별명 없으면 종(common name)으로 대체
+    plant_display = (cfg.plant_nick or species_common).strip()
+    opener_tpl = rng.choice(MOOD_OPENERS_KO[mood])
+    opener = opener_tpl.format(plant_nick=plant_display, species_name=species_common)
+
+    # [미래용] 습도 문장 (현재 비활성화)
+    # humidity_line = rng.choice(HUMIDITY_LINES_KO[humidity_band])
 
     # 질병 문장/케어
     disease_lines: List[str] = []
     if has_disease:
         for name, prob in top_diseases:
-            desc_pool = DISEASE_TIPS_KO.get(name, {}).get("desc", [])
-            care_pool = DISEASE_TIPS_KO.get(name, {}).get("care", [])
+            desc_pool = DISEASE_TIPS_KO.get(name, {}).get(
+                "desc", ["조금 컨디션이 좋지 않아요. 가까이서 한 번만 살펴봐 주세요."]
+            )
+            care_pool = DISEASE_TIPS_KO.get(name, {}).get(
+                "care", ["빛·물·바람 균형을 점검해 주세요."]
+            )
             if desc_pool:
                 disease_lines.append(rng.choice(desc_pool) + f" (신뢰도 {int(prob*100)}%)")
             if care_pool:
@@ -148,8 +160,10 @@ def render_message_ko(
 
     closer = rng.choice(CLOSERS_KO)
 
-    # 3~5문장 구성
-    parts = [opener, humidity_line] + disease_lines[:2] + [closer]
+    # 3~5문장 구성(현재 3~4문장: 오프너 + 질병 1~2줄 + 클로저)
+    # [미래용] parts = [opener, humidity_line] + disease_lines[:2] + [closer]
+    parts = [opener] + disease_lines[:2] + [closer]
+
     # 불필요한 공백 제거
     parts = [p.strip() for p in parts if p.strip()]
     return " ".join(parts)
@@ -160,9 +174,33 @@ def generate_plant_message(
     disease_probs: Dict[str, float],
     cfg: Optional[PlantSpeechConfig] = None,
 ) -> str:
-    """Public API."""
+    """Public API.
+
+    다른 모듈에서:
+    - species_common: 품종/일반명 (예: "몬스테라")
+    - disease_probs: top2 결과만 담긴 dict도 허용 (예: {"leaf_spot":0.81,"blight":0.55})
+    - cfg.plant_nick: DB의 별명을 설정하면 오프너에 사용됨
+    - humidity_pct: 현재는 미사용(주석 처리), 향후 활성화 예정
+    """
     cfg = cfg or PlantSpeechConfig()
     if cfg.locale != "ko":
         # 확장 여지: en 등 다국어 템플릿 분기
         cfg.locale = "ko"
     return render_message_ko(species_common, humidity_pct, disease_probs, cfg)
+
+
+''' 사용 예시 (나중에 백엔드에서 사용 예정)
+from backend.app.models.LMM.NLG import generate_plant_message, PlantSpeechConfig
+
+cfg = PlantSpeechConfig(
+    plant_nick="초록이",       # DB 별명
+    disease_prob_threshold=0.5 # top2 dict만 넘어오는 경우에도 안전
+)
+
+msg = generate_plant_message(
+    species_common="몬스테라",
+    humidity_pct=48.0,  # 현재 미사용(향후 활성화)
+    disease_probs={"leaf_spot": 0.82, "blight": 0.57}  # 모델 top2
+)
+print(msg)
+'''
