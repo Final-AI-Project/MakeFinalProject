@@ -33,6 +33,22 @@ DISEASE_TIPS_KO: Dict[str, Dict[str, List[str]]] = {
     },
 }
 
+# ---- [추가: 외부 disease.py 사전 자동 병합] ----
+# disease.py 가 있으면 상세 팁을 병합하여 확장 사용(없어도 안전)
+try:
+    # 같은 패키지 내 배치 가정
+    from .disease import DISEASE_TIPS_KO as _EXT_DISEASE_TIPS  # type: ignore
+except Exception:
+    try:
+        # 루트 동일 경로 배치 대안
+        from disease import DISEASE_TIPS_KO as _EXT_DISEASE_TIPS  # type: ignore
+    except Exception:
+        _EXT_DISEASE_TIPS = {}  # 병합 소스 없음(기본 사전만 사용)
+# 외부 팁이 있으면 기본 사전에 덮어쓰기/추가
+if isinstance(_EXT_DISEASE_TIPS, dict):
+    DISEASE_TIPS_KO.update(_EXT_DISEASE_TIPS)
+# ---------------------------------------------
+
 # [추후 활성화 예정: 습도 기반 문장]
 # HUMIDITY_LINES_KO = {
 #     "dry": [
@@ -190,7 +206,7 @@ def generate_plant_message(
 
 
 ''' 사용 예시 (나중에 백엔드에서 사용 예정)
-from backend.app.models.LMM.NLG import generate_plant_message, PlantSpeechConfig
+from backend/app.models.LMM.NLG import generate_plant_message, PlantSpeechConfig
 
 cfg = PlantSpeechConfig(
     plant_nick="초록이",       # DB 별명
