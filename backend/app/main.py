@@ -34,7 +34,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 기존 헬스/버전 (유지)
+# 헬스/버전 
 @app.get("/healthz")
 def healthz():
     return {"ok": True, "now": datetime.now(timezone.utc).isoformat()}
@@ -52,10 +52,11 @@ def version():
             pass
     return {"app": "Pland API", "api_v": "0.1.0"}
 
+
 # 라우터 마운트 (/api/v1)
 app.include_router(dashboard_router, prefix="/api/v1")
 
-# 서브 앱 문서 활성화
+# 서브 앱 문서 활성화 (127.0.0.1:8000/docs에서 서브 앱 api까지 확인할 수 있도록)
 api = FastAPI(
     title=f"{settings.APP_NAME} API",
     version=settings.VERSION,
