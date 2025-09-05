@@ -1,50 +1,89 @@
-# Welcome to your Expo app 👋
+# Pland - AI 기반 프로젝트 관리 시스템
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+AI 기반 프로젝트 관리 시스템의 프론트엔드 (React Native Expo) 및 백엔드 (FastAPI) 프로젝트입니다.
 
-## Get started
+## 프로젝트 구조
 
-1. Install dependencies
+```
+pland/
+├─ README.md          # 이 파일
+├─ .gitignore         # Git 무시 파일
+├─ .env               # 환경 변수 예시
+├─ requirements.txt   # 고정된 의존성
+├─ models/            # 탐지기, 분류기 파일
+│  ├─ weight/         # 가중치
+│  ├─ LMM/            # 자연어 모델
+│  ├─ classifier/     # 분류 모델
+│  └─ detector/       # 탐지 모델
+├─ backend/           # FastAPI 백엔드
+│  └─ app/
+│     ├─ main.py      # FastAPI 엔트리
+│     ├─ config.py    # 설정 관리
+│     ├─ routers/     # API 라우터
+│     ├─ services/    # 비즈니스 로직
+│     ├─ ml/          # ML 파이프라인
+│     └─ utils/       # 유틸리티(ex. token)
+└─ frontend/          # React Native Expo 프론트엔드
+    ├─ app/           # 앱 라우팅
+    ├─ components/    # 재사용 가능한 컴포넌트
+    ├─ constants/     # 상수 정의
+    ├─ hooks/         # 커스텀 훅
+    └─ assets/        # 이미지, 폰트 등
+```
+
+## 기술 스택
+
+- **Frontend**: React Native, Expo, TypeScript
+- **Backend**: FastAPI
+- **Database**: SQLite / MongoDB / MySQL (선택 예정)
+- **ML Models**: 탐지기, 분류기, 자연어 모델
+
+## 개발 목표
+
+마지막 프로젝트를 만들어봅시다!
+
+## 프론트엔드 실행
+
+1. 의존성 설치
 
    ```bash
    npm install
    ```
 
-2. Start the app
+2. 앱 시작
 
    ```bash
    npx expo start
    ```
 
-In the output, you'll find options to open the app in a
+## 백엔드 실행
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+### 가상환경 설정
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```cmd
+# 최상위 폴더에서
+python -m venv venv
+cd venv/Scripts
+activate
+# (이후 venv 환경 활성화)
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+### 의존성 설치 및 실행
 
-## Learn more
+```bash
+# 의존성 설치
+pip install -r requirements.txt
 
-To learn more about developing your project with Expo, look at the following resources:
+# 백엔드 실행
+cd backend
+uvicorn app.main:app --reload
+```
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## 프로젝트 상태
 
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+- [x] 프로젝트 구조 설정
+- [x] 기본 폴더 생성
+- [x] 프론트엔드 기본 구조 (React Native Expo)
+- [ ] 백엔드 API 개발
+- [ ] ML 모델 통합
+- [ ] 프론트엔드-백엔드 연동
