@@ -17,7 +17,10 @@ export default function Home() {
 
 	return (
 		<View style={styles.container}>
-			{/* ...상단 타이틀 등 기존 */}
+			<View style={styles.weatherBox}>
+
+
+			</View>
 			
 			<View style={styles.swiperBox}>
 				<Carousel
@@ -55,6 +58,10 @@ const styles = StyleSheet.create({
 		alignItems: 'stretch',
 		backgroundColor: '#f0f0f0',
 		padding: 16,
+	},
+	weatherBox: {
+		height:150,
+		backgroundColor: 'red',
 	},
 	swiperBox: {
 		height: 250,
