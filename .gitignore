@@ -37,6 +37,8 @@ env.bak/
 venv.bak/
 models/LMM/model_venv/
 .venv/
+models/YOLO8s-seg/model_venv/
+models/YOLO8s-seg/venv/
 
 # IDE 관련
 .vscode/
