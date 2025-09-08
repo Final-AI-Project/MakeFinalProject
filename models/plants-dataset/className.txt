@@ -70,3 +70,6 @@ plants-dataset/
       │   ├─ mon_101.jpg
       │   └─ mon_102.jpg
       └─ ...
+
+
+D:\hwan\AIFinalProject>python models/classifier/infer_classifier.py --weights models/weight/efficientnet_b0_best.pth --model efficientnet_b0 --image D:/hwan/AIFinalProject/models/plants-dataset/val/mon/mon_101.png
