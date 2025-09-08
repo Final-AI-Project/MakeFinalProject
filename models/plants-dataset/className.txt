@@ -72,4 +72,17 @@ plants-dataset/
       └─ ...
 
 
-D:\hwan\AIFinalProject>python models/classifier/infer_classifier.py --weights models/weight/efficientnet_b0_best.pth --model efficientnet_b0 --image D:/hwan/AIFinalProject/models/plants-dataset/val/mon/mon_101.png
+데이터셋 나누기 (8:2)
+python models/classifier/split_dataset.py --root_dir models/plants-dataset --train_ratio 0.8 --move
+
+MobileNet (10 epoch 예시)
+python models/classifier/train_classifier.py --data_root models/plants-dataset --model mobilenet_v3_large --epochs 30 --weighted_sampler
+python models/classifier/infer_classifier.py --weights models/weight/mobilenet_v3_large_best.pth --model mobilenet_v3_large --image D:/hwan/AIFinalProject/models/plants-dataset/val/mon/mon_095.jpg
+
+EfficientNet (10 epoch 예시)
+python models/classifier/train_classifier.py --data_root models/plants-dataset --model efficientnet_b0 --epochs 30 --weighted_sampler
+python models/classifier/infer_classifier.py --weights models/weight/efficientnet_b0_best.pth --model efficientnet_b0 --image D:/hwan/AIFinalProject/models/plants-dataset/val/mon/mon_095.jpg
+
+
+
+
