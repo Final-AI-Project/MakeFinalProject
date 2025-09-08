@@ -83,6 +83,5 @@ EfficientNet (10 epoch 예시)
 python models/classifier/train_classifier.py --data_root models/plants-dataset --model efficientnet_b0 --epochs 30 --weighted_sampler
 python models/classifier/infer_classifier.py --weights models/weight/efficientnet_b0_best.pth --model efficientnet_b0 --image D:/hwan/AIFinalProject/models/plants-dataset/val/mon/mon_095.jpg
 
-
-
-
+비교 결과 보기
+python models/classifier/compare_models.py --mobilenet_weights models/weight/mobilenet_v3_large_best.pth --efficientnet_weights models/weight/efficientnet_b0_best.pth --data_root models/plants-dataset
