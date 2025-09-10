@@ -95,3 +95,5 @@ node_modules/
 .expo/ 
 web-build/ 
 *.tsbuildinfo 
+
+models/plants-dataset
