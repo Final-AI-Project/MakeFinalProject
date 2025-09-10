@@ -96,4 +96,6 @@ node_modules/
 web-build/ 
 *.tsbuildinfo 
 
+# Frontend
 models/plants-dataset
+expo-env.d.ts

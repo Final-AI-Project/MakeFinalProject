@@ -1,13 +1,18 @@
-// https://docs.expo.dev/guides/using-eslint/
-const { defineConfig } = require('eslint/config');
-const expoConfig = require('eslint-config-expo/flat');
+// eslint.config.js
+import expo from 'eslint-config-expo';
 
-module.exports = function(api) {
-  api.cache(true);
-  return {
-    presets: ['babel-preset-expo'],
-    plugins: [
-      'react-native-reanimated/plugin', // <= 마지막에 위치
-    ],
-  };
-};
+export default [
+  ...expo,
+  {
+    settings: {
+      'import/resolver': {
+        node: {
+          extensions: [
+            '.js', '.jsx', '.ts', '.tsx', '.json',
+            '.png', '.jpg', '.jpeg', '.gif'
+          ],
+        },
+      },
+    },
+  },
+];
