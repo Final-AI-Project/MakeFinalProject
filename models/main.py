@@ -1,11 +1,16 @@
 # ------ 모듈 임포트
-from multiprocessing import process
-from fastapi import FastAPI
-import dotenv
 import os
+import json
+import torch
+from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from PIL import Image
+import io
+from ultralytics import YOLO
+from detector.leaf_segmentation import LeafSegmentationModel
 
 # ------ FastAPI 앱
-
 app = FastAPI()
 
 # ------ CORS
@@ -19,93 +24,168 @@ origins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
 ]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,        # 필요 시 ["*"] 로 전체 허용 가능
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ----------------- 모델 경로
-LLM_MODEL_PATH = process.env.LLM_MODEL_PATH
-SPECIES_MODEL_PATH = process.env.SPECIES_MODEL_PATH
-HEALTH_MODEL_PATH = process.env.HEALTH_MODEL_PATH
-DISEASE_MODEL_PATH = process.env.DISEASE_MODEL_PATH
+# ----------------- 모델 경로 설정
+SEG_MODEL_PATH = "weight/seg_best.pt"
+SPECIES_MODEL_PATH = "weight/species_model.pt"  # 필요시 경로 수정
+HEALTH_MODEL_PATH = "weight/health_model.pt"    # 필요시 경로 수정
+DISEASE_MODEL_PATH = "weight/disease_model.pt"  # 필요시 경로 수정
 
-# -------------------- 디바이스/데이터타입 결정 --------------------
-USE_CUDA = torch.cuda.is_available()
-USE_MPS = getattr(torch.backends, "mps", None) and torch.backends.mps.is_available()
-
-if USE_CUDA:
-    device = "cuda"
-    dtype = torch.float16
-elif USE_MPS:
-    device = "mps"
-    dtype = torch.float16
-else:
-    device = "cpu"
-    dtype = torch.float32  # ✅ CPU는 반드시 fp32 (half 미지원 연산 있음)
-
-print(f"🔧 Device: {device}, dtype: {dtype}")
+# -------------------- 디바이스 결정 --------------------
+device = "cuda" if torch.cuda.is_available() else "cpu"
+print(f"🔧 Device: {device}")
 
 # -------------------- 모델 로딩 --------------------
-print("🔧 Loading ControlNet...")
-health_model = yolov8n-cls.from_pretrained(
-    HEALTH_MODEL_PATH,
-    torch_dtype=dtype,
-)
-
-print("🔧 Loading Base SD Pipeline...")
-pipe = StableDiffusionControlNetPipeline.from_pretrained(
-    BASE_MODEL_PATH,
-    controlnet=controlnet,
-    torch_dtype=dtype,
-)
-
-# LoRA 적용
-print("🔧 Applying LoRA...")
-pipe.load_lora_weights(
-    os.path.dirname(LORA_PATH),
-    weight_name=os.path.basename(LORA_PATH)
-)
-
-# 디바이스로 이동
-pipe.to(device)
-
-# (안정성) 텍스트 인코더는 fp32 권장
+print("🔧 Loading Leaf Segmentation Model...")
 try:
-    pipe.text_encoder.to(dtype=torch.float32, device=device)
-except Exception:
-    # 일부 버전에서 .to(dtype=...) 미지원일 수 있음 → 무시
-    pass
+    seg_model = LeafSegmentationModel(SEG_MODEL_PATH)
+    print("✅ 세그멘테이션 모델 로드 완료")
+except Exception as e:
+    print(f"❌ 세그멘테이션 모델 로드 실패: {e}")
+    seg_model = None
 
-# 메모리 최적화
-try:
-    if device == "cuda":
-        pipe.enable_xformers_memory_efficient_attention()
-    else:
-        pipe.enable_attention_slicing()
-except Exception:
-    pipe.enable_attention_slicing()
+# 다른 모델들도 필요시 로드
+# species_model = YOLO(SPECIES_MODEL_PATH) if os.path.exists(SPECIES_MODEL_PATH) else None
+# health_model = YOLO(HEALTH_MODEL_PATH) if os.path.exists(HEALTH_MODEL_PATH) else None
+# disease_model = YOLO(DISEASE_MODEL_PATH) if os.path.exists(DISEASE_MODEL_PATH) else None
+
+# -------------------------- 잎 탐지 및 세그멘테이션 API
+@app.post("/detector")
+async def detect_and_segment_leaves(
+    image: UploadFile = File(...)
+):
+    """
+    이미지에서 식물의 잎을 탐지하고 세그멘테이션하여 크롭된 잎 이미지들을 반환
+    """
+    if seg_model is None:
+        raise HTTPException(status_code=500, detail="세그멘테이션 모델이 로드되지 않았습니다.")
     
-    
-    # -------------------------- 품종 분류기 로직 및 API
-    @app.post("/species")
-    async def species(
-        image: UploadFile = File(None),
-        ): 
-        upload = image
-        result = health_model(upload)
-        return json.dumps(result)
-    
-    
-    # -------------------------- 잎 상태 분류기 로직 및 API
-    @app.post("/health")
-    
-    # -------------------------- 질병 분류기 로직 및 API
-    @app.post("/disease")
-    
-    # -------------------------- LLM 처리 로직 및 API
-    @app.post("/llm")
+    try:
+        # 업로드된 이미지 읽기
+        image_data = await image.read()
+        pil_image = Image.open(io.BytesIO(image_data))
+        
+        # 세그멘테이션 수행
+        results = seg_model.predict(pil_image)
+        
+        # 크롭된 잎 이미지들을 base64로 인코딩
+        cropped_images_base64 = []
+        for i, cropped_leaf in enumerate(results['cropped_leaves']):
+            # PIL Image를 base64로 변환
+            buffer = io.BytesIO()
+            cropped_leaf.save(buffer, format='JPEG', quality=95)
+            buffer.seek(0)
+            import base64
+            img_base64 = base64.b64encode(buffer.getvalue()).decode()
+            cropped_images_base64.append({
+                'index': i,
+                'image': img_base64,
+                'format': 'jpeg'
+            })
+        
+        # 세그멘테이션된 이미지도 base64로 인코딩
+        buffer = io.BytesIO()
+        results['segmented_image'].save(buffer, format='JPEG', quality=95)
+        buffer.seek(0)
+        segmented_img_base64 = base64.b64encode(buffer.getvalue()).decode()
+        
+        return JSONResponse(content={
+            'success': True,
+            'message': f"{len(results['cropped_leaves'])}개의 잎이 탐지되었습니다.",
+            'detected_leaves_count': len(results['cropped_leaves']),
+            'cropped_leaves': cropped_images_base64,
+            'segmented_image': {
+                'image': segmented_img_base64,
+                'format': 'jpeg'
+            },
+            'bounding_boxes': results['boxes']
+        })
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"처리 중 오류가 발생했습니다: {str(e)}")
+
+# -------------------------- 품종 분류기 API
+@app.post("/species")
+async def classify_species(
+    image: UploadFile = File(...)
+):
+    """
+    식물의 품종을 분류
+    """
+    # TODO: 품종 분류 모델 구현
+    return JSONResponse(content={
+        'success': True,
+        'message': '품종 분류 기능은 구현 예정입니다.',
+        'species': 'unknown'
+    })
+
+# -------------------------- 잎 상태 분류기 API
+@app.post("/health")
+async def classify_health(
+    image: UploadFile = File(...)
+):
+    """
+    잎의 건강 상태를 분류
+    """
+    # TODO: 건강 상태 분류 모델 구현
+    return JSONResponse(content={
+        'success': True,
+        'message': '건강 상태 분류 기능은 구현 예정입니다.',
+        'health_status': 'unknown'
+    })
+
+# -------------------------- 질병 분류기 API
+@app.post("/disease")
+async def classify_disease(
+    image: UploadFile = File(...)
+):
+    """
+    식물의 질병을 분류
+    """
+    # TODO: 질병 분류 모델 구현
+    return JSONResponse(content={
+        'success': True,
+        'message': '질병 분류 기능은 구현 예정입니다.',
+        'disease': 'unknown'
+    })
+
+# -------------------------- LLM 처리 API
+@app.post("/llm")
+async def process_with_llm(
+    text: str
+):
+    """
+    LLM을 사용한 텍스트 처리
+    """
+    # TODO: LLM 모델 구현
+    return JSONResponse(content={
+        'success': True,
+        'message': 'LLM 기능은 구현 예정입니다.',
+        'response': 'LLM 응답 예정'
+    })
+
+# -------------------------- 헬스 체크 API
+@app.get("/")
+async def root():
+    return {"message": "Plant AI API is running!"}
+
+@app.get("/health")
+async def health_check():
+    return {
+        "status": "healthy",
+        "models": {
+            "segmentation": seg_model is not None,
+            "species": False,  # TODO: 모델 로드 상태 확인
+            "health": False,   # TODO: 모델 로드 상태 확인
+            "disease": False   # TODO: 모델 로드 상태 확인
+        }
+    }
     
