@@ -1,6 +1,6 @@
 // app/(tabs)/index.tsx
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, Dimensions, ActivityIndicator, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Dimensions, ActivityIndicator, Pressable, Image } from 'react-native';
 import Carousel from 'react-native-reanimated-carousel';
 import dayjs from 'dayjs';
 
@@ -80,6 +80,34 @@ function getNearestBase() {
     return { baseDate, baseTime };
 }
 
+/** 낮/밤 표시 **/
+const ICON_SUN  = require('../../assets/images/sun.png');
+const ICON_MOON = require('../../assets/images/moon.png');
+const ICON_CLOUD = require('../../assets/images/overcast.png');
+function getDayNight(fcstTime: string) {
+	const hour = parseInt(fcstTime.slice(0,2), 10);
+	return hour >= 6 && hour < 20
+		? { period: "day" as const, label: "낮" as const }
+		: { period: "night" as const, label: "밤" as const };
+}
+// 낮/밤 + 날씨별 아이콘 선택
+	function pickWeatherIcon(period?: 'day' | 'night', stateClass?: StateClass) {
+		if (period === 'night') return ICON_MOON; // 밤은 달로 고정
+
+		// 낮일 때:
+		switch (stateClass) {
+			case 'clear':     return ICON_SUN;   // 맑음 → 해
+			case 'overcast':
+			case 'rain':
+			case 'rain_snow':
+			case 'snow':
+			case 'shower':    return ICON_CLOUD; // 낮 + 구름/비/눈/소나기 → 구름
+			default:          return ICON_SUN;   // 기본값
+		}
+}
+
+
+
 /** 상태 매핑 (문구 + 스타일 클래스) */
 function mapStateFromCodes(pty?: string, sky?: string) {
     if (!pty && !sky) return { label: "-", stateClass: "etc" };
@@ -98,7 +126,6 @@ function mapStateFromCodes(pty?: string, sky?: string) {
     // PTY=0 → SKY 기준
     switch (sky) {
         case "1": return { label: "맑음", stateClass: "clear" };
-        case "3": return { label: "구름많음", stateClass: "cloudy" };
         case "4": return { label: "흐림", stateClass: "overcast" };
         default:  return { label: "-", stateClass: "etc" };
     }
@@ -111,6 +138,8 @@ type TodayBox = {
     tempC?: string;          // ℃
     stateText: string;       // 상태 한글 ("맑음", "비" 등)
     stateClass: string;      // 스타일 클래스("clear" | "rain" | ...)
+	label?: "낮" | "밤";
+  	period?: "day" | "night";
 };
 
 export default function Home() {
@@ -176,6 +205,7 @@ export default function Home() {
                     tempC: vals["TMP"],
                     stateText: label,
                     stateClass,
+					...getDayNight(hhmm),
                 });
             } else {
                 setBox(null);
@@ -190,40 +220,154 @@ export default function Home() {
 
     useEffect(() => { loadWeather(); }, []);
 
+
+
+
+
+	useEffect(() => {
+		// 프로젝트에서 쓰는 상태 클래스 집합에 맞춰 매핑
+		const labelMap = {
+			clear: "맑음",
+			overcast: "흐림",
+			rain: "비",
+			rain_snow: "비/눈",
+			snow: "눈",
+			shower: "소나기",
+			etc: "-",
+		} as const;
+
+		type Period = "day" | "night";
+		type StateClass = keyof typeof labelMap;
+
+		// 📌 (낮/밤, 날씨) 시나리오 적용
+		function setWeatherScenario(period: Period, stateClass: StateClass, opts?: {
+			tempC?: string | number;
+			time?: string;              // "14:00" 형식 추천 (없으면 기존 유지)
+			locationLabel?: string;     // 지역명 바꾸고 싶을 때만
+			stateText?: string;         // 라벨 커스텀 시
+		}) {
+			setBox(prev => {
+				if (!prev) return prev;
+				return {
+					...prev,
+					period,
+					stateClass,
+					tempC: opts?.tempC !== undefined ? String(opts.tempC) : prev.tempC,
+					time: opts?.time ?? prev.time,
+					locationLabel: opts?.locationLabel ?? prev.locationLabel,
+					stateText: opts?.stateText ?? labelMap[stateClass],
+				};
+			});
+			console.log("[scenario]", { period, stateClass, ...opts });
+		}
+
+		// ✅ 바로 쓰기 편한 단축함수
+		function setDayWeather(stateClass: StateClass, opts?: Parameters<typeof setWeatherScenario>[2]) {
+			setWeatherScenario("day", stateClass, opts);
+		}
+		function setNightWeather(stateClass: StateClass, opts?: Parameters<typeof setWeatherScenario>[2]) {
+			setWeatherScenario("night", stateClass, opts);
+		}
+
+		// 콘솔에서 호출할 수 있도록 전역 등록
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		(globalThis as any).setWeatherScenario = setWeatherScenario;
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		(globalThis as any).setDayWeather = setDayWeather;
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		(globalThis as any).setNightWeather = setNightWeather;
+
+		console.log(
+			'%cready: setDayWeather("clear") / setNightWeather("rain") / setWeatherScenario("night","snow",{tempC:0})',
+			'background:#222;color:#0f0;padding:2px 6px;border-radius:4px;'
+		);
+
+		return () => {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			delete (globalThis as any).setWeatherScenario;
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			delete (globalThis as any).setDayWeather;
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			delete (globalThis as any).setNightWeather;
+		};
+	}, []);
+
+
+
+
+
+
+
+
+
+
+
+
+
     return (
         <View style={styles.container}>
             {/* ✅ 날씨 박스: 고정 지역(서울시 - 서초구), 상태, 기온, 상태 클래스에 따른 스타일 */}
-            <View style={[styles.weatherBox, theme[box?.stateClass ?? 'etc']]}>
+            <View
+				style={[
+					styles.weatherBoxRoot,
+					box?.period === 'night' ? styles.weatherBoxRootNight : styles.weatherBoxRootDay,
+				]}
+			>
                 {loading && (
-                    <View style={styles.center}>
+                    <View style={styles.weatherBoxCenter}>
                         <ActivityIndicator />
-                        <Text style={styles.dim}>불러오는 중…</Text>
+                        <Text style={styles.weatherBoxDim}>불러오는 중…</Text>
                     </View>
                 )}
                 {!loading && error && (
-                    <View style={styles.center}>
-                        <Text style={styles.err}>에러: {error}</Text>
-                        <Pressable onPress={loadWeather} style={styles.btn}><Text style={styles.btnTxt}>다시 시도</Text></Pressable>
+                    <View style={styles.weatherBoxCenter}>
+                        <Text style={styles.weatherBoxError}>에러: {error}</Text>
+                        <Pressable onPress={loadWeather} style={styles.weatherBoxButton}><Text style={styles.weatherBoxButtonText}>다시 시도</Text></Pressable>
                     </View>
                 )}
                 {!loading && !error && box && (
-                    <View>
-                        <Text style={styles.place}>{box.locationLabel}</Text>
-                        <Text style={styles.status}>
-                            {box.stateText}
-                            <Text style={styles.stateClassText}>  · class: "{box.stateClass}"</Text>
-                        </Text>
-                        <Text style={styles.temp}>{box.tempC ?? "-"}℃</Text>
-                        <Text style={styles.time}>예보시각 {box.time}</Text>
+                    <View
+						style={[
+							box?.period === 'night' ? styles.weatherBoxRootNight : styles.weatherBoxRootDay
+						]}
+					>
+						{box?.period === 'night' ? (
+							<Image source={ICON_MOON} style={styles.weatherBoxIcon} resizeMode="contain" />
+						) : (
+							<Image source={ICON_SUN}  style={styles.weatherBoxIcon} resizeMode="contain" />
+						)}
+						<Image
+							source={pickWeatherIcon(box?.period, box?.stateClass)}
+							style={styles.weatherBoxIcon}
+							resizeMode="contain"
+						/>
+                        <Text style={[styles.weatherBoxLocationLabel, box?.period === 'day' && styles.weatherBoxTextOnDay]}>
+							{box.locationLabel}
+						</Text>
+
+						{/* ⬇ 상태 문구 (낮/밤 표기 포함) */}
+						<Text style={[styles.weatherBoxStatus, box?.period === 'day' && styles.weatherBoxTextOnDay]}>
+							{box.stateText} ({box?.period === 'day' ? '낮' : '밤'})
+						</Text>
+
+						{/* ⬇ 온도 */}
+						<Text style={[styles.weatherBoxTemp, box?.period === 'day' && styles.weatherBoxTextOnDay]}>
+							{box.tempC ?? '-'}℃
+						</Text>
+
+						{/* ⬇ 예보 시각 */}
+						<Text style={[styles.weatherBoxTime, box?.period === 'day' && styles.weatherBoxTextOnDay]}>
+							예보시각 {box.time}
+						</Text>
                     </View>
                 )}
                 {!loading && !error && !box && (
-                    <Text style={styles.dim}>표시할 예보가 없습니다.</Text>
+                    <Text style={styles.weatherBoxDim}>표시할 예보가 없습니다.</Text>
                 )}
             </View>
 
             {/* ⬇️ 아래는 네가 주었던 캐러셀 뼈대 그대로 유지  :contentReference[oaicite:5]{index=5} */}
-            <View style={styles.swiperBox}>
+            <View style={styles.carouselRoot}>
                 <Carousel
                     loop
                     width={width - 32}
@@ -232,14 +376,14 @@ export default function Home() {
                     scrollAnimationDuration={700}
                     onSnapToItem={(index) => setActiveIndex(index)}
                     renderItem={({ item }) => (
-                        <View style={[styles.slide, { backgroundColor: item.bg }]}>
-                            <Text style={styles.textBox}>{item.label}</Text>
+                        <View style={[styles.carouselSlide, { backgroundColor: item.bg }]}>
+                            <Text style={styles.carouselSlideText}>{item.label}</Text>
                         </View>
                     )}
                 />
-                <View style={styles.dots}>
+                <View style={styles.carouselDots}>
                     {slides.map((_, i) => (
-                        <View key={i} style={[styles.dot, i === activeIndex && styles.dotActive]} />
+                        <View key={i} style={[styles.carouselDot, i === activeIndex && styles.carouselDotActive]} />
                     ))}
                 </View>
             </View>
@@ -253,26 +397,49 @@ const styles = StyleSheet.create({
         flex: 1,
         alignItems: 'stretch',
         backgroundColor: '#f0f0f0',
-        padding: 16,
+        padding:24,
     },
-    weatherBox: {
+    weatherBoxRoot: {
         minHeight: 150,
-        borderRadius: 14,
-        padding: 16,
-        backgroundColor: '#151a22', // 기본
-        marginBottom: 12,
+        borderRadius: 16,
+        padding:16,
+		marginBottom:15,
     },
-    center: { alignItems: 'center', justifyContent: 'center' },
-    dim: { marginTop: 6, color: '#9aa4b2' },
-    err: { color: '#ff6b6b', marginBottom: 8 },
+	weatherBoxRootDay: {
+		backgroundColor: '#00e1ff',
+	},
+	weatherBoxRootNight: {
+		backgroundColor: '#1a2430',
+		elevation: 3,
+	},
+	weatherBoxTextOnDay: {},
+    weatherBoxCenter: { alignItems: 'center', justifyContent: 'center' },
+    weatherBoxDim: { marginTop: 6, color: '#9aa4b2' },
+    weatherBoxError: { color: '#ff6b6b', marginBottom: 8 },
+	weatherBoxButton: {
+		marginTop: 12,
+		borderRadius: 10,
+		backgroundColor: '#1f6feb',
+		alignItems: 'center',
+	},
+	weatherBoxButtonText: {
+		color: 'white',
+		fontWeight: '600',
+	},
+    weatherBoxLocationLabel: { color: '#fff', fontSize: 16, fontWeight: '700' },
+    weatherBoxStatus: { color: '#e7edf6', fontSize: 14, marginTop: 6 },
+    weatherBoxStateClass: { color: '#9aa4b2', fontSize: 12 },
+    weatherBoxTemp: { color: '#fff', fontSize: 36, fontWeight: '800', marginTop: 8 },
+    weatherBoxTime: { color: '#fff', marginTop: 4, fontSize: 12 },
+	weatherBoxIcon: {
+		width:90,
+		height:90,
+		position: 'absolute',
+		top: 8,
+		right: 8,
+	},
 
-    place: { color: '#fff', fontSize: 16, fontWeight: '700' },
-    status: { color: '#e7edf6', fontSize: 14, marginTop: 6 },
-    stateClassText: { color: '#9aa4b2', fontSize: 12 },
-    temp: { color: '#fff', fontSize: 36, fontWeight: '800', marginTop: 8 },
-    time: { color: '#c7d2e1', marginTop: 4, fontSize: 12 },
-
-    swiperBox: {
+    carouselRoot: {
         height: 250,
         alignSelf: 'stretch',
         marginTop: 4,
@@ -280,26 +447,36 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
     },
-    slide: {
+    carouselSlide: {
         flex: 1,
-        borderRadius: 12,
+        borderRadius:16,
         justifyContent: 'center',
         alignItems: 'center',
     },
-    textBox: { color: '#fff', fontSize: 28, fontWeight: 'bold' },
-    dots: { position: 'absolute', bottom: 8, flexDirection: 'row', gap: 6 },
-    dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#cfcfcf' },
-    dotActive: { backgroundColor: '#333' },
+    carouselSlideText: { color: '#fff', fontSize: 28, fontWeight: 'bold' },
+    carouselDots: { position: 'absolute', bottom: 8, flexDirection: 'row', gap: 6 },
+    carouselDot: { width: 6, height: 6, borderRadius: 4, backgroundColor: '#cfcfcf' },
+    carouselDotActive: { backgroundColor: '#333' },
+
 });
 
-/** 상태 클래스 테마(간단 예시): 필요시 색/이미지 확장 가능 */
-const theme: Record<string, any> = {
-    clear:   { backgroundColor: '#2a6efc20' },
-    cloudy:  { backgroundColor: '#7e879620' },
-    overcast:{ backgroundColor: '#5e657520' },
-    rain:    { backgroundColor: '#2b6cbf20', borderWidth: 1, borderColor: '#2b6cbf55' },
-    rain_snow:{ backgroundColor: '#5b7bb820' },
-    snow:    { backgroundColor: '#a0aec020' },
-    shower:  { backgroundColor: '#3182ce20' },
-    etc:     { backgroundColor: '#151a22' },
+// 낮/밤 + 날씨별 배경색(루트에 추가로 머지)
+const dayWeatherBgTheme: Record<StateClass, object> = {
+  clear:     { backgroundColor: '#00e1ff' },
+  overcast:  { backgroundColor: '#E6E9EF' },
+  rain:      { backgroundColor: '#DDE9F6' },
+  rain_snow: { backgroundColor: '#DCE6F2' },
+  snow:      { backgroundColor: '#EEF3F9' },
+  shower:    { backgroundColor: '#D9E8FB' },
+  etc:       { }, // 추가 없음
+};
+
+const nightWeatherBgTheme: Record<StateClass, object> = {
+  clear:     { backgroundColor: '#1a2430' },
+  overcast:  { backgroundColor: '#151A22' },
+  rain:      { backgroundColor: '#0F1A2A' },
+  rain_snow: { backgroundColor: '#102034' },
+  snow:      { backgroundColor: '#172234' },
+  shower:    { backgroundColor: '#10223A' },
+  etc:       { }, // 추가 없음
 };
