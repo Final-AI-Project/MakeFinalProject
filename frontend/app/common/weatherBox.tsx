@@ -214,88 +214,119 @@ export default function WeatherBox(props: WeatherBoxProps) {
 	const variant = box ? pickContainerVariant(box.period, box.stateClass) : "day";
 	const icon = pickWeatherIcon(box?.period, box?.stateClass);
 
+
+
+
+
+
+
+
+
+
+	/* *********************** */
 	/* 
-	
+		날씨 테스트 배포시 반드시 삭제
 	*/
 	// WeatherBox 컴포넌트 함수 내부에 추가 (setBox 아래)
-useEffect(() => {
-  // 상태 라벨 맵 (cloudy 제거, overcast만 사용)
-  const labelMap: Record<StateClass, string> = {
-    clear: "맑음",
-    overcast: "흐림",
-    rain: "비",
-    rain_snow: "비/눈",
-    snow: "눈",
-    shower: "소나기",
-    etc: "-",
-  };
+	useEffect(() => {
+		// 상태 라벨 맵 (cloudy 제거, overcast만 사용)
+		const labelMap: Record<StateClass, string> = {
+			clear: "맑음",
+			overcast: "흐림",
+			rain: "비",
+			rain_snow: "비/눈",
+			snow: "눈",
+			shower: "소나기",
+			etc: "-",
+		};
 
-  // prev가 null이어도 동작하도록 기본 박스 시드
-  function ensureBase(): Box {
-    return {
-      locationLabel: "서울시 - 서초구",
-      time: dayjs().format("HH:00"),
-      tempC: "20",
-      stateText: "맑음",
-      stateClass: "clear",
-      period: "day",
-    };
-  }
+		// prev가 null이어도 동작하도록 기본 박스 시드
+		function ensureBase(): Box {
+			return {
+			locationLabel: "서울시 - 서초구",
+			time: dayjs().format("HH:00"),
+			tempC: "20",
+			stateText: "맑음",
+			stateClass: "clear",
+			period: "day",
+		};
+	}
 
-  // (낮/밤, 날씨) 시나리오 적용
-  function setWeatherScenario(
-    period: Period,
-    stateClass: StateClass,
-    opts?: { tempC?: string | number; time?: string; locationLabel?: string; stateText?: string }
-  ) {
-    setBox(prev => {
-      const base = prev ?? ensureBase();
-      return {
-        ...base,
-        period,
-        stateClass,
-        tempC: opts?.tempC !== undefined ? String(opts.tempC) : base.tempC,
-        time: opts?.time ?? base.time,
-        locationLabel: opts?.locationLabel ?? base.locationLabel,
-        stateText: opts?.stateText ?? labelMap[stateClass],
-      };
-    });
-    console.log("[scenario]", { period, stateClass, ...opts });
-  }
-
-  // 단축 함수
-  function setDayWeather(sc: StateClass, opts?: Parameters<typeof setWeatherScenario>[2]) {
-    setWeatherScenario("day", sc, opts);
-  }
-  function setNightWeather(sc: StateClass, opts?: Parameters<typeof setWeatherScenario>[2]) {
-    setWeatherScenario("night", sc, opts);
-  }
-
-  // 전역 등록 (콘솔에서 호출)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (globalThis as any).setWeatherScenario = setWeatherScenario;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (globalThis as any).setDayWeather = setDayWeather;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (globalThis as any).setNightWeather = setNightWeather;
-
-  console.log(
-    '%cready: setDayWeather("overcast") / setNightWeather("rain") / setWeatherScenario("night","snow",{tempC:0})',
-    'background:#222;color:#0f0;padding:2px 6px;border-radius:4px;'
-  );
-
-  return () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    delete (globalThis as any).setWeatherScenario;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    delete (globalThis as any).setDayWeather;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    delete (globalThis as any).setNightWeather;
-  };
-}, []);
+  	
 	/* 
-	
+		// 날씨 테스트 배포시 반드시 삭제
 	*/
+	// 낮 + 맑음 (clearDay 아이콘, Day 배경)
+	// setDayWeather("clear")
+	// 낮 + 흐림 (overcast 아이콘, DayCloudy 배경)
+	// setDayWeather("overcast")
+	// 밤 + 비 (rain 아이콘, Night 배경)
+	// setNightWeather("rain")
+	// 밤 + 눈 + 표시값 커스텀
+	// setWeatherScenario("night", "snow", { tempC: 0, time: "23:00", locationLabel: "서울시 - 강남구" })
+	// 기타 상태 (아이콘: etc.png, 라벨 커스텀)
+	// setDayWeather("etc", { stateText: "데이터 없음" })
+  	// (낮/밤, 날씨) 시나리오 적용
+	function setWeatherScenario(
+		period: Period,
+		stateClass: StateClass,
+		opts?: { tempC?: string | number; time?: string; locationLabel?: string; stateText?: string }
+	) {
+		setBox(prev => {
+		const base = prev ?? ensureBase();
+		return {
+			...base,
+			period,
+			stateClass,
+			tempC: opts?.tempC !== undefined ? String(opts.tempC) : base.tempC,
+			time: opts?.time ?? base.time,
+			locationLabel: opts?.locationLabel ?? base.locationLabel,
+			stateText: opts?.stateText ?? labelMap[stateClass],
+		};
+		});
+		console.log("[scenario]", { period, stateClass, ...opts });
+	}
+
+	// 단축 함수
+	function setDayWeather(sc: StateClass, opts?: Parameters<typeof setWeatherScenario>[2]) {
+		setWeatherScenario("day", sc, opts);
+	}
+	function setNightWeather(sc: StateClass, opts?: Parameters<typeof setWeatherScenario>[2]) {
+		setWeatherScenario("night", sc, opts);
+	}
+
+	// 전역 등록 (콘솔에서 호출)
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	(globalThis as any).setWeatherScenario = setWeatherScenario;
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	(globalThis as any).setDayWeather = setDayWeather;
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	(globalThis as any).setNightWeather = setNightWeather;
+
+	console.log(
+		'%cready: setDayWeather("overcast") / setNightWeather("rain") / setWeatherScenario("night","snow",{tempC:0})',
+		'background:#222;color:#0f0;padding:2px 6px;border-radius:4px;'
+	);
+
+	return () => {
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		delete (globalThis as any).setWeatherScenario;
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		delete (globalThis as any).setDayWeather;
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		delete (globalThis as any).setNightWeather;
+	};
+	}, []);
+	/* 
+		// 날씨 테스트 배포시 반드시 삭제
+	*/
+	/* *********************** */
+
+
+
+
+
+	
 
 	return (
 		<View
@@ -365,7 +396,7 @@ const styles = StyleSheet.create({
 	},
 	/** 배경 3종 */
 	weatherBoxRootDay: {
-		backgroundColor: "#EAF7FF", borderWidth: 1, borderColor: "#dfe9f2",
+		backgroundColor: "#abf5ff", borderWidth: 1, borderColor: "#dfe9f2",
 	},
 	weatherBoxRootDayCloudy: {
 		backgroundColor: "#E6E9EF", borderWidth: 1, borderColor: "#cfd6df",
