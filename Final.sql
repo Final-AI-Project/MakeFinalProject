@@ -63,22 +63,22 @@ create table humid_info (
 
 create table plant_wiki (
 	idx int auto_increment primary key,
-    name_jong varchar(30), ##종
-    name_sok varchar(30), ##속
-    name_gwa varchar(30), ##과
-    name_mok varchar(30), ##목
-    name_gang varchar(30), ##강
-    name_mun varchar(30),##문
+    name_jong varchar(300),
+    name_sok varchar(300),
+    name_gwa varchar(300),
+    name_mok varchar(300),
+    name_gang varchar(300),
+    name_mun varchar(300),
     wiki_img varchar(300) not null,
     feature text,
-    temp varchar(30),
+    temp varchar(300),
     watering varchar(300),
     flowering varchar(300),
     flower_color varchar(300),
     flower_diam varchar(300),
     fertilizer varchar(300),
-    pruning varchar(300), ##가지치기
-    repot varchar(300), ##분갈이
+    pruning varchar(300),
+    repot varchar(300),
     toxic varchar(300)
 );
 

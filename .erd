@@ -4,8 +4,8 @@
   "settings": {
     "width": 2000,
     "height": 2000,
-    "scrollTop": -100,
-    "scrollLeft": 0,
+    "scrollTop": -200,
+    "scrollLeft": -200,
     "zoomLevel": 0.91,
     "show": 431,
     "database": 4,
@@ -265,14 +265,14 @@
         ],
         "ui": {
           "x": 519.8181,
-          "y": 388.5455,
+          "y": 386.3477,
           "zIndex": 2,
           "widthName": 60,
           "widthComment": 60,
           "color": ""
         },
         "meta": {
-          "updateAt": 1757577748252,
+          "updateAt": 1757578105342,
           "createAt": 1757577583192
         }
       },
@@ -991,18 +991,18 @@
         "tableId": "FCcYSkqTNMleV65jGTbbm",
         "name": "name_jong",
         "comment": "",
-        "dataType": "varchar(30)",
+        "dataType": "varchar(100)",
         "default": "",
         "options": 0,
         "ui": {
           "keys": 0,
           "widthName": 60,
           "widthComment": 60,
-          "widthDataType": 61,
+          "widthDataType": 67,
           "widthDefault": 60
         },
         "meta": {
-          "updateAt": 1757577583192,
+          "updateAt": 1757578089771,
           "createAt": 1757577583192
         }
       },
@@ -1011,18 +1011,18 @@
         "tableId": "FCcYSkqTNMleV65jGTbbm",
         "name": "name_sok",
         "comment": "",
-        "dataType": "varchar(30)",
+        "dataType": "varchar(100)",
         "default": "",
         "options": 0,
         "ui": {
           "keys": 0,
           "widthName": 60,
           "widthComment": 60,
-          "widthDataType": 61,
+          "widthDataType": 67,
           "widthDefault": 60
         },
         "meta": {
-          "updateAt": 1757577583192,
+          "updateAt": 1757578095829,
           "createAt": 1757577583192
         }
       },
@@ -1031,18 +1031,18 @@
         "tableId": "FCcYSkqTNMleV65jGTbbm",
         "name": "name_gwa",
         "comment": "",
-        "dataType": "varchar(30)",
+        "dataType": "varchar(100)",
         "default": "",
         "options": 0,
         "ui": {
           "keys": 0,
           "widthName": 60,
           "widthComment": 60,
-          "widthDataType": 61,
+          "widthDataType": 67,
           "widthDefault": 60
         },
         "meta": {
-          "updateAt": 1757577583193,
+          "updateAt": 1757578100310,
           "createAt": 1757577583193
         }
       },
@@ -1051,18 +1051,18 @@
         "tableId": "FCcYSkqTNMleV65jGTbbm",
         "name": "name_mok",
         "comment": "",
-        "dataType": "varchar(30)",
+        "dataType": "varchar(100)",
         "default": "",
         "options": 0,
         "ui": {
           "keys": 0,
           "widthName": 60,
           "widthComment": 60,
-          "widthDataType": 61,
+          "widthDataType": 67,
           "widthDefault": 60
         },
         "meta": {
-          "updateAt": 1757577583193,
+          "updateAt": 1757578103885,
           "createAt": 1757577583193
         }
       },
@@ -1071,18 +1071,18 @@
         "tableId": "FCcYSkqTNMleV65jGTbbm",
         "name": "name_gang",
         "comment": "",
-        "dataType": "varchar(30)",
+        "dataType": "varchar(100)",
         "default": "",
         "options": 0,
         "ui": {
           "keys": 0,
           "widthName": 64,
           "widthComment": 60,
-          "widthDataType": 61,
+          "widthDataType": 67,
           "widthDefault": 60
         },
         "meta": {
-          "updateAt": 1757577583193,
+          "updateAt": 1757578108531,
           "createAt": 1757577583193
         }
       },
@@ -1091,18 +1091,18 @@
         "tableId": "FCcYSkqTNMleV65jGTbbm",
         "name": "name_mun",
         "comment": "",
-        "dataType": "varchar(30)",
+        "dataType": "varchar(100)",
         "default": "",
         "options": 0,
         "ui": {
           "keys": 0,
           "widthName": 60,
           "widthComment": 60,
-          "widthDataType": 61,
+          "widthDataType": 67,
           "widthDefault": 60
         },
         "meta": {
-          "updateAt": 1757577583193,
+          "updateAt": 1757578112338,
           "createAt": 1757577583193
         }
       },
@@ -1151,18 +1151,18 @@
         "tableId": "FCcYSkqTNMleV65jGTbbm",
         "name": "temp",
         "comment": "",
-        "dataType": "varchar(30)",
+        "dataType": "varchar(300)",
         "default": "",
         "options": 0,
         "ui": {
           "keys": 0,
           "widthName": 60,
           "widthComment": 60,
-          "widthDataType": 61,
+          "widthDataType": 67,
           "widthDefault": 60
         },
         "meta": {
-          "updateAt": 1757577583193,
+          "updateAt": 1757578120094,
           "createAt": 1757577583193
         }
       },
