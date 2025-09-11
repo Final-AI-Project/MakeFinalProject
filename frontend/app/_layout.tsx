@@ -3,7 +3,7 @@ import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { Slot } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { StyleSheet, useColorScheme } from "react-native";
-import Colors from "../constants/Colors"; // ← 경로 확인
+import Colors from "../constants/Colors";
 
 export default function RootLayout() {
 	const scheme = useColorScheme();
@@ -13,11 +13,11 @@ export default function RootLayout() {
 		<SafeAreaProvider>
 			<SafeAreaView 
 				edges={["top", "bottom"]} 
-				style={[styles.layout, { backgroundColor: theme.background }]}
+				style={[styles.layout, { backgroundColor: theme.bg }]}
 			>
 				<StatusBar 
 					style={theme.statusBarStyle}
-					backgroundColor={theme.background} 
+					backgroundColor={theme.bg} 
 					translucent={false}
 				/>
 				<Slot />

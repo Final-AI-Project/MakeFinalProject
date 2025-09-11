@@ -1,21 +1,25 @@
 // constants/Colors.ts
 const Colors = {
 	light:{
-		background:"#fafafa",
-		text:"#0B1020",
-		surface:"#ffffff",
-		border:"#E6E8EE",
-		primary:"#3B63FF",
+		primary:"#00ac47",
+		secondary:"#5dda59",
+		third:"#7ceea0",
+		border:"#666",
+		bg:"#fafafa",
+		text:"#111",
 		statusBarStyle:"dark" as const,
 	},
 	dark:{
-		background:"#0a1b26",
-		text:"#E5ECFF",
-		surface:"#0f2130",
-		border:"#203242",
-		primary:"#4C6FFF",
+		primary:"#01f7a0",
+		secondary:"#00ac47",
+		third:"#5cdb56",
+		border:"666",
+		bg:"#0a1b26",
+		text:"#fff",
 		statusBarStyle:"light" as const,
 	},
+	blue:'#6a9eff',
+	point:'#007fff',
 };
 
 export default Colors;
