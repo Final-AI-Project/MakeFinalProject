@@ -63,16 +63,25 @@ create table humid_info (
 
 create table plant_wiki (
 	idx int auto_increment primary key,
-    species varchar(100) not null,
+    name_jong varchar(30), ##종
+    name_sok varchar(30), ##속
+    name_gwa varchar(30), ##과
+    name_mok varchar(30), ##목
+    name_gang varchar(30), ##강
+    name_mun varchar(30),##문
     wiki_img varchar(300) not null,
-    sunlight varchar(10),
-    watering int,
-    flowering varchar(100),
-    fertilizer varchar(100),
-    toxic varchar(100)
+    feature text,
+    temp varchar(30),
+    watering varchar(300),
+    flowering varchar(300),
+    flower_color varchar(300),
+    flower_diam varchar(300),
+    fertilizer varchar(300),
+    pruning varchar(300), ##가지치기
+    repot varchar(300), ##분갈이
+    toxic varchar(300)
 );
 
--- sunlight : 일조량
 -- watering : 급수 주기
 -- flowering : 개화 시기
 -- fertilizer : 비료 주기
@@ -99,15 +108,3 @@ select u.user_id, u.nickname, up.plant_id, up.plant_name, up.species, up.meet_da
 
 -- diary.img_url 와 img_address.img_url join으로 식물 이미지 조회
 select d.diary_id, d.user_id, ia.img_url from diary d join img_address ia on d.diary_id = ia.diary_id;
-
-## ----------------------------------------------------------------------------------------
-
-create user 'Test'@'192.168.162.76' identified by 'qwertyuiop12345678!';
-grant all privileges on Final.* to 'Test'@'192.168.162.76';
-flush privileges;
-
-DROP USER IF EXISTS 'Test'@'%';
-
-SELECT user, host FROM mysql.user WHERE user='Test';
-
-## -----------------------------------------------------------------------------------------
