@@ -1,7 +1,101 @@
+# 환경 변수 파일
 .env
-dotenv/
-dotenv
-dotenv
-*.pyc
-venv/
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.dotenv
+
+# Python 관련
 __pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# 가상환경
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+models/LMM/model_venv/
+.venv/
+
+# IDE 관련
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS 관련
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# 로그 파일
+*.log
+logs/
+
+# 임시 파일
+*.tmp
+*.temp
+
+# 모델 및 데이터 파일 (큰 파일들)
+*.pkl
+*.pickle
+*.h5
+*.hdf5
+*.bin
+*.safetensors
+models/weight/
+models/checkpoints/
+
+# CUDA 관련 (선택적)
+models/LMM/requirement_cuda.txt
+
+# 테스트 파일 (선택적)
+models/LMM/test_llm.py
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pytest
+.pytest_cache/
+.coverage
+htmlcov/
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json 
+# Frontend/Node.js 
+node_modules/ 
+.expo/ 
+web-build/ 
+*.tsbuildinfo 
+
+# Frontend
+models/plants-dataset
+expo-env.d.ts
