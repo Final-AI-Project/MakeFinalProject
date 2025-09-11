@@ -1,4 +1,3 @@
-# app/services/auth_service.py
 from __future__ import annotations
 
 import uuid
@@ -7,9 +6,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 
-from app.db.models.user import User
-from app.db.schemas.user import UserCreate
-from app.db.crud import user as users_crud
+from backend.app.db.models.user import User
+from backend.app.db.schemas.user import UserCreate
+from backend.app.db.crud import user as users_crud
 
 from backend.app.utils.errors import http_error
 from backend.app.utils.security import (

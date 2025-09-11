@@ -65,9 +65,24 @@ def register_error_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(RequestValidationError)
     async def handle_validation(request: Request, exc: RequestValidationError):
+
+        # 기본 동작: 상세 내용 없이 BAD_REQUEST 응답
+        # return JSONResponse(
+        #     status_code=http_status.HTTP_400_BAD_REQUEST,
+        #     content=_format_error("BAD_REQUEST", "invalid request"),
+        # )
+
+        # 개발 편의용: 상세 내용 포함
         return JSONResponse(
             status_code=http_status.HTTP_400_BAD_REQUEST,
-            content=_format_error("BAD_REQUEST", "invalid request"),
+            content={
+                "error": {
+                    "code": "BAD_REQUEST",
+                    "message": "Invalid request",
+                    "details": exc.errors(),
+                    "trace_id": _trace_id(),
+                }
+            }
         )
 
     @app.middleware("http")

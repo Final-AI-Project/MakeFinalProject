@@ -4,7 +4,7 @@ from typing import Optional, Sequence
 from sqlalchemy import select, delete, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models.user import User
+from backend.app.db.models.user import User
 
 
 async def get_by_idx(db: AsyncSession, idx: int) -> Optional[User]:

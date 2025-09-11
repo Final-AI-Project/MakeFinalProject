@@ -25,3 +25,4 @@ class UserOut(OrmBase):
     hp: str
     nickname: str
     regdate: datetime | None
+
