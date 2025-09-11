@@ -5,7 +5,7 @@ from sqlalchemy import String, DateTime, func, ForeignKey, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
-from app.db.models.users import User
+from backend.app.db.models.user import User
 from backend.app.db.models.img_address import ImgAddress
 
 class Diary(Base):

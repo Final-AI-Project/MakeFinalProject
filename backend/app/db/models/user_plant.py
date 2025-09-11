@@ -7,7 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.database import Base
 
 from backend.app.db.models.humid_info import HumidInfo
-from backend.app.db.models.users import User
+from backend.app.db.models.user import User
 
 
 class UserPlant(Base):

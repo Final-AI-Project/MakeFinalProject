@@ -46,7 +46,6 @@ class Settings(BaseSettings):
 
     @property
     def ROOT_DIR(self) -> Path:
-        # .../pland/backend/app/config.py -> parents[2] == project root "pland"
         return Path(__file__).resolve().parents[2]
 
 

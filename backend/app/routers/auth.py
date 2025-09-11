@@ -1,72 +1,35 @@
-from typing import Optional
+from __future__ import annotations
 
-from fastapi import APIRouter
-from pydantic import BaseModel, EmailStr, Field
+from fastapi import APIRouter, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.app.services import auth_service
+from app.core.database import get_db
+from app.db.schemas.user import UserCreate, UserOut
+
+from app.services import auth_service  
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-# ====== Schemas ======
-class RegisterIn(BaseModel):
-    email: EmailStr
-    password: str = Field(min_length=6)
-    nickname: str = Field(min_length=1)
+@router.post("/register", response_model=UserOut, status_code=201)
+async def register_user(payload: UserCreate, db: AsyncSession = Depends(get_db)):
+    return await auth_service.register_user(db=db, payload=payload)
 
 
-class LoginIn(BaseModel):
-    email: EmailStr
-    password: str
+@router.post("/login")
+async def login(form: dict, db: AsyncSession = Depends(get_db)):
+    return await auth_service.login(
+        db,
+        user_id_or_email=form["id_or_email"],
+        password=form["password"],
+    )
+
+@router.post("/refresh")
+async def refresh(body: dict, db: AsyncSession = Depends(get_db)):
+    return await auth_service.refresh_tokens(db, refresh_token=body["refresh_token"])
 
 
-class TokenPairOut(BaseModel):
-    access_token: str
-    refresh_token: str
-    token_type: str = "bearer"
-
-
-class RefreshIn(BaseModel):
-    refresh_token: str
-
-
-class LogoutIn(BaseModel):
-    refresh_token: str
-
-
-class UserMini(BaseModel):
-    id: str
-    email: EmailStr
-    nickname: Optional[str] = None
-    avatar_url: Optional[str] = None
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
-
-
-class LoginOut(TokenPairOut):
-    user: UserMini
-
-
-# ====== Routes ======
-@router.post("/register", response_model=UserMini)
-async def register(body: RegisterIn):
-    user = auth_service.register(body.email, body.password, body.nickname)
-    return user
-
-
-@router.post("/login", response_model=LoginOut)
-async def login(body: LoginIn):
-    result = auth_service.login(body.email, body.password)
-    return result
-
-
-@router.post("/refresh", response_model=dict)
-async def refresh(body: RefreshIn):
-    result = auth_service.refresh(body.refresh_token)
-    return result
-
-
-@router.post("/logout", response_model=dict)
-async def logout(body: LogoutIn):
-    result = auth_service.logout(body.refresh_token)
-    return result
+@router.post("/logout")
+async def logout(body: dict):
+    await auth_service.logout(refresh_token=body["refresh_token"])
+    return {"ok": True}
