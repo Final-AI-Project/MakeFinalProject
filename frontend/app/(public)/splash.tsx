@@ -26,7 +26,7 @@ const windowHei = Dimensions.get("window").height + 50;
 const opningShow = new Keyframe({
 	0:   { transform: [{ translateY: -windowHei }] },
 	100: { transform: [{ translateY: 0 }] },
-}).duration(600).delay(1600000)
+}).duration(600).delay(1600)
 
 export default function SplashScreen() {
 	useEffect(() => {
