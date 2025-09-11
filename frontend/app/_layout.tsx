@@ -17,7 +17,7 @@ export default function RootLayout() {
 			>
 				<StatusBar 
 					style={theme.statusBarStyle}
-					backgroundColor={theme.bg} 
+					backgroundColor={theme.bg}
 					translucent={false}
 				/>
 				<Slot />
@@ -30,5 +30,7 @@ const styles = StyleSheet.create({
 	layout: {
 		flex:1,
         paddingTop: 5,
+		paddingHorizontal: 24,
+		paddingBottom: 50,
     }
 });

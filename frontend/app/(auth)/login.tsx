@@ -10,12 +10,14 @@ import {
 	Platform,
 	ScrollView,
 	ActivityIndicator,
+	StyleSheet,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { setToken } from "../../lib/auth";
 import { useColorScheme } from "react-native";
+import Colors from "../../constants/Colors";
 
 // 서버 주소를 환경에 맞게 바꿔주세요. (Expo 클라이언트에서 접근하려면 EXPO_PUBLIC_* prefix 필수)
 const API_BASE_URL =
@@ -32,7 +34,7 @@ export default function LoginScreen() {
 	const [form, setForm] = useState<LoginForm>({ user_id: "", user_pw: "" });
 	const [loading, setLoading] = useState(false);
 	const scheme = useColorScheme();
-	const dark = scheme === "dark";
+	const theme = Colors[scheme === "dark" ? "dark" : "light"];
 
 	const disabled = useMemo(
 		() => !form.user_id || !form.user_pw || loading,
@@ -79,76 +81,47 @@ export default function LoginScreen() {
 	return (
 		<SafeAreaView
 			edges={["top", "bottom"]}
-			style={{ flex: 1, backgroundColor: dark ? "#0a1b26" : "#fafafa" }}
+			style={{ flex: 1, backgroundColor: theme.bg }}
 		>
 			{/* Edge-to-Edge에서는 StatusBar 배경색이 무시되므로, SafeAreaView 배경으로 처리 */}
-			<StatusBar style={dark ? "light" : "dark"} />
+			<StatusBar style={theme.statusBarStyle}/>
 
 			<KeyboardAvoidingView
 				behavior={Platform.select({ ios: "padding", android: undefined })}
 				style={{ flex: 1 }} // 전체 채움 (필수)
 			>
 				<ScrollView
-					contentContainerStyle={{ padding: 20 }}
 					keyboardShouldPersistTaps="handled"
 				>
-					<Text
-						style={{
-							fontSize: 28,
-							fontWeight: "700",
-							color: dark ? "#E5ECFF" : "#0B1020",
-							marginBottom: 16,
-						}}
-					>
-						로그인
-					</Text>
 
 					{/* ERD 매핑: user_id */}
 					<View style={{ marginBottom: 12 }}>
-						<Text
-							style={{
-								color: dark ? "#9FB0FF" : "#3B4B8E",
-								marginBottom: 6,
-							}}
-						>
+						<Text style={[styles.labelText, { color: theme.text }]}>
 							아이디 (user_id)
 						</Text>
 						<TextInput
 							placeholder="아이디"
-							placeholderTextColor={dark ? "#8A8FA3" : "#9AA0B4"}
 							value={form.user_id}
 							onChangeText={(v) => onChange("user_id", v)}
 							autoCapitalize="none"
 							returnKeyType="next"
-							style={[
-								styles.input,
-								dark ? styles.inputDark : styles.inputLight,
-							]}
+							style={[ styles.input ]}
 						/>
 					</View>
 
 					{/* ERD 매핑: user_pw */}
 					<View style={{ marginBottom: 20 }}>
-						<Text
-							style={{
-								color: dark ? "#9FB0FF" : "#3B4B8E",
-								marginBottom: 6,
-							}}
-						>
+						<Text style={[styles.labelText, { color: theme.text }]}>
 							비밀번호 (user_pw)
 						</Text>
 						<TextInput
 							placeholder="비밀번호"
-							placeholderTextColor={dark ? "#8A8FA3" : "#9AA0B4"}
 							value={form.user_pw}
 							onChangeText={(v) => onChange("user_pw", v)}
 							autoCapitalize="none"
 							secureTextEntry
 							returnKeyType="done"
-							style={[
-								styles.input,
-								dark ? styles.inputDark : styles.inputLight,
-							]}
+							style={[ styles.input ]}
 						/>
 					</View>
 
@@ -158,7 +131,7 @@ export default function LoginScreen() {
 						style={[
 							styles.btn,
 							disabled && { opacity: 0.6 },
-							{ backgroundColor: dark ? "#4C6FFF" : "#3B63FF" },
+							{ backgroundColor: theme.primary },
 						]}
 					>
 						{loading ? (
@@ -172,7 +145,7 @@ export default function LoginScreen() {
 						style={{ marginTop: 16, alignSelf: "center" }}
 						onPress={() => router.push("/(auth)/signup")}
 					>
-						<Text style={{ color: dark ? "#B7C4FF" : "#425BD9" }}>
+						<Text style={[styles.labelText, { color: Colors.blue }]}>
 							아직 계정이 없으신가요? 회원가입
 						</Text>
 					</TouchableOpacity>
@@ -182,24 +155,30 @@ export default function LoginScreen() {
 	);
 }
 
-const styles = {
+const styles = StyleSheet.create({
 	input: {
 		borderWidth: 1,
 		borderRadius: 12,
 		paddingHorizontal: 14,
 		paddingVertical: 12,
 		fontSize: 16,
+		borderColor: "#666",
 	},
 	inputDark: {
-		borderColor: "#2A3352",
 		backgroundColor: "#141A2B",
-		color: "#E5ECFF",
+		color: "#f0f0f0",
 	},
 	inputLight: {
-		borderColor: "#D7DAE3",
 		backgroundColor: "#FFFFFF",
-		color: "#0B1020",
+		color: "red",
 	},
+
+	labelText: {
+		marginBottom:6,
+		fontSize:16
+	},
+
+
 	btn: {
 		paddingVertical: 14,
 		borderRadius: 14,
@@ -210,4 +189,4 @@ const styles = {
 		fontSize: 18,
 		fontWeight: "700",
 	},
-} as const;
+});
