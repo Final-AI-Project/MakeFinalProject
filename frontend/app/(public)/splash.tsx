@@ -21,10 +21,8 @@ const LogoImageAni = new Keyframe({
 const windowHei = Dimensions.get("window").height + 50;
 const opningShow = new Keyframe({
 	0:   { transform: [{ translateY: -windowHei }] },
-	60:  { transform: [{ translateY: 0 }] },
-	80:  { transform: [{ translateY: 0 }] },
-	100: { transform: [{ translateY: windowHei }] },
-}).duration(2000).delay(1600)
+	100: { transform: [{ translateY: 0 }] },
+}).duration(1000).delay(1600)
 
 export default function SplashScreen() {
 	useEffect(() => {
@@ -33,7 +31,7 @@ export default function SplashScreen() {
 			setTimeout(() => {
 				if (token) router.replace("/(main)/home");
 				else router.replace("/(auth)/login");
-			}, 300000); // 살짝 노출용 딜레이 (옵션)
+			}, 3200); // 살짝 노출용 딜레이 (옵션)
 		})();
 	}, []);
 
