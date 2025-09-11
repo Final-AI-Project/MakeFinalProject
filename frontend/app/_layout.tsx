@@ -1,23 +1,23 @@
 // app/_layout.tsx
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
-import { Slot, useSegments, useRootNavigationState } from "expo-router";
+import { Slot } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { StyleSheet} from "react-native";
-import { useColorScheme } from "react-native";
+import { StyleSheet, useColorScheme } from "react-native";
+import Colors from "../constants/Colors"; // ← 경로 확인
 
 export default function RootLayout() {
 	const scheme = useColorScheme();
-	const dark = scheme === "dark";
+	const theme = Colors[scheme === "dark" ? "dark" : "light"];
 
 	return (
 		<SafeAreaProvider>
 			<SafeAreaView 
 				edges={["top", "bottom"]} 
-				style={styles.layout}
+				style={[styles.layout, { backgroundColor: theme.background }]}
 			>
 				<StatusBar 
-					style={dark  ? "light" : "dark"} 
-					backgroundColor={dark ? "#000000" : "#fafafa"} 
+					style={theme.statusBarStyle}
+					backgroundColor={theme.background} 
 					translucent={false}
 				/>
 				<Slot />
@@ -26,11 +26,9 @@ export default function RootLayout() {
 	);
 }
 
-
 const styles = StyleSheet.create({
 	layout: {
 		flex:1,
-		backgroundColor:'#fafafa',
         paddingTop: 5,
     }
 });
