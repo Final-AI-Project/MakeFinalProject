@@ -13,8 +13,11 @@ export default function RootLayout() {
 
 	return (
 		<SafeAreaProvider>
-			<SafeAreaView edges={["top", "bottom"]} style={styles.layout}>
-				<StatusBar style={isPublic ? "light" : "dark"} />
+			<SafeAreaView 
+				edges={["top", "bottom"]} 
+				style={styles.layout}
+			>
+				<StatusBar style={isPublic ? "light" : "dark"} backgroundColor={isPublic ? "#fafafa" : "#000000"} translucent={false} />
 				<Slot />
 			</SafeAreaView>
 		</SafeAreaProvider>
@@ -25,7 +28,7 @@ export default function RootLayout() {
 const styles = StyleSheet.create({
 	layout: {
 		flex:1,
-		backgroundColor:'#fff',
+		backgroundColor:'#fafafa',
         paddingTop: 5,
     }
 });

@@ -15,18 +15,16 @@ const LogoTextAni = new Keyframe({
 
 const LogoImageAni = new Keyframe({
 	0:   { transform: [{ scaleX: 1   }, { scaleY: 0 }] },
-	20:  { transform: [{ scaleX: 1.4 }, { scaleY: 0.2 }] },
-	40:  { transform: [{ scaleX: 1.3 }, { scaleY: 0.2 }] },
-	60:  { transform: [{ scaleX: 1.2 }, { scaleY: 0.2 }] },
-	80:  { transform: [{ scaleX: 1   }, { scaleY: 1 }] },
 	100: { transform: [{ scaleX: 1   }, { scaleY: 1 }] },
 }).duration(400).delay(800)
 
 const windowHei = Dimensions.get("window").height + 50;
 const opningShow = new Keyframe({
 	0:   { transform: [{ translateY: -windowHei }] },
-	100: { transform: [{ translateY: 0 }] },
-}).duration(600).delay(1600)
+	60:  { transform: [{ translateY: 0 }] },
+	80:  { transform: [{ translateY: 0 }] },
+	100: { transform: [{ translateY: windowHei }] },
+}).duration(2000).delay(1600)
 
 export default function SplashScreen() {
 	useEffect(() => {
@@ -71,7 +69,7 @@ const styles = StyleSheet.create({
 		top:0,
 		width:'100%',
 		height:'100%',
-		backgroundColor:'red',
+		backgroundColor:'#fafafa',
 	},
 	opningImage: {
 		width: 140,
@@ -90,6 +88,6 @@ const styles = StyleSheet.create({
 		top:0,
 		width:'100%',
 		height:'100%',
-		backgroundColor:'green',
+		backgroundColor:'#5dda59',
 	}
 });
