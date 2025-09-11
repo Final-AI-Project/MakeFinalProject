@@ -2,6 +2,7 @@
 import React, { useMemo, useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
+import { setToken } from "../../lib/auth";
 
 // 서버 주소를 환경에 맞게 바꿔주세요.
 const API_BASE_URL = "http://localhost:8080";
@@ -36,8 +37,8 @@ export default function LoginScreen() {
                 throw new Error(text || `Login failed (${res.status})`);
             }
             // 토큰/세션 처리 예시 (백엔드 응답 구조에 맞게 수정)
-            // const data = await res.json();
-            // await SecureStore.setItemAsync("auth_token", data.token);
+            const data = await res.json();
+            await setToken(data.token);
 
             Alert.alert("로그인", "로그인 성공했습니다!", [
                 {
@@ -56,7 +57,7 @@ export default function LoginScreen() {
     };
 
     return (
-        <KeyboardAvoidingView behavior={Platform.select({ ios: "padding", android: undefined })} style={{ flex: 1, backgroundColor: "#0B1020" }}>
+        <KeyboardAvoidingView behavior={Platform.select({ ios: "padding", android: undefined })} style={{ backgroundColor: "#0B1020" }}>
             <ScrollView contentContainerStyle={{ padding: 20 }}>
                 <Text style={{ fontSize: 28, fontWeight: "700", color: "#E5ECFF", marginBottom: 16 }}>로그인</Text>
 

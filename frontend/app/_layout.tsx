@@ -1,29 +1,31 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import 'react-native-reanimated';
-
-import { useColorScheme } from '@/hooks/useColorScheme';
+// app/_layout.tsx
+import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
+import { Slot, useSegments, useRootNavigationState } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import { StyleSheet} from "react-native";
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
-  const [loaded] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
-  });
+	const segments = useSegments(); // ['(tab)', 'index'] 같은 배열
+	const navState = useRootNavigationState();
 
-  if (!loaded) {
-    // Async font loading only occurs in development.
-    return null;
-  }
+	const group = navState?.key ? segments?.[0] : null;
+    const isPublic = group === "(public)";
 
-  return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="+not-found" />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
-  );
+	return (
+		<SafeAreaProvider>
+			<SafeAreaView edges={["top", "bottom"]} style={styles.layout}>
+				<StatusBar style={isPublic ? "light" : "dark"} />
+				<Slot />
+			</SafeAreaView>
+		</SafeAreaProvider>
+	);
 }
+
+
+const styles = StyleSheet.create({
+	layout: {
+		flex:1,
+		backgroundColor:'#fff',
+        paddingTop: 5,
+    }
+});

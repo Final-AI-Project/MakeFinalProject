@@ -65,7 +65,7 @@ export default function SignupScreen() {
     };
 
     return (
-        <KeyboardAvoidingView behavior={Platform.select({ ios: "padding", android: undefined })} style={{ flex: 1, backgroundColor: "#0B1020" }}>
+        <KeyboardAvoidingView behavior={Platform.select({ ios: "padding", android: undefined })} style={{ backgroundColor: "#0B1020" }}>
             <ScrollView contentContainerStyle={{ padding: 20 }}>
                 <Text style={{ fontSize: 28, fontWeight: "700", color: "#E5ECFF", marginBottom: 16 }}>회원가입</Text>
 
