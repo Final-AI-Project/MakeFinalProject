@@ -40,7 +40,7 @@ export default function SplashScreen() {
 			<Animated.Image 
 				source={logoImage}
 				entering={LogoImageAni}
-				style={[styles.opningImage, , { backgroundColor: theme.bg }]}
+				style={[styles.opningImage, { backgroundColor: theme.bg }]}
 				resizeMode="cover"
 			/>
 			<Animated.Image 
