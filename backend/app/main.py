@@ -39,17 +39,12 @@ app.include_router(plants_router, prefix="/api/v1")
 # CORS (모바일/프론트 개발 편의)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    # 프론트엔드 주소 허용 (임시)
+    allow_origins=["http://localhost:8080", "http://localhost:8080"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# 정적 파일 서빙 (개발용)
-# media_dir = (settings.ROOT_DIR / settings.MEDIA_ROOT)
-# media_dir.mkdir(parents=True, exist_ok=True)  # 없으면 생성
-# app.mount(settings.MEDIA_URL, StaticFiles(directory=media_dir), name="media")
-
 
 # 헬스체크
 @app.get("/healthcheck")
