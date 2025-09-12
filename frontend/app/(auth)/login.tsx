@@ -223,7 +223,7 @@ export default function LoginScreen() {
 
 					<TouchableOpacity
 						style={{ marginTop:16, alignSelf: "center" }}
-						onPress={() => router.push("/(auth)/signup")}
+						onPress={() => router.replace("/(auth)/signup")}
 					>
 						<Text style={[styles.labelText, { color: Colors.blue }]}>
 							아직 계정이 없으신가요? 회원가입
