@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { View, StyleSheet, Dimensions, useColorScheme } from "react-native";
+import { View, StyleSheet, useColorScheme } from "react-native";
 import { router } from "expo-router";
 import { getToken } from "../../libs/auth";
 import Animated, { Keyframe } from "react-native-reanimated";
