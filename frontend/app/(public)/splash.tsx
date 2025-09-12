@@ -1,7 +1,7 @@
 import React, { useEffect } from "react";
 import { View, StyleSheet, Dimensions, useColorScheme } from "react-native";
 import { router } from "expo-router";
-import { getToken } from "../../lib/auth";
+import { getToken } from "../../libs/auth";
 import Animated, { Keyframe } from "react-native-reanimated";
 import logoImage from "../../assets/images/logo_image.png";
 import logoTextLight from "../../assets/images/logo_text.png";

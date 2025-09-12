@@ -17,7 +17,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams } from "expo-router";
-import { setToken } from "../../lib/auth";
+import { setToken } from "../../libs/auth";
 import { useColorScheme, Dimensions, Image } from "react-native";
 import Colors from "../../constants/Colors";
 import loginEffDef from "../../assets/images/login_eff_def.png";
