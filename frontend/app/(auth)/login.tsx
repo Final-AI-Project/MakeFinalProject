@@ -27,7 +27,6 @@ import pwface from "../../assets/images/login_eff_pwface.png";
 
 // 서버 주소를 환경에 맞게 바꿔주세요. (Expo 클라이언트에서 접근하려면 EXPO_PUBLIC_* prefix 필수)
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || "http://localhost:8080";
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 type LoginForm = {
 	user_id: string;
@@ -79,15 +78,15 @@ export default function LoginScreen() {
 
 	useEffect(() => {
 		const length = form.user_id.length;
-		const maxChars = 32;
+		const maxChars = 50;
 
 		let targetX;
 
 		if (length === 0) {
-			targetX = SCREEN_WIDTH * 0.09; 
+			targetX = (312 / 2 - 30) - 95
 		} else {
 			const percent = Math.min(length / maxChars, 1);
-			targetX = percent * SCREEN_WIDTH * 0.175;
+			targetX = percent * 312 * 0.175;
 		}
 
 		Animated.timing(inputFaceX, {
