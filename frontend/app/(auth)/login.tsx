@@ -40,6 +40,7 @@ export default function LoginScreen() {
 	const [loading, setLoading] = useState(false);
 	const scheme = useColorScheme();
 	const theme = Colors[scheme === "dark" ? "dark" : "light"];
+	const [boxWidth, setBoxWidth] = useState(0);
 
 	const disabled = useMemo(
 		() => !form.user_id || !form.user_pw || loading,
@@ -83,10 +84,10 @@ export default function LoginScreen() {
 		let targetX;
 
 		if (length === 0) {
-			targetX = (312 / 2 - 30) - 95
+			targetX = (boxWidth / 2 - 30) - 95
 		} else {
 			const percent = Math.min(length / maxChars, 1);
-			targetX = percent * 312 * 0.175;
+			targetX = percent * boxWidth * 0.175;
 		}
 
 		Animated.timing(inputFaceX, {
@@ -141,7 +142,13 @@ export default function LoginScreen() {
 				style={{ flex:1, justifyContent:'center' }} // 전체 채움 (필수)
 			>
 				<ScrollView keyboardShouldPersistTaps="handled">
-					<View style={styles.characterImage}>
+					<View
+						style={styles.characterImage}
+						onLayout={(e) => {
+							const { width } = e.nativeEvent.layout;
+							setBoxWidth(width);
+						}}
+					>
 						{/* 캐릭터 이미지 */}
 						<Image  style={styles.characterDefault}  source={loginEffDef} resizeMode="contain"/>
 
