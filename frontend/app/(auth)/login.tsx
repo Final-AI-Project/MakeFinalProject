@@ -13,15 +13,14 @@ import {
 	StyleSheet,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { StatusBar } from "expo-status-bar";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { setToken } from "../../lib/auth";
-import { useColorScheme } from "react-native";
+import { useColorScheme, Dimensions } from "react-native";
 import Colors from "../../constants/Colors";
 
 // 서버 주소를 환경에 맞게 바꿔주세요. (Expo 클라이언트에서 접근하려면 EXPO_PUBLIC_* prefix 필수)
-const API_BASE_URL =
-	process.env.EXPO_PUBLIC_API_BASE_URL || "http://localhost:8080";
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || "http://localhost:8080";
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 type LoginForm = {
 	user_id: string;
@@ -63,11 +62,7 @@ export default function LoginScreen() {
 			const data = await res.json();
 			await setToken(data.token);
 
-			const next =
-				typeof params.redirect === "string" ? params.redirect : "/(tab)/index";
-			Alert.alert("로그인", "로그인 성공했습니다!", [
-				{ text: "확인", onPress: () => router.replace(next) },
-			]);
+			const next = typeof params.redirect === "string" ? (params.redirect as string) : "/(main)/home";
 		} catch (err: any) {
 			Alert.alert(
 				"로그인 실패",
@@ -83,24 +78,18 @@ export default function LoginScreen() {
 			edges={["top", "bottom"]}
 			style={{ flex: 1, backgroundColor: theme.bg }}
 		>
-			{/* Edge-to-Edge에서는 StatusBar 배경색이 무시되므로, SafeAreaView 배경으로 처리 */}
-			<StatusBar style={theme.statusBarStyle}/>
-
 			<KeyboardAvoidingView
-				behavior={Platform.select({ ios: "padding", android: undefined })}
-				style={{ flex: 1 }} // 전체 채움 (필수)
+				behavior="padding" enabled
+				style={{ flex:1, justifyContent:'center' }} // 전체 채움 (필수)
 			>
-				<ScrollView
-					keyboardShouldPersistTaps="handled"
-				>
+				<ScrollView keyboardShouldPersistTaps="handled">
+					<View style={styles.characterImage}>
 
-					{/* ERD 매핑: user_id */}
-					<View style={{ marginBottom: 12 }}>
-						<Text style={[styles.labelText, { color: theme.text }]}>
-							아이디 (user_id)
-						</Text>
+					</View>
+					<View style={styles.inputBox}>
 						<TextInput
 							placeholder="아이디"
+							placeholderTextColor="#909090"
 							value={form.user_id}
 							onChangeText={(v) => onChange("user_id", v)}
 							autoCapitalize="none"
@@ -110,12 +99,10 @@ export default function LoginScreen() {
 					</View>
 
 					{/* ERD 매핑: user_pw */}
-					<View style={{ marginBottom: 20 }}>
-						<Text style={[styles.labelText, { color: theme.text }]}>
-							비밀번호 (user_pw)
-						</Text>
+					<View style={styles.inputBox}>
 						<TextInput
 							placeholder="비밀번호"
+							placeholderTextColor="#909090"
 							value={form.user_pw}
 							onChangeText={(v) => onChange("user_pw", v)}
 							autoCapitalize="none"
@@ -142,7 +129,7 @@ export default function LoginScreen() {
 					</TouchableOpacity>
 
 					<TouchableOpacity
-						style={{ marginTop: 16, alignSelf: "center" }}
+						style={{ marginTop:16, alignSelf: "center" }}
 						onPress={() => router.push("/(auth)/signup")}
 					>
 						<Text style={[styles.labelText, { color: Colors.blue }]}>
@@ -156,6 +143,24 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
+	characterImage: {
+		overflow:'hidden',
+		borderRadius:'50%',
+		width:SCREEN_WIDTH - 48,
+		height:SCREEN_WIDTH - 48,
+		marginBottom:30,
+		borderWidth:5,
+		borderStyle:'solid',
+		borderColor:'#666',
+		backgroundColor:'red',
+	},
+	inputBox: {
+		marginBottom:16,
+	},
+	labelText: {
+		marginBottom:6,
+		fontSize:14
+	},
 	input: {
 		borderWidth: 1,
 		borderRadius: 12,
@@ -164,28 +169,23 @@ const styles = StyleSheet.create({
 		fontSize: 16,
 		borderColor: "#666",
 	},
-	inputDark: {
-		backgroundColor: "#141A2B",
-		color: "#f0f0f0",
-	},
 	inputLight: {
-		backgroundColor: "#FFFFFF",
-		color: "red",
+		borderColor: Colors.light.border,
+		backgroundColor: Colors.light.secondary,
+		color: Colors.light.text,
 	},
-
-	labelText: {
-		marginBottom:6,
-		fontSize:16
+	inputDark: {
+		borderColor: Colors.dark.border,
+		backgroundColor: Colors.dark.secondary,
+		color: Colors.dark.text,
 	},
-
-
 	btn: {
 		paddingVertical: 14,
 		borderRadius: 14,
 		alignItems: "center",
 	},
 	btnText: {
-		color: "#FFFFFF",
+		color: Colors.dark.text,
 		fontSize: 18,
 		fontWeight: "700",
 	},

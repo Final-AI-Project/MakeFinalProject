@@ -20,24 +20,18 @@ const LogoImageAni = new Keyframe({
 	100: { transform: [{ scaleX: 1   }, { scaleY: 1 }] },
 }).duration(400).delay(800)
 
-const windowHei = Dimensions.get("window").height;
-const opningShow = new Keyframe({
-	0:   { transform: [{ translateY: -windowHei }] },
-	100: { transform: [{ translateY: 0 }] },
-}).duration(1000).delay(1600)
-
 export default function SplashScreen() {
 	const scheme = useColorScheme();
   	const theme = Colors[scheme === "dark" ? "dark" : "light"];
 	const logoTextSource = scheme === "dark" ? logoTextDark : logoTextLight;
-	
+
 	useEffect(() => {
 		(async () => {
 			const token = await getToken();
 			setTimeout(() => {
 				if (token) router.replace("/(main)/home");
 				else router.replace("/(auth)/login");
-			}, 3200); // 살짝 노출용 딜레이 (옵션)
+			}, 3200); // 살짝 노출용 딜레이 (옵션) 3200
 		})();
 	}, []);
 
@@ -55,10 +49,6 @@ export default function SplashScreen() {
 				style={styles.opningText} 
 				resizeMode="cover" 
 			/>
-			<Animated.View
-				entering={opningShow}
-				style={[styles.opningShowingBox, { backgroundColor: theme.secondary }]} 
-			/>
 		</View>
 	);
 }
@@ -73,6 +63,7 @@ const styles = StyleSheet.create({
 		top:0,
 		width:'100%',
 		height:'100%',
+		padding:0,
 	},
 	opningImage: {
 		width: 140,
@@ -84,12 +75,5 @@ const styles = StyleSheet.create({
 		width: 140,
 		height:30,
 		transformOrigin:'right',
-	},
-	opningShowingBox: {
-		position:'absolute',
-		left:0,
-		top:0,
-		width:'100%',
-		height:'100%',
 	}
 });
