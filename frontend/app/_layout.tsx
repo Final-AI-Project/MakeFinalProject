@@ -15,7 +15,6 @@ export default function RootLayout() {
 				edges={["top", "bottom"]}
 				style={[styles.layout, { backgroundColor: theme.bg }]}
 			>
-				{/* iOS에서는 backgroundColor가 무시되고, Android에서만 적용됩니다 */}
 				<StatusBar
 					style={theme.statusBarStyle}
 					backgroundColor={theme.bg}

@@ -185,7 +185,7 @@ export default function LoginScreen() {
 							onBlur={onIdBlur}
 							autoCapitalize="none"
 							returnKeyType="next"
-							style={[ styles.input, { color: theme.text } ]}
+							style={[ styles.input, { color: theme.text, borderColor: theme.border} ]}
 						/>
 					</View>
 
@@ -201,7 +201,7 @@ export default function LoginScreen() {
 							autoCapitalize="none"
 							secureTextEntry
 							returnKeyType="done"
-							style={[ styles.input, { color: theme.text } ]}
+							style={[ styles.input, { color: theme.text, borderColor: theme.border} ]}
 						/>
 					</View>
 
@@ -227,6 +227,24 @@ export default function LoginScreen() {
 					>
 						<Text style={[styles.labelText, { color: Colors.blue }]}>
 							아직 계정이 없으신가요? 회원가입
+						</Text>
+					</TouchableOpacity>
+
+					<TouchableOpacity
+						style={{ marginTop:16, alignSelf: "center" }}
+						onPress={() => router.replace("/(main)/home")}
+					>
+						<Text style={[styles.labelText, { color: Colors.blue }]}>
+							메인 페이지로 강제 건너뛰기
+						</Text>
+					</TouchableOpacity>
+
+					<TouchableOpacity
+						style={{ marginTop:16, alignSelf: "center" }}
+						onPress={() => router.replace("/common/loading")}
+					>
+						<Text style={[styles.labelText, { color: Colors.blue }]}>
+							로딩 페이지 강제 띄우기
 						</Text>
 					</TouchableOpacity>
 				</ScrollView>
@@ -294,7 +312,6 @@ const styles = StyleSheet.create({
 		paddingHorizontal: 14,
 		paddingVertical: 12,
 		fontSize: 16,
-		borderColor: "#666",
 	},
 	inputLight: {
 		borderColor: Colors.light.border,

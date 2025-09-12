@@ -103,7 +103,7 @@ export default function SignupScreen() {
                             value={form.user_id}
                             onChangeText={v => onChange("user_id", v)}
                             autoCapitalize="none"
-							style={[styles.input, { color: theme.text }]}
+							style={[styles.input, { color: theme.text, borderColor: theme.border }]}
                         />
                     </View>
 
@@ -117,7 +117,7 @@ export default function SignupScreen() {
                             onChangeText={v => onChange("user_pw", v)}
                             secureTextEntry
                             autoCapitalize="none"
-							style={[styles.input, { color: theme.text }]}
+							style={[styles.input, { color: theme.text, borderColor: theme.border }]}
                         />
                     </View>
 
@@ -131,7 +131,7 @@ export default function SignupScreen() {
                             value={form.email}
                             onChangeText={v => onChange("email", v)}
                             autoCapitalize="none"
-							style={[styles.input, { color: theme.text }]}
+							style={[styles.input, { color: theme.text, borderColor: theme.border }]}
                         />
                     </View>
 
@@ -144,7 +144,7 @@ export default function SignupScreen() {
                             keyboardType="phone-pad"
                             value={form.hp}
                             onChangeText={v => onChange("hp", v)}
-							style={[styles.input, { color: theme.text }]}
+							style={[styles.input, { color: theme.text, borderColor: theme.border }]}
                         />
                     </View>
 
@@ -156,7 +156,7 @@ export default function SignupScreen() {
                             placeholderTextColor={placeholderColor}
                             value={form.nickname}
                             onChangeText={v => onChange("nickname", v)}
-							style={[styles.input, { color: theme.text }]}
+							style={[styles.input, { color: theme.text, borderColor: theme.border }]}
                         />
                     </View>
 
@@ -188,7 +188,6 @@ const styles = StyleSheet.create({
     },
     input: {
         borderWidth: 1,
-		borderColor:'#666',
         borderRadius: 12,
         paddingHorizontal: 14,
         paddingVertical: 12,
