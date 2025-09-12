@@ -89,7 +89,7 @@ export default function Loading() {
 		<Modal visible transparent statusBarTranslucent>
 			<View style={styles.overlay}>
 				<View style={styles.box}>
-					<CornersLoader size={100} color="#6B74E6" />
+					<CornersLoader size={100} color={theme.primary} />
 					<Text style={styles.msg}>
 						{error ? `⚠️ ${error}` : fallbackMessage}
 					</Text>
