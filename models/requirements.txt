@@ -1,5 +1,5 @@
-# 통합된 requirements.txt
-# 메인 애플리케이션 의존성
+# Unified requirements.txt
+# Main application dependencies
 fastapi==0.104.1
 uvicorn[standard]==0.24.0
 python-multipart==0.0.6
@@ -10,12 +10,12 @@ numpy==1.24.3
 python-dotenv==1.0.0
 requests==2.31.0
 
-# 머신러닝/딥러닝 의존성
+# Machine learning / Deep learning dependencies
 torch>=2.0.0
 torchvision>=0.15.0
 scikit-learn
 
-# 참고: 
-# - torch, torchvision은 최소 버전 요구사항을 유지 (>=2.0.0, >=0.15.0)
-# - scikit-learn은 분류기에서 사용되므로 추가
-# - 기존 메인 requirements.txt의 모든 패키지를 포함
+# Notes:
+# - torch, torchvision maintain minimum version requirements (>=2.0.0, >=0.15.0)
+# - scikit-learn added for classifier usage
+# - Includes all packages from original main requirements.txt

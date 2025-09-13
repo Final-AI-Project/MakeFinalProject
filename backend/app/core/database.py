@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy import event
 
-from backend.app.core.config import settings
+from core.config import settings
 
 # MySQL 연결 URL 생성
 def _make_mysql_async_url() -> str:
@@ -23,8 +23,8 @@ def _make_mysql_async_url() -> str:
     host = settings.DB_HOST
     port = settings.DB_PORT
     db = settings.DB_NAME
-    # utf8mb4 설정 + SQLAlchemy 2.0 방식 url
-    return f"mysql+aiomysql://{user}:{pwd}@{host}:{port}/{db}?charset=utf8mb4"
+    # utf8mb4 설정 + SQLAlchemy 2.0 방식 url (asyncmy 사용)
+    return f"mysql+asyncmy://{user}:{pwd}@{host}:{port}/{db}?charset=utf8mb4"
 
 # SQLAlchemy 비동기 엔진 생성
 engine = create_async_engine(

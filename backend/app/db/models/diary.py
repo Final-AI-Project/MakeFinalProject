@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import TYPE_CHECKING
 from sqlalchemy import String, DateTime, func, ForeignKey, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.core.database import Base
-from backend.app.db.models.user import User
-from backend.app.db.models.img_address import ImgAddress
+from core.database import Base
+
+if TYPE_CHECKING:
+    from .user import User
+    from .img_address import ImgAddress
 
 class Diary(Base):
     __tablename__ = "diary"

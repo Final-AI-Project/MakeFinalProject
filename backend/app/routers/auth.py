@@ -3,10 +3,10 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_db
-from app.db.schemas.user import UserCreate, UserOut
+from core.database import get_db
+from db.schemas.user import UserCreate, UserOut
 
-from app.services import auth_service  
+from services import auth_service  
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 

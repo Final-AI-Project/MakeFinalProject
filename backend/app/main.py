@@ -2,24 +2,21 @@ from __future__ import annotations
 
 import os
 from datetime import datetime, timezone
-from backend.app.core.config import settings
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 try:
-    from .core.config import get_settings  # type: ignore
+    from core.config import get_settings  # type: ignore
 except Exception:  # pragma: no cover
     get_settings = None  # fallback
 
 # 서브 앱 라우터 임포트
-from backend.app.routers.dashboard import router as dashboard_router
-from backend.app.routers.auth import router as auth_router
-from backend.app.routers.plants import router as plants_router
-from backend.app.routers.images import router as images_router
+from routers.dashboard import router as dashboard_router
+from routers.auth import router as auth_router
+from routers.plants import router as plants_router
+from routers.images import router as images_router
 
-
-from backend.app.utils.errors import register_error_handlers
+from utils.errors import register_error_handlers
 
 
 app = FastAPI(title="Pland API", version="0.1.0")

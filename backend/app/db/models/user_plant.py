@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import TYPE_CHECKING
 from sqlalchemy import String, DateTime, Integer, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.core.database import Base
+from core.database import Base
 
-from backend.app.db.models.humid_info import HumidInfo
-from backend.app.db.models.user import User
+if TYPE_CHECKING:
+    from .humid_info import HumidInfo
+    from .user import User
 
 
 class UserPlant(Base):

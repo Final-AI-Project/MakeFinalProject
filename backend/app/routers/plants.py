@@ -4,8 +4,8 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
-from backend.app.services import plants_service
-from backend.app.utils.security import get_current_user
+from services import plants_service
+from utils.security import get_current_user
 
 router = APIRouter(prefix="/plants", tags=["plants"])
 

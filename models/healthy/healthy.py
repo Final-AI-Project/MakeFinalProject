@@ -5,7 +5,7 @@ import numpy as np
 import dotenv
 
 # === 모델은 전역으로 1회만 로드 ===
-MODEL_PATH = "models/healthy/healthy.pt"
+MODEL_PATH = "healthy/healthy.pt"
 IMG_SIZE = 224  # 학습 때 사용한 imgsz
 DEVICE = "cpu"  # "cuda" 가능하면 "cuda"
 

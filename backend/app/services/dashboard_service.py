@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
-from ..utils.weather_client import WeatherClient
+from utils.weather_client import WeatherClient
 from .users_service import UsersService
 
 # 간단 라우팅/집계 오케스트레이터

@@ -3,7 +3,7 @@ from __future__ import annotations
 from sqlalchemy import String, Integer
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.database import Base
+from core.database import Base
 
 
 class PlantWiki(Base):
