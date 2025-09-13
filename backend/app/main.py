@@ -28,7 +28,7 @@ register_error_handlers(app) # 에러 핸들러 등록
 # 라우터 등록 (확인용)
 app.include_router(images_router, prefix="/api/v1")
 app.include_router(dashboard_router, prefix="/api/v1") 
-app.include_router(auth_router, prefix="/api/v1")
+app.include_router(auth_router)  # auth는 prefix 없이 직접 등록
 app.include_router(plants_router, prefix="/api/v1")
 
 # CORS (모바일/프론트 개발 편의)

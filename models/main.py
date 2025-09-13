@@ -8,6 +8,10 @@ from fastapi.responses import JSONResponse
 from PIL import Image
 import io
 from ultralytics import YOLO
+
+# === PyTorch 2.6 호환성을 위한 설정 ===
+# torch.load의 weights_only를 False로 설정
+torch.serialization.DEFAULT_PROTOCOL = 2
 from detector.leaf_segmentation import LeafSegmentationModel
 from classifier.plant_classifier import build_model, CLASSES
 from healthy.healthy import predict_image as predict_health
