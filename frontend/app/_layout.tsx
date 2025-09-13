@@ -1,21 +1,32 @@
 // app/_layout.tsx
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
-import { Slot, useSegments, useRootNavigationState } from "expo-router";
+import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { StyleSheet } from "react-native";
+import { StyleSheet, useColorScheme } from "react-native";
+import Colors from "../constants/Colors";
 
 export default function RootLayout() {
-  const segments = useSegments(); // ['(tab)', 'index'] 같은 배열
-  const navState = useRootNavigationState();
-
-  const group = navState?.key ? segments?.[0] : null;
-  const isPublic = group === "(public)";
+  const scheme = useColorScheme();
+  const theme = Colors[scheme === "dark" ? "dark" : "light"];
 
   return (
     <SafeAreaProvider>
-      <SafeAreaView edges={["top", "bottom"]} style={styles.layout}>
-        <StatusBar style={isPublic ? "light" : "dark"} />
-        <Slot />
+      <SafeAreaView
+        edges={["top", "bottom"]}
+        style={[styles.layout, { backgroundColor: theme.bg }]}
+      >
+        <StatusBar
+          style={theme.statusBarStyle}
+          backgroundColor={theme.bg}
+          translucent={false}
+        />
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            // 각 화면의 배경은 투명 처리 → 바깥 SafeAreaView의 배경/패딩이 그대로 적용됨
+            contentStyle: { backgroundColor: "transparent" },
+          }}
+        />
       </SafeAreaView>
     </SafeAreaProvider>
   );
@@ -24,7 +35,7 @@ export default function RootLayout() {
 const styles = StyleSheet.create({
   layout: {
     flex: 1,
-    backgroundColor: "#fff",
     paddingTop: 5,
+    paddingHorizontal: 24,
   },
 });

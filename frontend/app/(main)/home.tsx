@@ -20,8 +20,7 @@ export default function Home() {
 			{/* ✅ 공통 날씨 컴포넌트만 사용 */}
 			<WeatherBox
 				serviceKey="GTr1cI7Wi0FRbOTFBaUzUCzCDP4OnyyEmHnn11pxCUC5ehG5bQnbyztgeydnOWz1O04tjw1SE5RsX8RNo6XCgQ==" 
-				// 실제 키가 이미 있으면 그 값 그대로 두세요
-				location={{ lat: 37.5665, lon: 126.9780, label: "서울시 - 중구" }}
+				location={{ lat: 37.4836, lon: 127.0326, label: "서울시 - 서초구" }}
 			/>
 
 			{/* 기존 캐러셀 뼈대 유지 */}
@@ -57,8 +56,7 @@ const styles = StyleSheet.create({
 	container: {
 		flex: 1,
 		alignItems: 'stretch',
-		backgroundColor: '#f0f0f0',
-		padding: 24,
+		paddingTop:20,
 	},
 	// 캐러셀
 	carouselRoot: {

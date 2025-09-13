@@ -1,10 +1,12 @@
 import React, { useEffect } from "react";
-import { View, StyleSheet, Dimensions, SafeAreaView } from "react-native";
+import { View, StyleSheet, useColorScheme } from "react-native";
 import { router } from "expo-router";
-import { getToken } from "../../lib/auth";
+import { getToken } from "../../libs/auth";
 import Animated, { Keyframe } from "react-native-reanimated";
 import logoImage from "../../assets/images/logo_image.png";
-import logoText from "../../assets/images/logo_text.png";
+import logoTextLight from "../../assets/images/logo_text.png";
+import logoTextDark from "../../assets/images/d_logo_text.png";
+import Colors from "../../constants/Colors";
 
 const LogoTextAni = new Keyframe({
 	0:   { transform: [{ rotate: "90deg" }] },
@@ -15,27 +17,21 @@ const LogoTextAni = new Keyframe({
 
 const LogoImageAni = new Keyframe({
 	0:   { transform: [{ scaleX: 1   }, { scaleY: 0 }] },
-	20:  { transform: [{ scaleX: 1.4 }, { scaleY: 0.2 }] },
-	40:  { transform: [{ scaleX: 1.3 }, { scaleY: 0.2 }] },
-	60:  { transform: [{ scaleX: 1.2 }, { scaleY: 0.2 }] },
-	80:  { transform: [{ scaleX: 1   }, { scaleY: 1 }] },
 	100: { transform: [{ scaleX: 1   }, { scaleY: 1 }] },
 }).duration(400).delay(800)
 
-const windowHei = Dimensions.get("window").height + 50;
-const opningShow = new Keyframe({
-	0:   { transform: [{ translateY: -windowHei }] },
-	100: { transform: [{ translateY: 0 }] },
-}).duration(600).delay(1600)
-
 export default function SplashScreen() {
+	const scheme = useColorScheme();
+  	const theme = Colors[scheme === "dark" ? "dark" : "light"];
+	const logoTextSource = scheme === "dark" ? logoTextDark : logoTextLight;
+
 	useEffect(() => {
 		(async () => {
 			const token = await getToken();
 			setTimeout(() => {
 				if (token) router.replace("/(main)/home");
 				else router.replace("/(auth)/login");
-			}, 300000); // 살짝 노출용 딜레이 (옵션)
+			}, 3200); // 살짝 노출용 딜레이 (옵션) 3200
 		})();
 	}, []);
 
@@ -44,18 +40,14 @@ export default function SplashScreen() {
 			<Animated.Image 
 				source={logoImage}
 				entering={LogoImageAni}
-				style={styles.opningImage}
+				style={[styles.opningImage, { backgroundColor: theme.bg }]}
 				resizeMode="cover"
 			/>
 			<Animated.Image 
-				source={logoText} 
+				source={logoTextSource} 
 				entering={LogoTextAni}
 				style={styles.opningText} 
 				resizeMode="cover" 
-			/>
-			<Animated.View
-				entering={opningShow}
-				style={styles.opningShowingBox} 
 			/>
 		</View>
 	);
@@ -71,7 +63,7 @@ const styles = StyleSheet.create({
 		top:0,
 		width:'100%',
 		height:'100%',
-		backgroundColor:'red',
+		padding:0,
 	},
 	opningImage: {
 		width: 140,
@@ -83,13 +75,5 @@ const styles = StyleSheet.create({
 		width: 140,
 		height:30,
 		transformOrigin:'right',
-	},
-	opningShowingBox: {
-		position:'absolute',
-		left:0,
-		top:0,
-		width:'100%',
-		height:'100%',
-		backgroundColor:'green',
 	}
 });
