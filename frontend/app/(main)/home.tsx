@@ -1,6 +1,7 @@
 // app/(tabs)/index.tsx
 import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, Dimensions } from 'react-native';
+import { Link } from 'expo-router';
 import Carousel from 'react-native-reanimated-carousel';
 import WeatherBox from "../common/weatherBox";
 
@@ -47,6 +48,15 @@ export default function Home() {
 					))}
 				</View>
 			</View>
+
+			<View style={styles.linkList}>
+				<Link style={styles.newPlant} href="../(auth)/login">
+					<Text style={{ color: "#fff" }}>새 식물<br/>등록</Text>
+				</Link>
+				<Link style={styles.plantInfo} href="../(auth)/login">
+					<Text style={{ color: "#1a1a1" }}>식물<br/>정보방</Text>
+				</Link>
+			</View>
 		</View>
 	);
 }
@@ -77,4 +87,37 @@ const styles = StyleSheet.create({
 	carouselDots: { position: 'absolute', bottom: 8, flexDirection: 'row', gap: 6 },
 	carouselDot: { width: 6, height: 6, borderRadius: 4, backgroundColor: '#cfcfcf' },
 	carouselDotActive: { backgroundColor: '#333' },
+	linkList: {
+		display: 'flex',
+		alignItems: 'center',
+		justifyContent: 'center',
+		flexDirection: 'row',
+		gap: 8,
+	},
+	newPlant: {
+		flex:1,
+		display:'flex',
+		alignItems:'center',
+		justifyContent:'flex-end',
+		height:160,
+		paddingHorizontal:20,
+		paddingVertical:16,
+		borderRadius: 16,
+		textAlign:'right',
+		backgroundColor:'#00c73c',
+		fontSize:17,
+	},
+	plantInfo: {
+		flex:1,
+		display:'flex',
+		alignItems:'center',
+		justifyContent:'flex-end',
+		height:160,
+		paddingHorizontal:20,
+		paddingVertical:16,
+		borderRadius: 16,
+		textAlign:'right',
+		backgroundColor:'#ffc900',
+		fontSize:17,
+	},
 });
