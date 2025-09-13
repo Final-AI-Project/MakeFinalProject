@@ -31,13 +31,14 @@ app.include_router(dashboard_router, prefix="/api/v1")
 app.include_router(auth_router)  # auth는 prefix 없이 직접 등록
 app.include_router(plants_router, prefix="/api/v1")
 
-# CORS (모바일/프론트 개발 편의)
+# CORS (모바일/프론트 개발 편의) - 모든 오리진 허용
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 # 정적 파일 서빙 (개발용)

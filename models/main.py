@@ -19,26 +19,36 @@ from healthy.healthy import predict_image as predict_health
 # ------ FastAPI 앱
 app = FastAPI()
 
-# ------ CORS
+# ------ CORS - 모든 오리진 허용
 origins = [
     "http://localhost:8081",
     "http://127.0.0.1:8081",
     "http://localhost:8000",
     "http://127.0.0.1:8000",
+    "http://localhost:8001",
+    "http://127.0.0.1:8001",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "http://localhost:19006",
     "http://127.0.0.1:19006",
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+    "http://localhost:5000",
+    "http://127.0.0.1:5000",
+    "http://localhost:4000",
+    "http://127.0.0.1:4000",
+    "http://localhost:9000",
+    "http://127.0.0.1:9000",
+    "*"  # 모든 오리진 허용
 ]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 # ----------------- 모델 경로 설정
