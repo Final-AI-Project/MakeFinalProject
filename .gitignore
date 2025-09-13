@@ -89,4 +89,13 @@ htmlcov/
 # mypy
 .mypy_cache/
 .dmypy.json
-dmypy.json
+dmypy.json 
+# Frontend/Node.js 
+node_modules/ 
+.expo/ 
+web-build/ 
+*.tsbuildinfo 
+
+# Frontend
+models/plants-dataset
+expo-env.d.ts
