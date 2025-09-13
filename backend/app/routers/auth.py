@@ -3,10 +3,12 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.app.core.database import get_db
-from backend.app.db.schemas.user import UserCreate, UserOut, UserLoginRequest, TokenPair, RefreshRequest, LogoutRequest
+from ..core.database import get_db
+from ..db.schemas.user import UserCreate, UserOut, UserLoginRequest, TokenPair, RefreshRequest, LogoutRequest
 
-from backend.app.services import auth_service  
+from ..utils.errors import http_error
+from ..services import storage, auth_service  
+from ..utils import token_blacklist
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
