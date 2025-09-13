@@ -1,16 +1,29 @@
 from __future__ import annotations
 
 from functools import lru_cache
+from pathlib import Path
+import os
+
 from pydantic import Field, BaseModel, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pathlib import Path
+
+APP_DIR = Path(__file__).resolve().parents[1]
+DEFAULT_ENV_FILE = APP_DIR / '.env'
+
+ENV_FILE = os.getenv('PLAND_ENV_FILE', str(DEFAULT_ENV_FILE))
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv(ENV_FILE, override=False)
+except Exception:
+        pass
 
 
 class Settings(BaseSettings):
 
     # pydantic-settings v2 방식
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=ENV_FILE,
         env_file_encoding="utf-8",
         case_sensitive=True,
         extra="ignore",
