@@ -46,16 +46,19 @@ class Settings(BaseSettings):
     MEDIA_URL: str = Field('/media', validation_alias='MEDIA_URL')
     MAX_UPLOAD_MB: int = Field(5, validation_alias='MAX_UPLOAD_MB')
 
-    #DB
-    DB_HOST: str = Field(..., validation_alias='DB_HOST')
-    DB_PORT: int = Field(3306, validation_alias='DB_PORT')
-    DB_USER: str = Field(..., validation_alias='DB_USER')
-    DB_PASSWORD: SecretStr = Field(..., validation_alias='DB_PASSWORD')
-    DB_NAME: str = Field(..., validation_alias='DB_NAME')
+    #DB - MySQL (AWS RDS용, SQLite 사용 시 선택적)
+    DB_HOST: str = Field(default="", validation_alias='DB_HOST')
+    DB_PORT: int = Field(default=3306, validation_alias='DB_PORT')
+    DB_USER: str = Field(default="", validation_alias='DB_USER')
+    DB_PASSWORD: SecretStr = Field(default="", validation_alias='DB_PASSWORD')
+    DB_NAME: str = Field(default="", validation_alias='DB_NAME')
 
-    DB_POOL_SIZE: int = Field(20, validation_alias='DB_POOL_SIZE')
-    DB_MAX_OVERFLOW: int = Field(0, validation_alias='DB_MAX_OVERFLOW')
-    SQL_ECHO: bool = Field(False, validation_alias='SQL_ECHO')
+    DB_POOL_SIZE: int = Field(default=20, validation_alias='DB_POOL_SIZE')
+    DB_MAX_OVERFLOW: int = Field(default=0, validation_alias='DB_MAX_OVERFLOW')
+    SQL_ECHO: bool = Field(default=False, validation_alias='SQL_ECHO')
+    
+    # SQLite 사용 여부 (개발용)
+    USE_SQLITE: bool = Field(default=True, validation_alias='USE_SQLITE')
 
     @property
     def ROOT_DIR(self) -> Path:

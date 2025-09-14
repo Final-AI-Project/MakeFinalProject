@@ -173,7 +173,7 @@ def delete_file(rel_path: str) -> None:
 # from pathlib import Path
 # from datetime import datetime, timezone
 
-# from backend.app.core.config import settings
+# from core.config import settings
 
 
 # # ---------- Small utils ----------
