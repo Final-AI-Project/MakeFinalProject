@@ -1,27 +1,122 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { View, Text, StyleSheet, Modal, Animated, Easing, useColorScheme } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import type { Router, Href } from "expo-router";
 import Colors from "../../constants/Colors";
 
-type LoadingJob = {
+/* =========================
+   Types (원본 시그니처 유지)
+========================= */
+export type LoadingJob = {
 	task?: () => Promise<any>;
-	to: string;
+	to: Href;
 	replace?: boolean;
 	delay?: number;
 	message?: string;
+	timeoutMs?: number;
 };
 
-let _job: LoadingJob | null = null;
+type RouterLike = Pick<Router, "push" | "replace" | "back">;
 
-export function startLoading(
-	router: ReturnType<typeof useRouter> | { push: (p: string) => void },
-	job: LoadingJob
-) {
-	_job = job;
-	router.push("/common/loading");
+/* =========================
+   Lightweight event bus
+========================= */
+type InternalState = {
+	visible: boolean;
+	message?: string;
+	error?: string | null;
+};
+
+type Listener = (s: InternalState) => void;
+
+const listeners = new Set<Listener>();
+let _state: InternalState = { visible: false, message: undefined, error: null };
+
+function emit(next: Partial<InternalState>) {
+	_state = { ..._state, ...next };
+	listeners.forEach(l => l(_state));
 }
 
-// 준비된 워딩 리스트
+/* =========================
+   Public APIs (원본 함수명/시그니처 유지)
+========================= */
+let _cancelled = false;
+
+export function startLoading(
+	router: RouterLike,
+	job: LoadingJob
+) {
+	_cancelled = false;
+	const { task, delay, to, replace, message, timeoutMs = 0 } = job;
+	const wait = (ms: number) => new Promise(r => setTimeout(r, ms));
+
+	// 딤 모달 즉시 표시
+	emit({ visible: true, error: null, message });
+
+	let done = false;
+	let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+	const run = async () => {
+		try {
+			if (timeoutMs > 0) {
+				timeoutId = setTimeout(() => {
+					if (done) return;
+					done = true;
+
+					if (_cancelled) {
+						emit({ visible: false, message: undefined, error: null });
+						return;
+					}
+
+					if (to) {
+						if (replace && router.replace) router.replace(to);
+						else router.push?.(to);   // ✅ 여기!
+					}
+				}, timeoutMs);
+			}
+
+			if (task) {
+				await Promise.all([task(), wait(500)]);
+			} else if (delay) {
+				await wait(delay);
+			}
+
+			if (done) return;
+			done = true;
+			if (timeoutId) clearTimeout(timeoutId);
+			if (_cancelled) {
+				emit({ visible: false, message: undefined, error: null });
+				return;
+			}
+
+			if (to) {
+				if (replace && router.replace) router.replace(to);
+				else router.push?.(to);
+			}
+		} catch (e: any) {
+			if (timeoutId) clearTimeout(timeoutId);
+			emit({ visible: true, error: e?.message || "알 수 없는 오류가 발생했어요." });
+			setTimeout(() => emit({ visible: false, message: undefined, error: null }), 1200);
+		} finally {
+			setTimeout(() => emit({ visible: false, message: undefined, error: null }), 100);
+		}
+	};
+	run();
+}
+
+export function stopLoading(
+	router: RouterLike,
+	opts?: { to?: Href; replace?: boolean }
+) {
+	_cancelled = true;
+	emit({ visible: false, message: undefined, error: null });
+	const to = opts?.to;
+	if (to) {
+		if (opts?.replace && router.replace) router.replace(to);
+		else router.push?.(to);
+	}
+}
+
+// common/loading.tsx 상단
 const loadingMessages = [
 	"로딩 중에도 식물은 자라요!",
 	"식물은 밤에도 호흡을 해요.",
@@ -31,67 +126,49 @@ const loadingMessages = [
 	"꽃은 번식을 위한 식물의 전략이에요.",
 	"숲은 지구 산소의 약 28%를 공급해요.",
 ];
-// ...
 
-export default function Loading() {
-	const router = useRouter();
-	const params = useLocalSearchParams<{ message?: string }>();
-	const [error, setError] = useState<string | null>(null);
+/* =========================
+   Host Component (루트에 1회 마운트)
+========================= */
+export function GlobalLoadingHost() {
 	const scheme = useColorScheme();
 	const theme = Colors[scheme === "dark" ? "dark" : "light"];
-	
-	const styles = React.useMemo(() => makeStyles(theme), [theme]);
+	const [state, setState] = useState<InternalState>(_state);
 
 	const [randomMsg, setRandomMsg] = useState(loadingMessages[0]);
-	useEffect(() => {
-		if (params.message) return; // 백엔드 메시지가 있으면 랜덤 변경 안 함
-		const interval = setInterval(() => {
-		const idx = Math.floor(Math.random() * loadingMessages.length);
-		setRandomMsg(loadingMessages[idx]);
-		}, 3000);
-		return () => clearInterval(interval);
-	}, [params.message]);
-	const fallbackMessage = params.message || randomMsg;
 
 	useEffect(() => {
-		let mounted = true;
-		(async () => {
-			const job = _job;
-			_job = null;
+		const l: Listener = (s) => setState(s);
+		listeners.add(l);
+		return () => { listeners.delete(l); };
+	}, []);
 
-			try {
-				const wait = (ms:number)=>new Promise(r=>setTimeout(r,ms));
+	// ✅ 주기적으로 랜덤 변경 (state.message가 없을 때만)
+	useEffect(() => {
+		if (!state.visible) return; // 모달이 보일 때만
+		if (state.message) return;   // 고정 메시지 있으면 셔플 안 함
+		const pick = () =>
+			loadingMessages[Math.floor(Math.random() * loadingMessages.length)];
+		setRandomMsg(pick());	   // 즉시 1회 시드
+		const itv = setInterval(() => setRandomMsg(pick()), 3000);
+		return () => clearInterval(itv);
+	}, [state.visible, state.message]);
 
-				if (job?.task) {
-					await Promise.all([job.task(), wait(500)]);
-				} else if (job?.delay) {
-					await new Promise((r) => setTimeout(r, job.delay));
-				}
-				if (!mounted || !job?.to) return;
 
-				if (job.replace) router.replace(job.to);
-				else router.push(job.to);
-			} catch (e: any) {
-				console.error(e);
-				setError(e?.message || "알 수 없는 오류가 발생했어요.");
-				setTimeout(() => {
-					if (!mounted) return;
-					router.back();
-				}, 1200);
-			}
-		})();
-		return () => {
-			mounted = false;
-		};
-	}, [router]);
+	const styles = useMemo(() => makeStyles(theme), [theme]);
 
 	return (
-		<Modal visible transparent statusBarTranslucent>
+		<Modal
+			visible={state.visible}
+			transparent
+			animationType="fade"
+			statusBarTranslucent
+		>
 			<View style={styles.overlay}>
 				<View style={styles.box}>
-					<CornersLoader size={100} color="#6B74E6" />
+					<CornersLoader size={100} color={theme.primary} />
 					<Text style={styles.msg}>
-						{error ? `⚠️ ${error}` : fallbackMessage}
+						{state.error ? `⚠️ ${state.error}` : (state.message || randomMsg)}
 					</Text>
 				</View>
 			</View>
@@ -99,9 +176,12 @@ export default function Loading() {
 	);
 }
 
+/* =========================
+   Styles
+========================= */
 const makeStyles = (theme: any) => StyleSheet.create({
 	overlay: {
-		...StyleSheet.absoluteFillObject,
+		flex: 1,
 		backgroundColor: "rgba(0,0,0,0.5)",
 		justifyContent: "center",
 		alignItems: "center",
@@ -117,14 +197,14 @@ const makeStyles = (theme: any) => StyleSheet.create({
 	msg: {
 		marginTop: 40,
 		fontSize: 14,
-		color: theme.text, // ← 텍스트 컬러도 테마 적용
+		color: theme.text,
 		textAlign: "center",
 	},
 });
 
-/* ─────────────────────────────
-	4개의 코너가 무한 회전하는 로더
-────────────────────────────── */
+/* =========================
+   Spinner
+========================= */
 function CornersLoader({ size = 100, color = "#6B74E6" }) {
 	const t = useRef(new Animated.Value(0)).current;
 
@@ -132,7 +212,7 @@ function CornersLoader({ size = 100, color = "#6B74E6" }) {
 		const loop = Animated.loop(
 			Animated.timing(t, {
 				toValue: 1,
-				duration: 3000, // 3s
+				duration: 3000,
 				easing: Easing.linear,
 				useNativeDriver: true,
 			})
@@ -144,13 +224,11 @@ function CornersLoader({ size = 100, color = "#6B74E6" }) {
 		};
 	}, [t]);
 
-	// 공통 회전 (부모 .corners spin)
 	const spin = t.interpolate({
 		inputRange: [0, 1],
 		outputRange: ["0deg", "360deg"],
 	});
 
-	// 각 corner별 타이밍 (spin1~4 근사)
 	const spin1 = t.interpolate({
 		inputRange: [0, 0.3, 0.7, 1],
 		outputRange: ["0deg", "0deg", "0deg", "360deg"],
@@ -189,7 +267,10 @@ function CornersLoader({ size = 100, color = "#6B74E6" }) {
 const loaderStyles = StyleSheet.create({
 	cornerWrap: {
 		position: "absolute",
-		left: 0, top: 0, right: 0, bottom: 0,
+		left: 0,
+		top: 0,
+		right: 0,
+		bottom: 0,
 		alignItems: "flex-start",
 		justifyContent: "flex-start",
 	},
