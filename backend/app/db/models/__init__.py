@@ -15,4 +15,3 @@ __all__ = [
     "PestWiki",
     "PlantWiki",
     "UserPlant",
-]

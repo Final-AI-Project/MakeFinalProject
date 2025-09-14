@@ -6,7 +6,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.models.user import User
 
-
 async def get_by_idx(db: AsyncSession, idx: int) -> Optional[User]:
     res = await db.execute(select(User).where(User.idx == idx))
     return res.scalar_one_or_none()

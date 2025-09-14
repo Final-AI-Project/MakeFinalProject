@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import TYPE_CHECKING
 
 from typing import TYPE_CHECKING
 from sqlalchemy import String, ForeignKey
@@ -8,7 +9,6 @@ from core.database import Base
 
 if TYPE_CHECKING:
     from .diary import Diary
-
 
 class ImgAddress(Base):
     __tablename__ = "img_address"

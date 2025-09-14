@@ -7,7 +7,6 @@ from sqlalchemy.orm import selectinload
 
 from db.models.diary import Diary
 
-
 async def get(db: AsyncSession, diary_id: int) -> Optional[Diary]:
     res = await db.execute(
         select(Diary)

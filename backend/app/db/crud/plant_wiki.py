@@ -6,7 +6,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.models.plant_wiki import PlantWiki
 
-
 async def get(db: AsyncSession, idx: int) -> Optional[PlantWiki]:
     res = await db.execute(select(PlantWiki).where(PlantWiki.idx == idx))
     return res.scalar_one_or_none()
