@@ -118,6 +118,7 @@ expo-env.d.ts
 *.db
 *.sqlite
 *.sqlite3
+backend/app/dev.db
 
 # 백업 파일
 *.backup
