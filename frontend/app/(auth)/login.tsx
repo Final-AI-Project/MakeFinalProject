@@ -24,8 +24,6 @@ import loginEffDef from "../../assets/images/login_eff_def.png";
 import normalface from "../../assets/images/login_eff_normalface.png";
 import inputface from "../../assets/images/login_eff_inputface.png";
 import pwface from "../../assets/images/login_eff_pwface.png";
-// ⛑️ runWithLoading는 이 파일 안에서 로컬로 정의할 것이므로 import하지 않습니다.
-// import { runWithLoading } from "../common/loading";
 import { startLoading } from "../common/loading";
 
 // 🔧 환경별 안전한 API_BASE_URL (실기기는 EXPO_PUBLIC_API_BASE_URL 사용 권장)
@@ -267,10 +265,19 @@ export default function LoginScreen() {
 
 					<TouchableOpacity
 						style={{ marginTop:16, alignSelf: "center" }}
-						onPress={() => router.replace("/(main)/home")}
+						onPress={() =>
+							startLoading(router, {
+								// 테스트용 (여기선 단순히 3초 대기)
+								task: async () => {
+									await new Promise(r => setTimeout(r, 3000));
+								},
+								to: "/(main)/home",          // 완료 후 이동할 경로
+								replace: true,               // replace로 이동
+							})
+						}
 					>
 						<Text style={[styles.labelText, { color: Colors.blue }]}>
-							메인 페이지로 강제 건너뛰기
+							메인 페이지로 강제 건너뛰기 (로딩 테스트)
 						</Text>
 					</TouchableOpacity>
 
