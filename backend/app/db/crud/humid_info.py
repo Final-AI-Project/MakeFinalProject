@@ -5,7 +5,7 @@ from datetime import datetime
 from sqlalchemy import select, delete, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.app.db.models.humid_info import HumidInfo
+from ..models.humid_info import HumidInfo
 
 
 async def get_one(db: AsyncSession, plant_id: int, humid_date: datetime) -> Optional[HumidInfo]:

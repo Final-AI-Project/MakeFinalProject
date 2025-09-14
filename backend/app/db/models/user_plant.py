@@ -5,11 +5,11 @@ from datetime import datetime
 from sqlalchemy import String, DateTime, Integer, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from backend.app.core.database import Base
+from ...core.database import Base
 
 if TYPE_CHECKING:
-    from backend.app.db.models.humid_info import HumidInfo
-    from backend.app.db.models.user import User
+    from ..models.humid_info import HumidInfo
+    from ..models.user import User
 
 
 class UserPlant(Base):

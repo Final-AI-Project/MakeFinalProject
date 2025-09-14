@@ -8,7 +8,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from backend.app.core.database import Base
 
 if TYPE_CHECKING:
-    from backend.app.db.models.user_plant import UserPlant
+    from ..models.user_plant import UserPlant
 
 
 class HumidInfo(Base):
