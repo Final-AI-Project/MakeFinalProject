@@ -6,7 +6,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.models.pest_wiki import PestWiki
 
-
 async def get(db: AsyncSession, idx: int) -> Optional[PestWiki]:
     res = await db.execute(select(PestWiki).where(PestWiki.idx == idx))
     return res.scalar_one_or_none()

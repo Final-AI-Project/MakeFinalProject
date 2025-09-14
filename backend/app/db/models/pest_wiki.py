@@ -5,7 +5,6 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from core.database import Base
 
-
 class PestWiki(Base):
     __tablename__ = "pest_wiki"
 

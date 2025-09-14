@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import TYPE_CHECKING
 
 from datetime import datetime
 from typing import TYPE_CHECKING
@@ -9,7 +10,6 @@ from core.database import Base
 
 if TYPE_CHECKING:
     from .user_plant import UserPlant
-
 
 class HumidInfo(Base):
     __tablename__ = "humid_info"

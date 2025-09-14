@@ -24,6 +24,8 @@ import loginEffDef from "../../assets/images/login_eff_def.png";
 import normalface from "../../assets/images/login_eff_normalface.png";
 import inputface from "../../assets/images/login_eff_inputface.png";
 import pwface from "../../assets/images/login_eff_pwface.png";
+import { startLoading } from "../common/loading";
+
 
 // 서버 주소를 환경에 맞게 바꿔주세요. (Expo 클라이언트에서 접근하려면 EXPO_PUBLIC_* prefix 필수)
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || "http://localhost:3000";
@@ -55,6 +57,7 @@ export default function LoginScreen() {
 	const [showPwFace, setShowPwFace] = useState(false);
 	const inputFaceX = useRef(new Animated.Value(0)).current;
 	const pwFaceY = useRef(new Animated.Value(180)).current;
+
 	// 아이디 포커스
 	const onIdFocus = () => {
 		setShowPwFace(false);
@@ -77,7 +80,7 @@ export default function LoginScreen() {
 		}).start();
 	};
 	const onPwBlur = () => {
-		setShowPwFace(false); // 스냅 숨김 (나갈 때는 애니메이션 없이 즉시)
+		setShowPwFace(false);
 	};
 
 	useEffect(() => {
@@ -87,7 +90,7 @@ export default function LoginScreen() {
 		let targetX;
 
 		if (length === 0) {
-			targetX = (boxWidth / 2 - 30) - 95
+			targetX = (boxWidth / 2 - 30) - 95;
 		} else {
 			const percent = Math.min(length / maxChars, 1);
 			targetX = percent * boxWidth * 0.175;
@@ -99,14 +102,26 @@ export default function LoginScreen() {
 			easing: Easing.out(Easing.quad),
 			useNativeDriver: true,
 		}).start();
-	}, [form.user_id]);
+	}, [form.user_id, boxWidth, inputFaceX]);
 
 	const onChange = (key: keyof LoginForm, val: string) => {
 		setForm((prev) => ({ ...prev, [key]: val }));
 	};
 
+	// ✅ 파일 내 로컬 runWithLoading (새 파일 만들지 않음)
+	const runWithLoading = (
+		router: ReturnType<typeof useRouter>,
+		task: () => Promise<any>,
+		to: string,
+		message?: string
+	) => {
+		startLoading(router, { task, to, replace: true, message });
+	};
+
 	const handleLogin = async () => {
+		Keyboard.dismiss();
 		try {
+
 			Keyboard.dismiss();
 			setLoading(true);
 			
@@ -187,12 +202,11 @@ export default function LoginScreen() {
 			router.replace(next as any);
 		} catch (err: any) {
 			console.error("Login error:", err);
+
 			Alert.alert(
 				"로그인 실패",
 				err?.message ?? "아이디/비밀번호를 확인해주세요."
 			);
-		} finally {
-			setLoading(false);
 		}
 	};
 
@@ -260,8 +274,8 @@ export default function LoginScreen() {
 							placeholderTextColor="#909090"
 							value={form.user_pw}
 							onChangeText={(v) => onChange("user_pw", v)}
-							onFocus={onPwFocus}   // ✅ 추가
-							onBlur={onPwBlur}     // ✅ 추가
+							onFocus={onPwFocus}
+							onBlur={onPwBlur}
 							autoCapitalize="none"
 							secureTextEntry
 							returnKeyType="done"
@@ -296,19 +310,19 @@ export default function LoginScreen() {
 
 					<TouchableOpacity
 						style={{ marginTop:16, alignSelf: "center" }}
-						onPress={() => router.replace("/(main)/home")}
+						onPress={() =>
+							startLoading(router, {
+								// 테스트용 (여기선 단순히 3초 대기)
+								task: async () => {
+									await new Promise(r => setTimeout(r, 3000));
+								},
+								to: "/(main)/home",          // 완료 후 이동할 경로
+								replace: true,               // replace로 이동
+							})
+						}
 					>
 						<Text style={[styles.labelText, { color: Colors.blue }]}>
-							메인 페이지로 강제 건너뛰기
-						</Text>
-					</TouchableOpacity>
-
-					<TouchableOpacity
-						style={{ marginTop:16, alignSelf: "center" }}
-						onPress={() => router.replace("/common/loading")}
-					>
-						<Text style={[styles.labelText, { color: Colors.blue }]}>
-							로딩 페이지 강제 띄우기
+							메인 페이지로 강제 건너뛰기 (로딩 테스트)
 						</Text>
 					</TouchableOpacity>
 				</ScrollView>
@@ -353,6 +367,7 @@ const styles = StyleSheet.create({
 		position:'absolute',
 		top:180,
 		left:30,
+		transform:[{translateX:-95}],
 		width:180,
 		zIndex:2,
 	},
