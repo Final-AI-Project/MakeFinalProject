@@ -4,10 +4,10 @@ from typing import TYPE_CHECKING
 from sqlalchemy import String, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from backend.app.core.database import Base
+from ...core.database import Base
 
 if TYPE_CHECKING:
-    from backend.app.db.models.diary import Diary
+    from ..models.diary import Diary
 
 
 class ImgAddress(Base):

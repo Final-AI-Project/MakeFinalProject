@@ -5,11 +5,11 @@ from datetime import datetime
 from sqlalchemy import String, DateTime
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from backend.app.core.database import Base
+from ...core.database import Base
 
 if TYPE_CHECKING:
-    from backend.app.db.models.diary import Diary
-    from backend.app.db.models.user_plant import UserPlant
+    from ..models.diary import Diary
+    from ..models.user_plant import UserPlant
 
 
 class User(Base):

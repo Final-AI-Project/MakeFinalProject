@@ -68,3 +68,4 @@ def get_settings() -> "Settings":
     return Settings()
 
 settings = Settings()
+print(f"[DB] host = '{settings.DB_HOST.encode()}")
