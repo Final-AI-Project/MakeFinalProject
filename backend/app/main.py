@@ -34,7 +34,7 @@ app.include_router(plants_router, prefix="/api/v1")
 # CORS (모바일/프론트 개발 편의) - 모든 오리진 허용
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # 모든 오리진 허용 (개발용)
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],

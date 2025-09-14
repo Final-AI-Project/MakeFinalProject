@@ -26,9 +26,9 @@ import inputface from "../../assets/images/login_eff_inputface.png";
 import pwface from "../../assets/images/login_eff_pwface.png";
 
 // 서버 주소를 환경에 맞게 바꿔주세요. (Expo 클라이언트에서 접근하려면 EXPO_PUBLIC_* prefix 필수)
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || "http://localhost:8000";
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || "http://localhost:3000";
 
-// 디버깅용: 여러 포트 시도 (피씨방 환경 고려)
+// 디버깅용: 여러 포트 시도 (외부 환경 고려)
 const POSSIBLE_PORTS = [3000, 5000, 8080, 8000, 8001, 9000, 4000];
 
 type LoginForm = {
@@ -127,7 +127,13 @@ export default function LoginScreen() {
 				try {
 					const testUrl = `http://localhost:${port}/healthcheck`;
 					console.log(`Trying port ${port}: ${testUrl}`);
-					const testRes = await fetch(testUrl);
+					const testRes = await fetch(testUrl, {
+						method: "GET",
+						headers: {
+							"Content-Type": "application/json",
+						},
+						mode: "cors", // CORS 모드 명시적 설정
+					});
 					console.log(`Port ${port} - Status:`, testRes.status);
 					if (testRes.ok) {
 						workingPort = port;
@@ -147,7 +153,11 @@ export default function LoginScreen() {
 			
 			const res = await fetch(`${workingApiUrl}/auth/login`, {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
+				headers: { 
+					"Content-Type": "application/json",
+					"Accept": "application/json",
+				},
+				mode: "cors", // CORS 모드 명시적 설정
 				body: JSON.stringify(requestData),
 			});
 			

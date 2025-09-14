@@ -15,6 +15,11 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 async def register_user(payload: UserCreate, db: AsyncSession = Depends(get_db)):
     return await auth_service.register_user(db=db, payload=payload)
 
+@router.post("/signup", response_model=UserOut, status_code=201)
+async def signup_user(payload: UserCreate, db: AsyncSession = Depends(get_db)):
+    """회원가입 엔드포인트 (register와 동일)"""
+    return await auth_service.register_user(db=db, payload=payload)
+
 
 @router.post("/login")
 async def login(form: dict, db: AsyncSession = Depends(get_db)):
