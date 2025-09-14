@@ -24,9 +24,24 @@ import loginEffDef from "../../assets/images/login_eff_def.png";
 import normalface from "../../assets/images/login_eff_normalface.png";
 import inputface from "../../assets/images/login_eff_inputface.png";
 import pwface from "../../assets/images/login_eff_pwface.png";
+// ⛑️ runWithLoading는 이 파일 안에서 로컬로 정의할 것이므로 import하지 않습니다.
+// import { runWithLoading } from "../common/loading";
+import { startLoading } from "../common/loading";
 
-// 서버 주소를 환경에 맞게 바꿔주세요. (Expo 클라이언트에서 접근하려면 EXPO_PUBLIC_* prefix 필수)
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || "http://localhost:8080";
+// 🔧 환경별 안전한 API_BASE_URL (실기기는 EXPO_PUBLIC_API_BASE_URL 사용 권장)
+const FALLBACK_PORT = 8080;
+const ENV_BASE =
+	typeof process.env.EXPO_PUBLIC_API_BASE_URL === "string" &&
+	process.env.EXPO_PUBLIC_API_BASE_URL.trim().length > 0
+		? process.env.EXPO_PUBLIC_API_BASE_URL.trim()
+		: "";
+
+const DEFAULT_BASE =
+	Platform.OS === "android"
+		? `http://10.0.2.2:${FALLBACK_PORT}` // Android 에뮬레이터
+		: `http://localhost:${FALLBACK_PORT}`; // iOS 시뮬레이터/웹
+
+export const API_BASE_URL = ENV_BASE || DEFAULT_BASE;
 
 type LoginForm = {
 	user_id: string;
@@ -52,6 +67,7 @@ export default function LoginScreen() {
 	const [showPwFace, setShowPwFace] = useState(false);
 	const inputFaceX = useRef(new Animated.Value(0)).current;
 	const pwFaceY = useRef(new Animated.Value(180)).current;
+
 	// 아이디 포커스
 	const onIdFocus = () => {
 		setShowPwFace(false);
@@ -74,7 +90,7 @@ export default function LoginScreen() {
 		}).start();
 	};
 	const onPwBlur = () => {
-		setShowPwFace(false); // 스냅 숨김 (나갈 때는 애니메이션 없이 즉시)
+		setShowPwFace(false);
 	};
 
 	useEffect(() => {
@@ -84,7 +100,7 @@ export default function LoginScreen() {
 		let targetX;
 
 		if (length === 0) {
-			targetX = (boxWidth / 2 - 30) - 95
+			targetX = (boxWidth / 2 - 30) - 95;
 		} else {
 			const percent = Math.min(length / maxChars, 1);
 			targetX = percent * boxWidth * 0.175;
@@ -96,39 +112,58 @@ export default function LoginScreen() {
 			easing: Easing.out(Easing.quad),
 			useNativeDriver: true,
 		}).start();
-	}, [form.user_id]);
+	}, [form.user_id, boxWidth, inputFaceX]);
 
 	const onChange = (key: keyof LoginForm, val: string) => {
 		setForm((prev) => ({ ...prev, [key]: val }));
 	};
 
+	// ✅ 파일 내 로컬 runWithLoading (새 파일 만들지 않음)
+	const runWithLoading = (
+		router: ReturnType<typeof useRouter>,
+		task: () => Promise<any>,
+		to: string,
+		message?: string
+	) => {
+		startLoading(router, { task, to, replace: true, message });
+	};
+
 	const handleLogin = async () => {
+		Keyboard.dismiss();
 		try {
-			Keyboard.dismiss();
-			setLoading(true);
-			const res = await fetch(`${API_BASE_URL}/auth/login`, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify(form),
-			});
+			// 디버깅에 도움되는 로그 (원인 파악용)
+			console.log("API_BASE_URL:", API_BASE_URL);
 
-			if (!res.ok) {
-				const text = await res.text().catch(() => "");
-				throw new Error(text || `Login failed (${res.status})`);
-			}
+			await runWithLoading(
+				router,
+				async () => {
+					const res = await fetch(`${API_BASE_URL}/auth/login`, {
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify(form),
+					});
 
-			// 토큰/세션 처리 예시 (백엔드 응답 구조에 맞게 수정)
-			const data = await res.json();
-			await setToken(data.token);
+					if (!res.ok) {
+						const text = await res.text().catch(() => "");
+						throw new Error(text || `Login failed (${res.status})`);
+					}
 
-			const next = typeof params.redirect === "string" ? (params.redirect as string) : "/(main)/home";
+					// 토큰/세션 처리
+					const data = await res.json();
+					await setToken(data.token);
+				},
+				// 성공 후 이동 경로
+				typeof params.redirect === "string"
+					? (params.redirect as string)
+					: "/(main)/home",
+				"로그인 중입니다..." // 선택 메시지
+			);
 		} catch (err: any) {
+			console.log("LOGIN ERROR:", err);
 			Alert.alert(
 				"로그인 실패",
 				err?.message ?? "아이디/비밀번호를 확인해주세요."
 			);
-		} finally {
-			setLoading(false);
 		}
 	};
 
@@ -196,8 +231,8 @@ export default function LoginScreen() {
 							placeholderTextColor="#909090"
 							value={form.user_pw}
 							onChangeText={(v) => onChange("user_pw", v)}
-							onFocus={onPwFocus}   // ✅ 추가
-							onBlur={onPwBlur}     // ✅ 추가
+							onFocus={onPwFocus}
+							onBlur={onPwBlur}
 							autoCapitalize="none"
 							secureTextEntry
 							returnKeyType="done"
@@ -289,6 +324,7 @@ const styles = StyleSheet.create({
 		position:'absolute',
 		top:180,
 		left:30,
+		transform:[{translateX:-95}],
 		width:180,
 		zIndex:2,
 	},
