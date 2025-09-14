@@ -36,23 +36,23 @@ def _make_sqlite_async_url() -> str:
 # SQLAlchemy 비동기 엔진 생성
 def _create_engine():
     """설정에 따라 적절한 데이터베이스 엔진을 생성"""
-    if settings.USE_SQLITE:
-        # SQLite (개발용)
-        return create_async_engine(
-            _make_sqlite_async_url(),
-            echo=settings.SQL_ECHO,
-            future=True,
-        )
-    else:
-        # AWS RDS MySQL (프로덕션용)
-        return create_async_engine(
-            _make_mysql_async_url(),
-            echo=settings.SQL_ECHO,
-            pool_pre_ping=True,  # 커넥션 풀 유효성 검사(커넥션이 끊어졌을 때 재연결)
-            pool_size=settings.DB_POOL_SIZE,
-            max_overflow=settings.DB_MAX_OVERFLOW,
-            future=True,
-        )
+    # SQLite (개발용) - 주석 처리
+    # if settings.USE_SQLITE:
+    #     return create_async_engine(
+    #         _make_sqlite_async_url(),
+    #         echo=settings.SQL_ECHO,
+    #         future=True,
+    #     )
+    # else:
+    # AWS RDS MySQL (프로덕션용) - 활성화
+    return create_async_engine(
+        _make_mysql_async_url(),
+        echo=settings.SQL_ECHO,
+        pool_pre_ping=True,  # 커넥션 풀 유효성 검사(커넥션이 끊어졌을 때 재연결)
+        pool_size=settings.DB_POOL_SIZE,
+        max_overflow=settings.DB_MAX_OVERFLOW,
+        future=True,
+    )
 
 engine = _create_engine()
 
