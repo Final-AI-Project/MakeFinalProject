@@ -71,7 +71,7 @@ class Base(DeclarativeBase):
     pass
 
 
-async def get_db() -> AsyncGenerator[AsyncSession, None]:
+async def get_db() -> AsyncGenerator[AsyncSession, None
     """
         FastAPI 의존성(Dependency) 주입용 세션 생성기.
         요청 당 1세션이 생성되어 반환됨.

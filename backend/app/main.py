@@ -5,8 +5,8 @@ from datetime import datetime, timezone
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from backend.app.core.config import settings
-from backend.app.core.database import engine
+# from backend.app.core.config import settings  # 잘못된 경로
+# from backend.app.core.database import engine   # 잘못된 경로
 
 try:
     from core.config import get_settings  # type: ignore
