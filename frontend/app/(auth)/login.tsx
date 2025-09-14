@@ -280,15 +280,6 @@ export default function LoginScreen() {
 							메인 페이지로 강제 건너뛰기 (로딩 테스트)
 						</Text>
 					</TouchableOpacity>
-
-					<TouchableOpacity
-						style={{ marginTop:16, alignSelf: "center" }}
-						onPress={() => router.replace("/common/loading")}
-					>
-						<Text style={[styles.labelText, { color: Colors.blue }]}>
-							로딩 페이지 강제 띄우기
-						</Text>
-					</TouchableOpacity>
 				</ScrollView>
 			</KeyboardAvoidingView>
 		</SafeAreaView>
