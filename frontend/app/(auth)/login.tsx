@@ -26,20 +26,12 @@ import inputface from "../../assets/images/login_eff_inputface.png";
 import pwface from "../../assets/images/login_eff_pwface.png";
 import { startLoading } from "../common/loading";
 
-// 🔧 환경별 안전한 API_BASE_URL (실기기는 EXPO_PUBLIC_API_BASE_URL 사용 권장)
-const FALLBACK_PORT = 8080;
-const ENV_BASE =
-	typeof process.env.EXPO_PUBLIC_API_BASE_URL === "string" &&
-	process.env.EXPO_PUBLIC_API_BASE_URL.trim().length > 0
-		? process.env.EXPO_PUBLIC_API_BASE_URL.trim()
-		: "";
 
-const DEFAULT_BASE =
-	Platform.OS === "android"
-		? `http://10.0.2.2:${FALLBACK_PORT}` // Android 에뮬레이터
-		: `http://localhost:${FALLBACK_PORT}`; // iOS 시뮬레이터/웹
+// 서버 주소를 환경에 맞게 바꿔주세요. (Expo 클라이언트에서 접근하려면 EXPO_PUBLIC_* prefix 필수)
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || "http://localhost:3000";
 
-export const API_BASE_URL = ENV_BASE || DEFAULT_BASE;
+// 디버깅용: 여러 포트 시도 (외부 환경 고려)
+const POSSIBLE_PORTS = [3000, 5000, 8080, 8000, 8001, 9000, 4000];
 
 type LoginForm = {
 	user_id: string;
@@ -129,35 +121,88 @@ export default function LoginScreen() {
 	const handleLogin = async () => {
 		Keyboard.dismiss();
 		try {
-			// 디버깅에 도움되는 로그 (원인 파악용)
-			console.log("API_BASE_URL:", API_BASE_URL);
 
-			await runWithLoading(
-				router,
-				async () => {
-					const res = await fetch(`${API_BASE_URL}/auth/login`, {
-						method: "POST",
-						headers: { "Content-Type": "application/json" },
-						body: JSON.stringify(form),
+			Keyboard.dismiss();
+			setLoading(true);
+			
+			// 백엔드가 기대하는 데이터 구조로 변환
+			const requestData = {
+				id_or_email: form.user_id,
+				password: form.user_pw
+			};
+			
+			console.log("Sending login request to:", `${API_BASE_URL}/auth/login`);
+			console.log("Request data:", requestData);
+			
+			// 서버 연결 테스트 (여러 포트 시도)
+			console.log("Testing server connection...");
+			let workingPort = null;
+			
+			for (const port of POSSIBLE_PORTS) {
+				try {
+					const testUrl = `http://localhost:${port}/healthcheck`;
+					console.log(`Trying port ${port}: ${testUrl}`);
+					const testRes = await fetch(testUrl, {
+						method: "GET",
+						headers: {
+							"Content-Type": "application/json",
+						},
+						mode: "cors", // CORS 모드 명시적 설정
 					});
-
-					if (!res.ok) {
-						const text = await res.text().catch(() => "");
-						throw new Error(text || `Login failed (${res.status})`);
+					console.log(`Port ${port} - Status:`, testRes.status);
+					if (testRes.ok) {
+						workingPort = port;
+						break;
 					}
-
-					// 토큰/세션 처리
-					const data = await res.json();
-					await setToken(data.token);
+				} catch (testError) {
+					console.log(`Port ${port} failed:`, testError.message);
+				}
+			}
+			
+			if (!workingPort) {
+				throw new Error("모든 포트에서 서버에 연결할 수 없습니다. 백엔드 서버가 실행 중인지 확인해주세요.");
+			}
+			
+			console.log(`Working port found: ${workingPort}`);
+			const workingApiUrl = `http://localhost:${workingPort}`;
+			
+			const res = await fetch(`${workingApiUrl}/auth/login`, {
+				method: "POST",
+				headers: { 
+					"Content-Type": "application/json",
+					"Accept": "application/json",
 				},
-				// 성공 후 이동 경로
-				typeof params.redirect === "string"
-					? (params.redirect as string)
-					: "/(main)/home",
-				"로그인 중입니다..." // 선택 메시지
-			);
+				mode: "cors", // CORS 모드 명시적 설정
+				body: JSON.stringify(requestData),
+			});
+			
+			console.log("Response status:", res.status);
+			console.log("Response ok:", res.ok);
+
+			if (!res.ok) {
+				const text = await res.text().catch(() => "");
+				console.log("Error response text:", text);
+				throw new Error(text || `Login failed (${res.status})`);
+			}
+
+			// 백엔드 응답 구조에 맞게 토큰 처리
+			const data = await res.json();
+			console.log("Response data:", data);
+			console.log("Response data keys:", Object.keys(data));
+			console.log("Access token:", data.access_token);
+			
+			if (!data.access_token) {
+				throw new Error("No access token received from server");
+			}
+			
+			await setToken(data.access_token);
+
+			// 로그인 성공 후 home으로 이동
+			const next = typeof params.redirect === "string" ? (params.redirect as string) : "/(main)/home";
+			router.replace(next as any);
 		} catch (err: any) {
-			console.log("LOGIN ERROR:", err);
+			console.error("Login error:", err);
+
 			Alert.alert(
 				"로그인 실패",
 				err?.message ?? "아이디/비밀번호를 확인해주세요."

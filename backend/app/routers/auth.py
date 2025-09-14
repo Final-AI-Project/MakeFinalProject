@@ -3,18 +3,21 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..core.database import get_db
-from ..db.schemas.user import UserCreate, UserOut, UserLoginRequest, TokenPair, RefreshRequest, LogoutRequest
+from core.database import get_db
+from db.schemas.user import UserCreate, UserOut
 
-from ..utils.errors import http_error
-from ..services import storage, auth_service  
-from ..utils import token_blacklist
+from services import auth_service  
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post("/register", response_model=UserOut, status_code=201)
 async def register_user(payload: UserCreate, db: AsyncSession = Depends(get_db)):
+    return await auth_service.register_user(db=db, payload=payload)
+
+@router.post("/signup", response_model=UserOut, status_code=201)
+async def signup_user(payload: UserCreate, db: AsyncSession = Depends(get_db)):
+    """회원가입 엔드포인트 (register와 동일)"""
     return await auth_service.register_user(db=db, payload=payload)
 
 

@@ -4,8 +4,7 @@ from typing import Optional, Sequence
 from sqlalchemy import select, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.app.db.models.pest_wiki import PestWiki
-
+from db.models.pest_wiki import PestWiki
 
 async def get(db: AsyncSession, idx: int) -> Optional[PestWiki]:
     res = await db.execute(select(PestWiki).where(PestWiki.idx == idx))

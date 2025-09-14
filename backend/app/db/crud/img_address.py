@@ -5,8 +5,8 @@ from sqlalchemy import select, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from backend.app.db.models.img_address import ImgAddress
 
+from db.models.img_address import ImgAddress
 
 async def add_image_url(
     db: AsyncSession,

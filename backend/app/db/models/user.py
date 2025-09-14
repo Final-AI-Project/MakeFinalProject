@@ -2,15 +2,16 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from datetime import datetime
+from typing import TYPE_CHECKING
 from sqlalchemy import String, DateTime
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from backend.app.core.database import Base
+from core.database import Base
 
 if TYPE_CHECKING:
-    from backend.app.db.models.diary import Diary
-    from backend.app.db.models.user_plant import UserPlant
-
+    from .diary import Diary
+    from .user_plant import UserPlant
+    
 
 class User(Base):
     __tablename__ = "users"

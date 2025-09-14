@@ -6,20 +6,20 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 
-from backend.app.db.models.user import User
-from backend.app.db.schemas.user import UserCreate
-from backend.app.db.crud import user as users_crud
+from db.models.user import User
+from db.schemas.user import UserCreate
+from db.crud import user as users_crud
 
-from backend.app.utils.errors import http_error
-from backend.app.utils.security import (
+from utils.errors import http_error
+from utils.security import (
     hash_password,
     verify_password,
     create_access_token,
     create_refresh_token,
     decode_token,
 )
-from backend.app.core.config import get_settings
-from backend.app.utils import token_blacklist
+from core.config import get_settings
+from utils import token_blacklist
 
 
 def _normalize_email(email: str) -> str:

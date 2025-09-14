@@ -10,7 +10,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 # 설정에서 JWT 시크릿/알고리즘을 읽어오되, 없으면 느슨 모드로 동작
 try:
-    from ..core.config import get_settings  # type: ignore
+    from core.config import get_settings  # type: ignore
 except Exception:  # pragma: no cover
     get_settings = None  # fallback
 

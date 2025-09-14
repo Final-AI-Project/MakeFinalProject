@@ -11,12 +11,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-from ..services.dashboard_service import DashboardService
-from ..services.users_service import (
+from services.dashboard_service import DashboardService
+from services.users_service import (
     get_current_user,
     UsersService,
 )
-from ..utils.weather_client import WeatherClient
+from utils.weather_client import WeatherClient
 
 router = APIRouter()
 

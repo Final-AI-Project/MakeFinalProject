@@ -6,10 +6,10 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import jwt, JWTError
 from passlib.context import CryptContext
 
-from backend.app.core.config import get_settings
-from backend.app.services import storage
-from backend.app.utils.errors import http_error
-from backend.app.utils import token_blacklist  
+from core.config import get_settings
+from services import storage
+from utils.errors import http_error
+from utils import token_blacklist  
 
 
 # 비밀번호 해싱 및 검증
