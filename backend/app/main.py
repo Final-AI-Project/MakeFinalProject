@@ -4,9 +4,10 @@ import os
 from datetime import datetime, timezone
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 
-from backend.app.core.config import settings
-from backend.app.core.database import engine
+from .core.config import settings
+from .core.database import engine
 
 try:
     from core.config import get_settings  # type: ignore
@@ -19,10 +20,9 @@ from routers.dashboard import router as dashboard_router
 from routers.auth import router as auth_router
 from routers.plants import router as plants_router
 from routers.images import router as images_router
-
 from utils.errors import register_error_handlers
 
-import backend.app.db.models 
+from .db import models
 
 
 app = FastAPI(title="Pland API", version="0.1.0")

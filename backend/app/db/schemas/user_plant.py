@@ -1,6 +1,7 @@
 from __future__ import annotations
 from datetime import datetime
 from pydantic import Field
+from typing import List, Optional
 from .common import OrmBase
 from .humid_info import HumidInfoOut 
 
@@ -18,6 +19,7 @@ class UserPlantUpdate(OrmBase):
     pest_id: int | None = None
     meet_day: datetime | None = None
 
+# 식물 정보 response
 class UserPlantOut(OrmBase):
     idx: int
     user_id: str
@@ -29,3 +31,9 @@ class UserPlantOut(OrmBase):
 
     # 관계 포함(선택): 최근 N개만 보여주고 싶다면 서비스에서 슬라이싱
     humid_infos: list["HumidInfoOut"] = []
+
+# 대시보드 리스트화
+class PlantListOut(OrmBase):
+    items: List[UserPlantOut]
+    next_cursor: Optional[str] = None
+    has_more: bool = False
