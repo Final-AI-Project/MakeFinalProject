@@ -7,17 +7,13 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..core.database import get_db
+from core.database import get_db
+from db.crud import user_plant as user_plant_crud
+from db.models.user_plant import UserPlant
+from utils.security import get_current_user
+from utils.pagination import decode_id_cursor, encode_id_cursor, page_window
 
-# 
-
-from backend.app.core.database import get_db
-from backend.app.db.crud import user_plant as user_plant_crud
-from backend.app.db.models.user_plant import UserPlant
-from backend.app.utils.security import get_current_user
-from backend.app.utils.pagination import decode_id_cursor, encode_id_cursor, page_window
-
-# router = APIRouter(prefix="/plants", tags=["plants"])
+router = APIRouter(prefix="/plants", tags=["plants"])
 
 
 # # ====== Schemas ======

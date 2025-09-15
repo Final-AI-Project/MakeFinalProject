@@ -58,7 +58,7 @@ class Settings(BaseSettings):
     SQL_ECHO: bool = Field(default=False, validation_alias='SQL_ECHO')
     
     # SQLite 사용 여부 (개발용)
-    USE_SQLITE: bool = Field(default=True, validation_alias='USE_SQLITE')
+    USE_SQLITE: bool = Field(default=False, validation_alias='USE_SQLITE')
 
     @property
     def ROOT_DIR(self) -> Path:

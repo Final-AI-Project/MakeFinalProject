@@ -12,10 +12,10 @@ from typing import Any, Dict, List, Optional, Tuple
 from sqlalchemy import func, select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..db.models.user_plant import UserPlant
-from ..db.models.humid_info import HumidInfo
+from db.models.user_plant import UserPlant
+from db.models.humid_info import HumidInfo
 
-from ..utils.weather_client import WeatherClient
+from utils.weather_client import WeatherClient
 from .users_service import UsersService
 
 
