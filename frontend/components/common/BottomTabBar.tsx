@@ -1,17 +1,21 @@
+// app/common/BottomTabBar.tsx
 import React from "react";
-import { View, Text, TouchableOpacity, StyleSheet, Platform } from "react-native";
+import { View, TouchableOpacity, StyleSheet, Platform } from "react-native";
+import { Text } from "react-native"; // ← 필요 없으면 제거해도 됨
 import { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useColorScheme } from "react-native";
 import Colors from "../../constants/Colors";
 
-type RouteKey = "home" | "camera" | "diary";
+type RouteKey = "home" | "camera" | "diary" | "menu" | "medical";
 
 const ICONS: Record<RouteKey, { active: keyof typeof Ionicons.glyphMap; inactive: keyof typeof Ionicons.glyphMap }> = {
-	home:	 { active: "home",		inactive: "home-outline" },
-	camera: { active: "camera",	inactive: "camera-outline" },
-	diary:	{ active: "create",	inactive: "create-outline" },
+	home:	 { active: "home",	 inactive: "home-outline" },
+	camera:   { active: "camera",   inactive: "camera-outline" },
+	diary:	{ active: "create",   inactive: "create-outline" },
+	menu:	 { active: "grid",	 inactive: "grid-outline" },	  // ✅ 전체메뉴
+	medical:  { active: "medkit",   inactive: "medkit-outline" },	// ✅ 의료
 };
 
 export default function BottomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
@@ -43,12 +47,11 @@ export default function BottomTabBar({ state, descriptors, navigation }: BottomT
 						(options.tabBarLabel as string) ??
 						options.title ??
 						(route.name.charAt(0).toUpperCase() + route.name.slice(1));
-					const key = route.name.toLowerCase() as RouteKey;
+					const key = (route.name.toLowerCase() as RouteKey) || "home";
 
 					const color = isFocused ? theme.primary : "#9aa0a6";
 					const iconName = isFocused ? ICONS[key]?.active : ICONS[key]?.inactive;
 
-					// 가운데 카메라 탭을 FAB처럼 강조
 					const isFab = key === "camera";
 
 					return (
@@ -56,6 +59,7 @@ export default function BottomTabBar({ state, descriptors, navigation }: BottomT
 							key={route.key}
 							accessibilityRole="button"
 							accessibilityState={isFocused ? { selected: true } : {}}
+							accessibilityLabel={label}
 							onPress={() => onPress(index)}
 							style={[styles.tabBtn, isFab && styles.fabSlot]}
 							activeOpacity={0.9}
@@ -75,7 +79,9 @@ export default function BottomTabBar({ state, descriptors, navigation }: BottomT
 							) : (
 								<View style={styles.pill}>
 									<Ionicons name={iconName || "ellipse-outline"} size={22} color={color} />
+									{/* 🔇 라벨 전부 숨김 (원하면 아래를 주석 해제해 개별 표시 가능)
 									<Text style={[styles.label, { color }]} numberOfLines={1}>{label}</Text>
+									*/}
 								</View>
 							)}
 						</TouchableOpacity>
@@ -91,6 +97,7 @@ const styles = StyleSheet.create({
 		position: "absolute",
 		left: 0, right: 0, bottom: 0,
 		alignItems: "center",
+		borderTopColor:'red',
 	},
 	bar: {
 		flexDirection: "row",
@@ -102,7 +109,7 @@ const styles = StyleSheet.create({
 		borderRadius: 24,
 		width: "92%",
 		...Platform.select({
-			ios:		 { shadowOpacity: 0.15, shadowRadius: 14, shadowOffset: { width: 0, height: 8 } },
+			ios:	 { shadowOpacity: 0.15, shadowRadius: 14, shadowOffset: { width: 0, height: 8 } },
 			android: { elevation: 12 },
 		}),
 	},
@@ -131,7 +138,7 @@ const styles = StyleSheet.create({
 	fab: {
 		width: 56, height: 56, borderRadius: 28,
 		alignItems: "center", justifyContent: "center",
-		marginTop: -18, // 살짝 떠보이게
+		marginTop: -18,
 		...Platform.select({
 			ios:	 { shadowOpacity: 0.25, shadowRadius: 12, shadowOffset: { width: 0, height: 10 } },
 			android: { elevation: 16 },
