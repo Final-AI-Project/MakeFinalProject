@@ -7,9 +7,9 @@ from fastapi import APIRouter, Depends, Query, Body
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..core.database import get_db
-from ..utils.security import get_current_user
-from ..services.dashboard_service import DashboardService
+from core.database import get_db
+from utils.security import get_current_user
+from services.dashboard_service import DashboardService
 
 # ===메인화면 (dashboard) 라우터===
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])

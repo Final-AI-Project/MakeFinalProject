@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import String, DateTime, Integer, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from ...core.database import Base
+from core.database import Base
 
 if TYPE_CHECKING:
     from ..models.humid_info import HumidInfo

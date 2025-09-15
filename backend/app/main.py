@@ -6,8 +6,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
-from .core.config import settings
-from .core.database import engine
+from core.config import settings
+from core.database import engine
 
 try:
     from core.config import get_settings  # type: ignore
@@ -22,7 +22,7 @@ from routers.plants import router as plants_router
 from routers.images import router as images_router
 from utils.errors import register_error_handlers
 
-from .db import models
+# import db.models  # 임시 주석처리 
 
 
 app = FastAPI(title="Pland API", version="0.1.0")
@@ -50,7 +50,8 @@ app.add_middleware(
 def healthcheck():
     return {"ok": True, "now": datetime.now(timezone.utc).isoformat()}
 
-# DB 헬스체크
+
+# DB 헬스체크 - 임시 주석처리
 @app.get("/health/db")
 async def health_db():
     async with engine.connect() as conn:
