@@ -35,14 +35,15 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
+          "backgroundColor": "#111827"
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true
     },
-	"androidStatusBar": {
+    "androidStatusBar": {
       "backgroundColor": "#111827",
       "barStyle": "light-content",
       "translucent": false

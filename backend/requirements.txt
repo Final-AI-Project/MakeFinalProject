@@ -6,7 +6,6 @@ starlette==0.47.3
 # Database
 SQLAlchemy==2.0.43
 aiomysql==0.2.0
-asyncmy==0.2.10
 PyMySQL==1.1.2
 
 # Authentication & Security
