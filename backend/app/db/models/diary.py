@@ -6,11 +6,11 @@ from typing import TYPE_CHECKING
 from sqlalchemy import String, DateTime, func, ForeignKey, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from core.database import Base
+from ...core.database import Base
 
 if TYPE_CHECKING:
-    from .user import User
-    from .img_address import ImgAddress
+    from ..models.user import User
+    from ..models.img_address import ImgAddress
 
 class Diary(Base):
     __tablename__ = "diary"

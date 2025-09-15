@@ -6,7 +6,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 from typing import BinaryIO, Tuple
 
-from core.config import settings
+from ..core.config import settings
 
 # In-memory stores
 _USERS_BY_ID: Dict[str, Dict[str, Any]] = {}

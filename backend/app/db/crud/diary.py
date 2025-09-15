@@ -5,7 +5,8 @@ from sqlalchemy import select, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from db.models.diary import Diary
+from ..models.diary import Diary
+
 
 async def get(db: AsyncSession, diary_id: int) -> Optional[Diary]:
     res = await db.execute(

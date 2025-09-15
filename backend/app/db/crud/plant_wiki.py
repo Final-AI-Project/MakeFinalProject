@@ -4,7 +4,8 @@ from typing import Optional, Sequence
 from sqlalchemy import select, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from db.models.plant_wiki import PlantWiki
+from ..models.plant_wiki import PlantWiki
+
 
 async def get(db: AsyncSession, idx: int) -> Optional[PlantWiki]:
     res = await db.execute(select(PlantWiki).where(PlantWiki.idx == idx))

@@ -7,10 +7,10 @@ from pydantic import BaseModel
 import jwt  # PyJWT
 from jwt import InvalidTokenError
 
-from core.config import settings
-# from utils.errors import err
-from services import image_service
-from services.storage import safe_ext, sniff_mime
+from ..core.config import settings
+# from backend.app.utils.errors import err
+from ..services import image_service
+from ..services.storage import safe_ext, sniff_mime
 
 router = APIRouter(prefix="/plants", tags=["images"])
 

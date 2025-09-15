@@ -4,123 +4,22 @@ import base64
 import json
 import random
 import uuid
+
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
-from utils.weather_client import WeatherClient
+from sqlalchemy import func, select, and_
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from ..db.models.user_plant import UserPlant
+from ..db.models.humid_info import HumidInfo
+
+from ..utils.weather_client import WeatherClient
 from .users_service import UsersService
 
-# 간단 라우팅/집계 오케스트레이터
-@dataclass
-class DashboardService:
-    weather_client: WeatherClient
-    users_service: UsersService
 
-    # -------- Weather --------
-    async def get_weather_for_preference(self, prefs: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        """
-        선호 지역에서 날씨 조회. 실패 시 None 반환(상위에서 null 처리).
-        """
-        try:
-            wl = prefs.get("weather_location") or {}
-            code = wl.get("location_code", "SEOUL_KR")
-            name = wl.get("name", "Seoul, KR")
-            raw = await self.weather_client.get_weather(code)
-            # 인터페이스 표준화
-            return {
-                "location_code": code,
-                "name": name,
-                "temp_c": float(raw["temp_c"]),
-                "condition": raw["condition"],
-                "icon_url": raw["icon_url"],
-                "updated_at": raw["updated_at"],
-            }
-        except Exception:
-            return None
-
-    # -------- Plants (Stub) --------
-    async def list_plants_summary(self, user_id: str, limit: int, cursor: Optional[str]) -> Dict[str, Any]:
-        """
-        스와이프 카드용 식물 요약 리스트 (커서 기반).
-        외부 저장소 연동 전까지 메모리/더미 데이터 사용.
-        """
-        items_all = _get_or_seed_user_plants(user_id)
-
-        start_idx = 0
-        if cursor:
-            try:
-                start_idx = _decode_cursor(cursor).get("offset", 0)
-            except Exception:
-                # 커서가 손상되었으면 처음부터
-                start_idx = 0
-
-        end_idx = min(start_idx + limit, len(items_all))
-        window = items_all[start_idx:end_idx]
-
-        # brief_status 간단 규칙 생성
-        now = datetime.now(timezone.utc)
-        out_items: List[Dict[str, Any]] = []
-        for p in window:
-            # 랜덤 규칙 예시
-            soil_ok = random.random() > 0.35
-            if soil_ok:
-                brief = "토양 수분 적정. 24시간 후 재확인 권장."
-            else:
-                brief = "토양 수분 낮음. 오늘 저녁 100ml 권장."
-
-            last_update = now - timedelta(minutes=random.randint(10, 180))
-            out_items.append(
-                {
-                    "plant_id": p["plant_id"],
-                    "nickname": p["nickname"],
-                    "brief_status": brief,
-                    "last_update_at": last_update,
-                    "thumbnail_url": p.get("thumbnail_url"),
-                    "detail_path": f"/plants/{p['plant_id']}",
-                }
-            )
-
-        has_more = end_idx < len(items_all)
-        next_cursor = _encode_cursor({"offset": end_idx}) if has_more else None
-
-        return {
-            "items": out_items,
-            "next_cursor": next_cursor,
-            "has_more": has_more,
-        }
-
-# -----------------------
-# In-memory stub storage
-# -----------------------
-_USER_PLANTS_DB: Dict[str, List[Dict[str, Any]]] = {}
-
-def _get_or_seed_user_plants(user_id: str) -> List[Dict[str, Any]]:
-    if user_id in _USER_PLANTS_DB:
-        return _USER_PLANTS_DB[user_id]
-
-    # 샘플 시드 (실제 구현 시 DB 연동)
-    nicknames = [
-        "초코몬스테라", "룰루필로덴드론", "레모니카스", "무화과베이비",
-        "피톤치드소나무", "카랑코에", "금사철", "칼라디움",
-        "헬로마리모", "행운목", "올리브", "스킨답서스"
-    ]
-    seeded: List[Dict[str, Any]] = []
-    for i, n in enumerate(nicknames, 1):
-        plant_id = str(uuid.uuid4())
-        thumb = None
-        if i % 3 == 0:
-            thumb = f"https://picsum.photos/seed/{plant_id[:8]}/256/256"
-        seeded.append(
-            {"plant_id": plant_id, "nickname": n, "thumbnail_url": thumb}
-        )
-
-    _USER_PLANTS_DB[user_id] = seeded
-    return seeded
-
-# -----------------------
-# Opaque cursor helpers
-# -----------------------
+# 커서 헬퍼
 def _encode_cursor(obj: Dict[str, Any]) -> str:
     return base64.urlsafe_b64encode(json.dumps(obj).encode("utf-8")).decode("utf-8")
 
@@ -128,3 +27,146 @@ def _decode_cursor(s: str) -> Dict[str, Any]:
     pad = '=' * ((4 - len(s) % 4) % 4)
     raw = base64.urlsafe_b64decode((s + pad).encode("utf-8")).decode("utf-8")
     return json.loads(raw)
+
+@dataclass
+class DashboardService:
+    """
+    DB 기반 대시보드 서비스
+    - 프론트가 넘겨준 날씨를 가볍게 검증, 정규화 (브릿지)
+    - user_plant, humid_info로 "내 식물" 카드 목록 구성 (커서 기반 페이징)
+    """
+    db:AsyncSession
+
+    # wether bridge
+    # 변환 함수 (공용 유틸)
+    # 프론트에서 받아온 정보를 Dict로 표준화해 변환하고, 다른 서비스에서 함수를 호출해 Dict값을 넘겨받아 사용
+    async def normalize_weather_from_front(self, raw: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        프론트에서 받아온 현재 날씨를 서버 표준 형태로 정규화합니다.
+        """
+        now = datetime.now(timezone.utc)
+        code = str(raw.get("location_code" or "SEOUL_KR"))
+        name = str(raw.get("name") or "Seoul, KR")
+        temp_c = float(raw.get("temp_c") or 0.0)
+        condition = str(raw.get("condition") or "")
+        icon_url = str(raw.get("icon_url") or "")
+        updated_at = raw.get("updated_at")
+        if not updated_at:
+            updated_at = now
+        return {
+            "location_code": code,
+            "name": name,
+            "temp_c": temp_c,
+            "condition": condition,
+            "icon_url": icon_url,
+            "updated_at": updated_at,
+            "server_received_at": now,
+        }
+    
+    # plants summary 
+    async def list_plants_summary(
+            self,
+            *,
+            user_id: str,
+            limit: int,
+            cursor: Optional[str],
+    ) -> Dict[str, Any]:
+        """
+        스와이프 카드용 식물 요약 리스트
+        - 정렬: user_plant.idx DESC
+        - 커서: 마지막 idx 기준으로 그 다음 페이지
+        - humid_info: 각 plant_id별 최신 1건 조인
+        """
+        last_idx: Optional[int] = None
+        if cursor:
+            try:
+                last_idx = int(_decode_cursor(cursor).get("last_idx", 0)) or None
+            except Exception:
+                last_idx = None
+
+        # 1) 내 식물 목록 조회 (limit+1 로 has_more 판정)
+        up_stmt = (
+            select(UserPlant)
+            .where(UserPlant.user_id == user_id)
+            .order_by(UserPlant.idx.desc())
+            .limit(limit + 1)
+        )
+        if last_idx is not None:
+            up_stmt = up_stmt.where(UserPlant.idx < last_idx)
+
+        ups = (await self.db.execute(up_stmt)).scalars().all()
+        has_more = len(ups) > limit
+        ups = ups[:limit]
+
+        if not ups:
+            return {"items": [], "next_cursor": None, "has_more": False}
+
+        # 2) 해당 plant_id 목록
+        plant_ids = [u.plant_id for u in ups]
+
+        # 3) 각 plant_id별 최신 습도 측정 시각 서브쿼리
+        latest_subq = (
+            select(
+                HumidInfo.plant_id.label("pid"),
+                func.max(HumidInfo.humid_date).label("max_date"),
+            )
+            .where(HumidInfo.plant_id.in_(plant_ids))
+            .group_by(HumidInfo.plant_id)
+            .subquery()
+        )
+
+        # 4) 최신 시각과 일치하는 행 join → 최신 humidity 확보
+        #    LEFT OUTER JOIN 으로 최신 로그가 없어도 식물은 나오게
+        join_stmt = (
+            select(
+                HumidInfo.plant_id,
+                HumidInfo.humidity,
+                HumidInfo.humid_date,
+            )
+            .join(
+                latest_subq,
+                and_(
+                    HumidInfo.plant_id == latest_subq.c.pid,
+                    HumidInfo.humid_date == latest_subq.c.max_date,
+                ),
+                isouter=True,
+            )
+        )
+        hi_rows = (await self.db.execute(join_stmt)).all()
+        latest_map: Dict[int, Dict[str, Any]] = {
+            int(r.plant_id): {
+                "humidity": float(r.humidity) if r.humidity is not None else None,
+                "humid_date": r.humid_date,
+            }
+            for r in hi_rows
+        }
+
+        # 5) 카드 아이템 구성
+        items: List[Dict[str, Any]] = []
+        for up in ups:
+            latest = latest_map.get(int(up.plant_id), {})
+            humidity = latest.get("humidity")
+            humid_date = latest.get("humid_date")
+            # pest 상태 문자열
+            if up.pest_id is None:
+                pest_status = "healthy"
+                pest_value: Optional[int] = None
+            else:
+                pest_status = "has_pest"
+                pest_value = int(up.pest_id)
+
+            items.append(
+                {
+                    "plant_id": int(up.plant_id),
+                    "plant_name": up.plant_name,
+                    "species": up.species,
+                    "pest_status": pest_status,   # 'healthy' or 'has_pest'
+                    "pest_id": pest_value,        # has_pest일 때만 값, 아니면 null
+                    "humidity": humidity,         # 마지막 측정값(없으면 null)
+                    "humid_date": humid_date,     # 마지막 측정 시각(없으면 null)
+                    "detail_path": f"/plants/{up.plant_id}",
+                }
+            )
+
+        next_cursor = _encode_cursor({"last_idx": int(ups[-1].idx)}) if has_more else None
+        return {"items": items, "next_cursor": next_cursor, "has_more": has_more}

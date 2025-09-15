@@ -4,7 +4,8 @@ from typing import Optional, Sequence
 from sqlalchemy import select, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from db.models.user_plant import UserPlant
+from ..models.user_plant import UserPlant
+
 
 async def get_by_idx(db: AsyncSession, idx: int) -> Optional[UserPlant]:
     res = await db.execute(select(UserPlant).where(UserPlant.idx == idx))

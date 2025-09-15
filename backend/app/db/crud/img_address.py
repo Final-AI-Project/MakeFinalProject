@@ -5,6 +5,7 @@ from sqlalchemy import select, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from ..models.img_address import ImgAddress
 
 from db.models.img_address import ImgAddress
 
