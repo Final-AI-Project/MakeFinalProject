@@ -37,6 +37,8 @@ env.bak/
 venv.bak/
 models/LMM/model_venv/
 .venv/
+backend/venv/
+models/venv/
 
 # IDE 관련
 .vscode/
@@ -71,6 +73,15 @@ logs/
 *.safetensors
 models/weight/
 models/checkpoints/
+# *.pt  # 작은 모델 파일은 포함 (3MB 이하)
+# *.pth  # 작은 모델 파일은 포함 (3MB 이하)
+*.onnx
+*.tflite
+
+# 큰 모델 파일만 ignore (10MB 이상)
+# models/large_models/
+# *.large.pt
+# *.large.pth
 
 # CUDA 관련 (선택적)
 models/LMM/requirement_cuda.txt
@@ -89,4 +100,27 @@ htmlcov/
 # mypy
 .mypy_cache/
 .dmypy.json
-dmypy.json
+dmypy.json 
+# Frontend/Node.js 
+node_modules/ 
+.expo/ 
+web-build/ 
+*.tsbuildinfo 
+frontend/node_modules/
+frontend/.expo/
+frontend/web-build/
+
+# Frontend
+models/plants-dataset
+expo-env.d.ts
+
+# 데이터베이스
+*.db
+*.sqlite
+*.sqlite3
+backend/app/dev.db
+
+# 백업 파일
+*.backup
+*.bak
+requirements_backup.txt

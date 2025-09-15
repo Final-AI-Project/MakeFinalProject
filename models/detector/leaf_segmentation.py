@@ -6,6 +6,10 @@ import io
 from ultralytics import YOLO
 import os
 
+# === PyTorch 2.6 호환성을 위한 설정 ===
+# torch.load의 weights_only를 False로 설정
+torch.serialization.DEFAULT_PROTOCOL = 2
+
 class LeafSegmentationModel:
     def __init__(self, model_path: str):
         """
@@ -31,6 +35,7 @@ class LeafSegmentationModel:
     def _load_model(self):
         """YOLO 세그멘테이션 모델 로드"""
         try:
+<<<<<<< HEAD
             # PyTorch 2.6 호환성을 위한 설정
             import torch
             import pickle
@@ -59,6 +64,12 @@ class LeafSegmentationModel:
             pickle.load = safe_pickle_load
             
             # 모델 로드
+=======
+            # weights_only=False로 모델 로딩
+            original_load = torch.load
+            torch.load = lambda *args, **kwargs: original_load(*args, **kwargs, weights_only=False)
+            
+>>>>>>> b4b8a4c3f853076a618e8ef80181daa1341aa766
             self.model = YOLO(self.model_path)
             
             # 원래 함수들 복원
@@ -67,6 +78,9 @@ class LeafSegmentationModel:
             
             print(f"✅ 세그멘테이션 모델 로드 완료: {self.model_path}")
             print(f"🔧 Device: {self.device}")
+            
+            # 원래 torch.load 복원
+            torch.load = original_load
         except Exception as e:
             print(f"❌ 모델 로드 실패: {e}")
             # 원래 함수들 복원 (오류 발생 시에도)
