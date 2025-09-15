@@ -1,13 +1,12 @@
 // https://docs.expo.dev/guides/using-eslint/
-const { defineConfig } = require('eslint/config');
-const expoConfig = require('eslint-config-expo/flat');
-
-module.exports = function(api) {
-  api.cache(true);
-  return {
-    presets: ['babel-preset-expo'],
-    plugins: [
-      'react-native-reanimated/plugin', // <= 마지막에 위치
-    ],
-  };
+module.exports = function (api) {
+    api.cache(true);
+    return {
+        presets: ['babel-preset-expo'],
+        plugins: [
+            'expo-router/babel',
+            // Reanimated 플러그인은 항상 마지막
+            'react-native-reanimated/plugin',
+        ],
+    };
 };
