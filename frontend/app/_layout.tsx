@@ -1,29 +1,41 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
+// app/_layout.tsx
+import 'react-native-gesture-handler';
 import 'react-native-reanimated';
-
-import { useColorScheme } from '@/hooks/useColorScheme';
+import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
+import { Stack } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import { StyleSheet, useColorScheme } from "react-native";
+import Colors from "../constants/Colors";
+import { GlobalLoadingHost } from "./common/loading";
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
-  const [loaded] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
-  });
+	const scheme = useColorScheme();
+	const theme = Colors[scheme === "dark" ? "dark" : "light"];
 
-  if (!loaded) {
-    // Async font loading only occurs in development.
-    return null;
-  }
-
-  return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="+not-found" />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
-  );
+	return (
+		<SafeAreaProvider>
+			<SafeAreaView
+				edges={["top", "bottom"]}
+				style={[styles.layout, { backgroundColor: theme.bg }]}
+			>
+				<StatusBar style={theme.statusBarStyle} />
+				<Stack
+					screenOptions={{
+						headerShown: false,
+						contentStyle: { backgroundColor: "transparent" },
+					}}
+				/>
+				{/* ✅ 전역 딤 로딩 모달 호스트 */}
+				<GlobalLoadingHost />
+			</SafeAreaView>
+		</SafeAreaProvider>
+	);
 }
+
+const styles = StyleSheet.create({
+	layout: {
+		flex: 1,
+		paddingTop: 5,
+		paddingHorizontal: 24,
+	},
+});
