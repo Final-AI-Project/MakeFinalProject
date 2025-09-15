@@ -22,7 +22,8 @@ export default function RootLayout() {
 				<Stack
 					screenOptions={{
 						headerShown: false,
-						contentStyle: { backgroundColor: "transparent" },
+						contentStyle: { backgroundColor: theme.bg },
+						animation: "fade",
 					}}
 				/>
 				{/* ✅ 전역 딤 로딩 모달 호스트 */}

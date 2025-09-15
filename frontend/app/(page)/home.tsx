@@ -1,13 +1,15 @@
 // app/(tabs)/index.tsx
 import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, Dimensions } from 'react-native';
-import { Link } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
 import Carousel from 'react-native-reanimated-carousel';
 import WeatherBox from "../common/weatherBox";
 
 const { width } = Dimensions.get('window');
 
 export default function Home() {
+	const router = useRouter();
+	
 	// 캐러셀 상태만 유지
 	const [activeIndex, setActiveIndex] = useState(0);
 	const slides = useMemo(() => ([
@@ -65,7 +67,6 @@ export default function Home() {
 const styles = StyleSheet.create({
 	container: {
 		flex: 1,
-		alignItems: 'stretch',
 		paddingTop:20,
 	},
 	// 캐러셀
