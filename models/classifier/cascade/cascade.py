@@ -31,24 +31,30 @@ def build_model(model_name: str, num_classes: int, img_size: int):
         in_feat = model.classifier[-1].in_features
         model.classifier[-1] = nn.Linear(in_feat, num_classes)
         rec = 224
-    elif name in ["efficientnet_b0", "effnet_b0"]:
-        weights = EfficientNet_B0_Weights.IMAGENET1K_V1
-        model = models.efficientnet_b0(weights=weights)
-        in_feat = model.classifier[-1].in_features
-        model.classifier[-1] = nn.Linear(in_feat, num_classes)
+    elif name in ["shufflenet_v2", "shufflenet_v2_x1_0"]:
+        # torchvision 내장
+        from torchvision.models import shufflenet_v2_x1_0, ShuffleNet_V2_X1_0_Weights
+        weights = ShuffleNet_V2_X1_0_Weights.IMAGENET1K_V1
+        model = shufflenet_v2_x1_0(weights=weights)
+        in_feat = model.fc.in_features
+        model.fc = nn.Linear(in_feat, num_classes)
         rec = 224
-    elif name in ["efficientnet_b2", "effnet_b2"]:
-        weights = EfficientNet_B2_Weights.IMAGENET1K_V1
-        model = models.efficientnet_b2(weights=weights)
-        in_feat = model.classifier[-1].in_features
-        model.classifier[-1] = nn.Linear(in_feat, num_classes)
-        rec = 260
-    elif name in ["efficientnet_b3", "effnet_b3"]:
-        weights = EfficientNet_B3_Weights.IMAGENET1K_V1
-        model = models.efficientnet_b3(weights=weights)
-        in_feat = model.classifier[-1].in_features
-        model.classifier[-1] = nn.Linear(in_feat, num_classes)
-        rec = 300
+    elif name in ["ghostnet"]:
+        try:
+            import timm
+        except ImportError:
+            raise ImportError("GhostNet을 쓰려면 `pip install timm` 후 다시 실행하세요.")
+        # 예: ghostnet_100 / ghostnet_130 등
+        model = timm.create_model("ghostnet_100", pretrained=True, num_classes=num_classes)
+        rec = 224  # timm default는 보통 224
+    elif name in ["mobilevitv2", "mobilevitv2_100"]:
+        try:
+            import timm
+        except ImportError:
+            raise ImportError("MobileViT(v2)를 쓰려면 `pip install timm` 후 다시 실행하세요.")
+        # 대표 예시: mobilevitv2_100 (0.75/1.0 등 가변)
+        model = timm.create_model("mobilevitv2_100", pretrained=True, num_classes=num_classes)
+        rec = 256  # MobileViT(v2)는 256 권장인 경우가 많음
     else:
         raise ValueError("지원하지 않는 모델명")
 
@@ -185,7 +191,8 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("--data_root", type=str, default="plants-dataset", help="train/val 포함 루트")
     p.add_argument("--model", type=str, default="efficientnet_b0",
-                   choices=["mobilenet_v3_large","efficientnet_b0","efficientnet_b2","efficientnet_b3","mobilenet","effnet_b0","effnet_b2","effnet_b3"])
+                   choices=["mobilenet_v3_large", "mobilenet","effnet_b0","effnet_b2","effnet_b3",
+                            "shufflenet_v2", "ghostnet", "mobilevitv2"]),
     p.add_argument("--img_size", type=int, default=0, help="0이면 모델 권장 크기 사용")
     p.add_argument("--batch", type=int, default=32)
     p.add_argument("--epochs", type=int, default=20)
