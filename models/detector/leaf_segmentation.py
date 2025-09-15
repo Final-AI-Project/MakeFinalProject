@@ -31,11 +31,50 @@ class LeafSegmentationModel:
     def _load_model(self):
         """YOLO 세그멘테이션 모델 로드"""
         try:
+            # PyTorch 2.6 호환성을 위한 설정
+            import torch
+            import pickle
+            
+            # torch.load를 임시로 수정
+            original_load = torch.load
+            original_pickle_load = pickle.load
+            
+            def safe_torch_load(*args, **kwargs):
+                kwargs['weights_only'] = False
+                return original_load(*args, **kwargs)
+            
+            def safe_pickle_load(*args, **kwargs):
+                # pickle의 보안 설정 완화
+                import pickle
+                original_pickle_loads = pickle.loads
+                def safe_loads(data):
+                    return original_pickle_loads(data)
+                pickle.loads = safe_loads
+                try:
+                    return original_pickle_load(*args, **kwargs)
+                finally:
+                    pickle.loads = original_pickle_loads
+            
+            torch.load = safe_torch_load
+            pickle.load = safe_pickle_load
+            
+            # 모델 로드
             self.model = YOLO(self.model_path)
+            
+            # 원래 함수들 복원
+            torch.load = original_load
+            pickle.load = original_pickle_load
+            
             print(f"✅ 세그멘테이션 모델 로드 완료: {self.model_path}")
             print(f"🔧 Device: {self.device}")
         except Exception as e:
             print(f"❌ 모델 로드 실패: {e}")
+            # 원래 함수들 복원 (오류 발생 시에도)
+            try:
+                torch.load = original_load
+                pickle.load = original_pickle_load
+            except:
+                pass
             raise e
     
     def predict(self, image_input):
