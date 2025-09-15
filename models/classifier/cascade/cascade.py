@@ -16,7 +16,7 @@ from torchvision.models import (
     EfficientNet_B0_Weights, EfficientNet_B2_Weights, EfficientNet_B3_Weights
 )
 
-# ----------------------------- 
+# -----------------------------
 # utils
 # -----------------------------
 def set_seed(seed=42):
@@ -24,40 +24,68 @@ def set_seed(seed=42):
     torch.manual_seed(seed); torch.cuda.manual_seed_all(seed)
 
 def build_model(model_name: str, num_classes: int, img_size: int):
+    """
+    기존 뼈대 유지 + EfficientNet B0/B2/B3 지원 추가
+    - 권장 입력 크기: B0=224, B2=260, B3=300
+    """
     name = model_name.lower()
+
     if name in ["mobilenet", "mobilenet_v3_large"]:
         weights = MobileNet_V3_Large_Weights.IMAGENET1K_V2
         model = models.mobilenet_v3_large(weights=weights)
         in_feat = model.classifier[-1].in_features
         model.classifier[-1] = nn.Linear(in_feat, num_classes)
         rec = 224
+
     elif name in ["shufflenet_v2", "shufflenet_v2_x1_0"]:
-        # torchvision 내장
         from torchvision.models import shufflenet_v2_x1_0, ShuffleNet_V2_X1_0_Weights
         weights = ShuffleNet_V2_X1_0_Weights.IMAGENET1K_V1
         model = shufflenet_v2_x1_0(weights=weights)
         in_feat = model.fc.in_features
         model.fc = nn.Linear(in_feat, num_classes)
         rec = 224
+
     elif name in ["ghostnet"]:
         try:
             import timm
         except ImportError:
             raise ImportError("GhostNet을 쓰려면 `pip install timm` 후 다시 실행하세요.")
-        # 예: ghostnet_100 / ghostnet_130 등
         model = timm.create_model("ghostnet_100", pretrained=True, num_classes=num_classes)
-        rec = 224  # timm default는 보통 224
+        rec = 224
+
     elif name in ["mobilevitv2", "mobilevitv2_100"]:
         try:
             import timm
         except ImportError:
             raise ImportError("MobileViT(v2)를 쓰려면 `pip install timm` 후 다시 실행하세요.")
-        # 대표 예시: mobilevitv2_100 (0.75/1.0 등 가변)
         model = timm.create_model("mobilevitv2_100", pretrained=True, num_classes=num_classes)
-        rec = 256  # MobileViT(v2)는 256 권장인 경우가 많음
+        rec = 256  # MobileViT(v2) 권장 256
+
+    # -----------------------------
+    # EfficientNet 추가 (B0/B2/B3)
+    # -----------------------------
+    elif name in ["efficientnet_b0", "effnet_b0"]:
+        model = models.efficientnet_b0(weights=EfficientNet_B0_Weights.IMAGENET1K_V1)
+        in_feat = model.classifier[1].in_features
+        model.classifier[1] = nn.Linear(in_feat, num_classes)
+        rec = 224
+
+    elif name in ["efficientnet_b2", "effnet_b2"]:
+        model = models.efficientnet_b2(weights=EfficientNet_B2_Weights.IMAGENET1K_V1)
+        in_feat = model.classifier[1].in_features
+        model.classifier[1] = nn.Linear(in_feat, num_classes)
+        rec = 260  # EfficientNet-B2 권장 260
+
+    elif name in ["efficientnet_b3", "effnet_b3"]:
+        model = models.efficientnet_b3(weights=EfficientNet_B3_Weights.IMAGENET1K_V1)
+        in_feat = model.classifier[1].in_features
+        model.classifier[1] = nn.Linear(in_feat, num_classes)
+        rec = 300  # EfficientNet-B3 권장 300
+
     else:
         raise ValueError("지원하지 않는 모델명")
 
+    # 입력 크기 안내
     if img_size <= 0:
         img_size = rec
     elif img_size != rec:
@@ -163,9 +191,9 @@ def train(model, train_loader, val_loader, device, epochs=20, lr=3e-4,
             best_acc = va_acc
             best_w = copy.deepcopy(model.state_dict())
 
-        # --- 추가: 에폭별 가중치 연속 저장 ---
+        # --- 에폭별 가중치 연속 저장 ---
         if weight_dir is not None and model_name is not None:
-            global_epoch = start_epoch_offset + ep  # 이전 실행까지 누적 + 이번 실행의 ep(1~epochs)
+            global_epoch = start_epoch_offset + ep
             weight_dir.mkdir(parents=True, exist_ok=True)
             epoch_path = weight_dir / f"{model_name}_epoch{global_epoch}.pth"
             torch.save({
@@ -190,10 +218,22 @@ def train(model, train_loader, val_loader, device, epochs=20, lr=3e-4,
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--data_root", type=str, default="plants-dataset", help="train/val 포함 루트")
-    p.add_argument("--model", type=str, default="efficientnet_b0",
-                   choices=["mobilenet_v3_large", "mobilenet","effnet_b0","effnet_b2","effnet_b3",
-                            "shufflenet_v2", "ghostnet", "mobilevitv2"]),
-    p.add_argument("--img_size", type=int, default=0, help="0이면 모델 권장 크기 사용")
+    p.add_argument(
+        "--model",
+        type=str,
+        default="efficientnet_b0",
+        choices=[
+            # 기존
+            "mobilenet_v3_large", "mobilenet",
+            "shufflenet_v2", "shufflenet_v2_x1_0",
+            "ghostnet", "mobilevitv2", "mobilevitv2_100",
+            # 추가(EfficientNet)
+            "efficientnet_b0", "effnet_b0",
+            "efficientnet_b2", "effnet_b2",
+            "efficientnet_b3", "effnet_b3",
+        ]
+    )
+    p.add_argument("--img_size", type=int, default=0, help="0이면 모델 권장 크기 사용 (B0=224, B2=260, B3=300)")
     p.add_argument("--batch", type=int, default=32)
     p.add_argument("--epochs", type=int, default=20)
     p.add_argument("--lr", type=float, default=3e-4)
@@ -212,9 +252,10 @@ def main():
     assert train_dir.exists() and val_dir.exists(), "plants-dataset/train, val 구조를 준비하세요."
 
     # 데이터/라벨
+    # img_size는 0일 때 임시 224로 로더 생성하고, 모델에서 최종 권장값으로 재조정됨
+    tmp_img_size = args.img_size if args.img_size > 0 else 224
     train_ds, val_ds, train_loader, val_loader = make_loaders(
-        train_dir, val_dir, args.img_size if args.img_size>0 else 224,
-        args.batch, args.workers, args.weighted_sampler
+        train_dir, val_dir, tmp_img_size, args.batch, args.workers, args.weighted_sampler
     )
     num_classes = len(train_ds.classes)
     idx_to_class = {v:k for k,v in train_ds.class_to_idx.items()}
@@ -225,18 +266,24 @@ def main():
     print("Saved labels ->", labels_txt)
 
     # 모델
-    model, img_size = build_model(args.model, num_classes, args.img_size)
-    print(f"Model: {args.model} | img_size: {img_size}")
+    model, final_img_size = build_model(args.model, num_classes, args.img_size)
+    print(f"Model: {args.model} | img_size: {final_img_size}")
     model = model.to(device)
 
-    # 가중치 저장 디렉토리 (원래 best.pth 저장 위치와 동일: models/weight/)
+    # 권장 입력 크기가 바뀌었다면 로더를 다시 구성
+    if final_img_size != tmp_img_size:
+        train_ds, val_ds, train_loader, val_loader = make_loaders(
+            train_dir, val_dir, final_img_size, args.batch, args.workers, args.weighted_sampler
+        )
+
+    # 가중치 저장 디렉토리
     weight_dir = Path(__file__).parent / "weight"
     weight_dir.mkdir(parents=True, exist_ok=True)
 
     # 이미 저장된 에폭 중 가장 큰 번호를 시작 오프셋으로 (없으면 0)
     start_offset = find_start_epoch(weight_dir, args.model)
 
-    # 학습 (연속 저장 인자 전달) — 기본 학습 흐름은 그대로
+    # 학습
     best_model, best_acc = train(
         model, train_loader, val_loader, device,
         epochs=args.epochs, lr=args.lr,
@@ -248,7 +295,7 @@ def main():
     torch.save({
         "model": best_model.state_dict(),
         "classes": idx_to_class,
-        "img_size": img_size
+        "img_size": final_img_size
     }, save_path)
     print("Saved weight ->", save_path)
 
