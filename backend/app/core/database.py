@@ -24,8 +24,8 @@ def _make_mysql_async_url() -> str:
     host = settings.DB_HOST
     port = settings.DB_PORT
     db = settings.DB_NAME
-    # utf8mb4 설정 + SQLAlchemy 2.0 방식 url (asyncmy 사용)
-    return f"mysql+asyncmy://{user}:{pwd}@{host}:{port}/{db}?charset=utf8mb4"
+    # utf8mb4 설정 + SQLAlchemy 2.0 방식 url (aiomysql 사용)
+    return f"mysql+aiomysql://{user}:{pwd}@{host}:{port}/{db}?charset=utf8mb4"
 
 # SQLite 연결 URL 생성 (임시 개발용) - 주석처리
 # def _make_sqlite_async_url() -> str:
