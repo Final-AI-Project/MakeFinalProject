@@ -213,7 +213,7 @@ export default function LoginScreen() {
 	return (
 		<SafeAreaView
 			edges={["top", "bottom"]}
-			style={{ flex: 1, backgroundColor: theme.bg }}
+			style={{ flex: 1, paddingHorizontal: 24, backgroundColor: theme.bg }}
 		>
 			<KeyboardAvoidingView
 				behavior="padding" enabled

@@ -88,7 +88,7 @@ export default function SignupScreen() {
     };
 
     return (
-        <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
+        <SafeAreaView style={{ flex: 1, paddingHorizontal: 24, backgroundColor: theme.bg }}>
             <KeyboardAvoidingView
                 behavior={Platform.select({ ios: "padding", android: undefined })}
                 style={{ flex: 1 }}

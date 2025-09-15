@@ -37,6 +37,5 @@ const styles = StyleSheet.create({
 	layout: {
 		flex: 1,
 		paddingTop: 5,
-		paddingHorizontal: 0,
 	},
 });
