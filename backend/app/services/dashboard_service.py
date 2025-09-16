@@ -4,16 +4,11 @@ import base64
 import json
 import random
 import uuid
+import aiomysql
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
-
-from sqlalchemy import func, select, and_
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from db.models.user_plant import UserPlant
-from db.models.humid_info import HumidInfo
 
 from utils.weather_client import WeatherClient
 from .users_service import UsersService
@@ -35,33 +30,35 @@ class DashboardService:
     - 프론트가 넘겨준 날씨를 가볍게 검증, 정규화 (브릿지)
     - user_plant, humid_info로 "내 식물" 카드 목록 구성 (커서 기반 페이징)
     """
-    db:AsyncSession
+    conn: aiomysql.Connection
+    cursor: aiomysql.DictCursor
 
-    # wether bridge
-    # 변환 함수 (공용 유틸)
-    # 프론트에서 받아온 정보를 Dict로 표준화해 변환하고, 다른 서비스에서 함수를 호출해 Dict값을 넘겨받아 사용
+    # weather bridge
     async def normalize_weather_from_front(self, raw: Dict[str, Any]) -> Dict[str, Any]:
         """
-        프론트에서 받아온 현재 날씨를 서버 표준 형태로 정규화합니다.
+        프론트에서 받은 날씨 정보를 서버 표준 포맷으로 정규화
+        - 검증: 필수 필드 존재 여부
+        - 정규화: 타입 변환, 기본값 설정
+        - 서버 타임스탬프 추가
         """
-        now = datetime.now(timezone.utc)
-        code = str(raw.get("location_code" or "SEOUL_KR"))
-        name = str(raw.get("name") or "Seoul, KR")
-        temp_c = float(raw.get("temp_c") or 0.0)
-        condition = str(raw.get("condition") or "")
-        icon_url = str(raw.get("icon_url") or "")
-        updated_at = raw.get("updated_at")
-        if not updated_at:
-            updated_at = now
-        return {
-            "location_code": code,
-            "name": name,
-            "temp_c": temp_c,
-            "condition": condition,
-            "icon_url": icon_url,
-            "updated_at": updated_at,
-            "server_received_at": now,
+        # 필수 필드 검증
+        required_fields = ["location_code", "name", "temp_c"]
+        for field in required_fields:
+            if field not in raw:
+                raise ValueError(f"Missing required field: {field}")
+
+        # 타입 변환 및 기본값 설정
+        normalized = {
+            "location_code": str(raw["location_code"]),
+            "name": str(raw["name"]),
+            "temp_c": float(raw["temp_c"]),
+            "condition": str(raw.get("condition", "")),
+            "icon_url": str(raw.get("icon_url", "")),
+            "updated_at": raw.get("updated_at"),
+            "server_received_at": datetime.now(timezone.utc).isoformat(),
         }
+        
+        return normalized
     
     # plants summary 
     async def list_plants_summary(
@@ -85,16 +82,25 @@ class DashboardService:
                 last_idx = None
 
         # 1) 내 식물 목록 조회 (limit+1 로 has_more 판정)
-        up_stmt = (
-            select(UserPlant)
-            .where(UserPlant.user_id == user_id)
-            .order_by(UserPlant.idx.desc())
-            .limit(limit + 1)
-        )
         if last_idx is not None:
-            up_stmt = up_stmt.where(UserPlant.idx < last_idx)
-
-        ups = (await self.db.execute(up_stmt)).scalars().all()
+            query = """
+                SELECT * FROM user_plant 
+                WHERE user_id = %s AND idx < %s 
+                ORDER BY idx DESC 
+                LIMIT %s
+            """
+            params = (user_id, last_idx, limit + 1)
+        else:
+            query = """
+                SELECT * FROM user_plant 
+                WHERE user_id = %s 
+                ORDER BY idx DESC 
+                LIMIT %s
+            """
+            params = (user_id, limit + 1)
+        
+        await self.cursor.execute(query, params)
+        ups = await self.cursor.fetchall()
         has_more = len(ups) > limit
         ups = ups[:limit]
 
@@ -102,71 +108,54 @@ class DashboardService:
             return {"items": [], "next_cursor": None, "has_more": False}
 
         # 2) 해당 plant_id 목록
-        plant_ids = [u.plant_id for u in ups]
+        plant_ids = [u['plant_id'] for u in ups]
 
-        # 3) 각 plant_id별 최신 습도 측정 시각 서브쿼리
-        latest_subq = (
-            select(
-                HumidInfo.plant_id.label("pid"),
-                func.max(HumidInfo.humid_date).label("max_date"),
-            )
-            .where(HumidInfo.plant_id.in_(plant_ids))
-            .group_by(HumidInfo.plant_id)
-            .subquery()
-        )
+        # 3) 각 plant_id별 최신 습도 정보 조회
+        humid_map = {}
+        if plant_ids:
+            placeholders = ','.join(['%s'] * len(plant_ids))
+            humid_query = f"""
+                SELECT h.* FROM humid_info h
+                INNER JOIN (
+                    SELECT plant_id, MAX(humid_date) as max_date
+                    FROM humid_info 
+                    WHERE plant_id IN ({placeholders})
+                    GROUP BY plant_id
+                ) latest ON h.plant_id = latest.plant_id AND h.humid_date = latest.max_date
+            """
+            await self.cursor.execute(humid_query, plant_ids)
+            humids = await self.cursor.fetchall()
+            humid_map = {h['plant_id']: h for h in humids}
 
-        # 4) 최신 시각과 일치하는 행 join → 최신 humidity 확보
-        #    LEFT OUTER JOIN 으로 최신 로그가 없어도 식물은 나오게
-        join_stmt = (
-            select(
-                HumidInfo.plant_id,
-                HumidInfo.humidity,
-                HumidInfo.humid_date,
-            )
-            .join(
-                latest_subq,
-                and_(
-                    HumidInfo.plant_id == latest_subq.c.pid,
-                    HumidInfo.humid_date == latest_subq.c.max_date,
-                ),
-                isouter=True,
-            )
-        )
-        hi_rows = (await self.db.execute(join_stmt)).all()
-        latest_map: Dict[int, Dict[str, Any]] = {
-            int(r.plant_id): {
-                "humidity": float(r.humidity) if r.humidity is not None else None,
-                "humid_date": r.humid_date,
-            }
-            for r in hi_rows
-        }
-
-        # 5) 카드 아이템 구성
-        items: List[Dict[str, Any]] = []
+        # 4) 응답 구성
+        items = []
         for up in ups:
-            latest = latest_map.get(int(up.plant_id), {})
-            humidity = latest.get("humidity")
-            humid_date = latest.get("humid_date")
-            # pest 상태 문자열
-            if up.pest_id is None:
-                pest_status = "healthy"
-                pest_value: Optional[int] = None
-            else:
-                pest_status = "has_pest"
-                pest_value = int(up.pest_id)
+            plant_id = up['plant_id']
+            humid_info = humid_map.get(plant_id)
+            
+            # 해충 상태 판정 (pest_id가 있으면 해충 있음)
+            pest_status = "has_pest" if up.get('pest_id') else "healthy"
+            
+            item = {
+                "plant_id": plant_id,
+                "plant_name": up['plant_name'],
+                "species": up.get('species'),
+                "pest_status": pest_status,
+                "pest_id": up.get('pest_id'),
+                "humidity": humid_info['humidity'] if humid_info else None,
+                "humid_date": humid_info['humid_date'].isoformat() if humid_info and humid_info['humid_date'] else None,
+                "detail_path": f"/plants/{plant_id}",
+            }
+            items.append(item)
 
-            items.append(
-                {
-                    "plant_id": int(up.plant_id),
-                    "plant_name": up.plant_name,
-                    "species": up.species,
-                    "pest_status": pest_status,   # 'healthy' or 'has_pest'
-                    "pest_id": pest_value,        # has_pest일 때만 값, 아니면 null
-                    "humidity": humidity,         # 마지막 측정값(없으면 null)
-                    "humid_date": humid_date,     # 마지막 측정 시각(없으면 null)
-                    "detail_path": f"/plants/{up.plant_id}",
-                }
-            )
+        # 5) 다음 커서 생성
+        next_cursor = None
+        if has_more and items:
+            last_item_idx = ups[-1]['idx']
+            next_cursor = _encode_cursor({"last_idx": last_item_idx})
 
-        next_cursor = _encode_cursor({"last_idx": int(ups[-1].idx)}) if has_more else None
-        return {"items": items, "next_cursor": next_cursor, "has_more": has_more}
+        return {
+            "items": items,
+            "next_cursor": next_cursor,
+            "has_more": has_more,
+        }

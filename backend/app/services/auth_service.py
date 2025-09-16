@@ -2,13 +2,11 @@ from __future__ import annotations
 
 import uuid
 from typing import Optional, Tuple, Dict, Any
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.exc import IntegrityError
+import aiomysql
 
-from db.models import User
-from db.schemas.user import UserCreate
-from db.crud import user as users_crud
+from models.user import User
+from schemas.user import UserCreate
+from crud import user as users_crud
 
 from utils.errors import http_error
 from utils.security import (
@@ -33,7 +31,7 @@ def _normalize_hp(hp: str) -> str:
 # --------------------
     # 회원가입 서비스
 # --------------------
-async def register_user(*, db: AsyncSession, payload: UserCreate) -> User:
+async def register_user(*, db, payload: UserCreate) -> User:
     """
     회원가입 서비스:
     - 입력 정규화(user_id/email/hp)
@@ -57,8 +55,7 @@ async def register_user(*, db: AsyncSession, payload: UserCreate) -> User:
         raise http_error("email_conflict", "이미 사용 중인 이메일입니다.", 409)
 
     # hp
-    res = await db.execute(select(User).where(User.hp == hp))
-    if res.scalar_one_or_none():
+    if await users_crud.get_by_hp(db, hp):
         raise http_error("hp_conflict", "이미 사용 중인 휴대폰 번호입니다.", 409)
 
     # --- 비밀번호 해시 ---
@@ -76,10 +73,10 @@ async def register_user(*, db: AsyncSession, payload: UserCreate) -> User:
         )
         return user
 
-    except IntegrityError as e:
+    except aiomysql.IntegrityError as e:
         # 경합 상황(동시에 가입 시도 등)에서 DB 유니크 제약 위반 방어
         # 원문 메시지로 어떤 컬럼인지 추정해서 사용자 친화 메시지로 변환
-        msg = (str(e.orig) if getattr(e, "orig", None) else "").lower()
+        msg = str(e).lower()
         if "user_id" in msg:
             raise http_error("user_id_conflict", "이미 사용 중인 사용자 ID입니다.", 409)
         if "email" in msg:
@@ -134,7 +131,7 @@ def _issue_token_pair(user: User) -> Dict[str, Any]:
 # --------------------
     # 로그인 / 리프레시 / 로그아웃
 # --------------------
-async def login(db: AsyncSession, *, user_id_or_email: str, password: str) -> Dict[str, Any]:
+async def login(db, *, user_id_or_email: str, password: str) -> Dict[str, Any]:
     """
     - user_id 또는 email 로 사용자 조회
     - 비밀번호 검증 실패 시 401
@@ -155,7 +152,7 @@ async def login(db: AsyncSession, *, user_id_or_email: str, password: str) -> Di
     return _issue_token_pair(user)
 
 
-async def refresh_tokens(db: AsyncSession, *, refresh_token: str) -> Dict[str, Any]:
+async def refresh_tokens(db, *, refresh_token: str) -> Dict[str, Any]:
     """
     - 리프레시 토큰 검증(유효성/타입/블랙리스트) → payload 획득
     - 사용자 존재 확인
@@ -199,7 +196,7 @@ async def logout(*, refresh_token: str) -> None:
 # ----------------------------
 #   내 정보(me) 조회 헬퍼
 # ----------------------------
-async def get_user_for_sub(db: AsyncSession, *, sub: str) -> User:
+async def get_user_for_sub(db, *, sub: str) -> User:
     """
     access 토큰의 sub(user_id)로 사용자 조회.
     라우터에서 security.get_current_user를 쓰지 않고 DB를 직조회하고 싶을 때 사용.

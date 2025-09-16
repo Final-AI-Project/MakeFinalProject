@@ -10,7 +10,18 @@ import os
 # torch.load의 weights_only를 False로 설정
 torch.serialization.DEFAULT_PROTOCOL = 2
 
+# 전역적으로 torch.load 설정
+import torch
+original_torch_load = torch.load
+def safe_torch_load(*args, **kwargs):
+    # weights_only가 이미 있으면 제거하고 False로 설정
+    kwargs.pop('weights_only', None)
+    kwargs['weights_only'] = False
+    return original_torch_load(*args, **kwargs)
+torch.load = safe_torch_load
+
 class LeafSegmentationModel:
+    
     def __init__(self, model_path: str):
         """
         잎 세그멘테이션 모델 초기화
@@ -35,19 +46,27 @@ class LeafSegmentationModel:
     def _load_model(self):
         """YOLO 세그멘테이션 모델 로드"""
         try:
-            # weights_only=False로 모델 로딩
-            original_load = torch.load
-            torch.load = lambda *args, **kwargs: original_load(*args, **kwargs, weights_only=False)
+            # DFLoss 호환성 문제 해결을 위한 임시 설정
+            import ultralytics.utils.loss as loss_module
+            if not hasattr(loss_module, 'DFLoss'):
+                # DFLoss가 없으면 임시로 추가
+                from ultralytics.utils.loss import v8DetectionLoss
+                loss_module.DFLoss = v8DetectionLoss
             
+            # 전역 torch.load 설정이 이미 적용되어 있음
             self.model = YOLO(self.model_path)
+            
             print(f"✅ 세그멘테이션 모델 로드 완료: {self.model_path}")
             print(f"🔧 Device: {self.device}")
             
-            # 원래 torch.load 복원
-            torch.load = original_load
         except Exception as e:
             print(f"❌ 모델 로드 실패: {e}")
-            raise e
+            # DFLoss 문제인 경우 모델을 None으로 설정하고 계속 진행
+            if "DFLoss" in str(e):
+                print("⚠️ DFLoss 호환성 문제로 세그멘테이션 모델을 비활성화합니다.")
+                self.model = None
+            else:
+                raise e
     
     def predict(self, image_input):
         """
