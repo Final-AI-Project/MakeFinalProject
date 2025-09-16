@@ -32,7 +32,7 @@ export default function Home() {
 	const slides = useMemo(() => {
 		return [
 			...plants,
-			{ key: "add", label: "새 식물 등록 +", bg: theme.bg, type: "action" },
+			{ key: "add", label: "새 식물 등록 +", bg: theme.graybg, type: "action" },
 		];
 	}, [plants, theme]);
 
@@ -97,7 +97,7 @@ export default function Home() {
 			
 			<View style={styles.linkList}>
 				<Link style={styles.newPlant} href="../(stackless)/plant-new">
-					<Text style={{ color: "#fff" }}>새 식물 등록</Text>
+					<Text style={{ color: "#fff" }}>타임랩스를 경험해 보세요</Text>
 				</Link>
 				<Link style={styles.plantInfo} href="../(auth)/login">
 					<Text style={{ color: "#1a1a1" }}>식물 정보방</Text>
