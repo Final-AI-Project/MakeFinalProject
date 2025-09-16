@@ -9,6 +9,16 @@ import torch
 # torch.load의 weights_only를 False로 설정
 torch.serialization.DEFAULT_PROTOCOL = 2
 
+# 전역적으로 torch.load 설정
+import torch
+original_torch_load = torch.load
+def safe_torch_load(*args, **kwargs):
+    # weights_only가 이미 있으면 제거하고 False로 설정
+    kwargs.pop('weights_only', None)
+    kwargs['weights_only'] = False
+    return original_torch_load(*args, **kwargs)
+torch.load = safe_torch_load
+
 # === 모델은 전역으로 1회만 로드 ===
 MODEL_PATH = "healthy/healthy.pt"
 IMG_SIZE = 224  # 학습 때 사용한 imgsz
@@ -22,7 +32,7 @@ def _load_model():
     """모델을 지연 로딩하는 함수"""
     global model, names
     if model is None:
-        # 간단한 방법으로 모델 로드 (재귀 문제 방지)
+        # 전역 torch.load 설정이 이미 적용되어 있음
         model = YOLO(MODEL_PATH)
         if DEVICE:
             model.to(DEVICE)

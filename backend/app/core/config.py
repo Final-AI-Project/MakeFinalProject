@@ -59,6 +59,10 @@ class Settings(BaseSettings):
     
     # SQLite 사용 여부 (개발용)
     USE_SQLITE: bool = Field(default=False, validation_alias='USE_SQLITE')
+    
+    # AI Model Server
+    MODEL_SERVER_URL: str = Field(default='http://127.0.0.1:5000', validation_alias='MODEL_SERVER_URL')
+    MODEL_SERVER_TIMEOUT: int = Field(default=30, validation_alias='MODEL_SERVER_TIMEOUT')
 
     @property
     def ROOT_DIR(self) -> Path:

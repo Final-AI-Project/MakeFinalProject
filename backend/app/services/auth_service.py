@@ -55,8 +55,7 @@ async def register_user(*, db, payload: UserCreate) -> User:
         raise http_error("email_conflict", "이미 사용 중인 이메일입니다.", 409)
 
     # hp
-    res = await db.execute(select(User).where(User.hp == hp))
-    if res.scalar_one_or_none():
+    if await users_crud.get_by_hp(db, hp):
         raise http_error("hp_conflict", "이미 사용 중인 휴대폰 번호입니다.", 409)
 
     # --- 비밀번호 해시 ---
@@ -74,10 +73,10 @@ async def register_user(*, db, payload: UserCreate) -> User:
         )
         return user
 
-    except IntegrityError as e:
+    except aiomysql.IntegrityError as e:
         # 경합 상황(동시에 가입 시도 등)에서 DB 유니크 제약 위반 방어
         # 원문 메시지로 어떤 컬럼인지 추정해서 사용자 친화 메시지로 변환
-        msg = (str(e.orig) if getattr(e, "orig", None) else "").lower()
+        msg = str(e).lower()
         if "user_id" in msg:
             raise http_error("user_id_conflict", "이미 사용 중인 사용자 ID입니다.", 409)
         if "email" in msg:

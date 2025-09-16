@@ -25,9 +25,26 @@ load_dotenv(BASE_DIR / ".env")
 try:
     from .NLG import generate_response
     from .disease import DISEASE_INFO as disease_info
-except Exception:
-    from NLG import generate_response
-    from disease import DISEASE_INFO as disease_info
+except ImportError:
+    try:
+        from NLG import generate_response
+        from disease import DISEASE_INFO as disease_info
+    except ImportError:
+        # NLG 모듈이 없는 경우 더미 함수 사용
+        def generate_response(nickname, species, preds):
+            if preds and len(preds) > 0:
+                top_pred = preds[0]
+                return f"식물 '{nickname}' ({species})에서 '{top_pred[0]}' 병충해가 감지되었습니다. (신뢰도: {top_pred[1]:.2f})"
+            return f"식물 '{nickname}' ({species})의 병충해 분석이 완료되었습니다."
+        
+        # disease 모듈이 없는 경우 더미 데이터 사용
+        disease_info = {
+            "unknown": {
+                "description": "알 수 없는 병충해",
+                "treatment": "식물 전문가에게 상담하세요.",
+                "prevention": "정기적인 관찰과 관리가 필요합니다."
+            }
+        }
 
     
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import aiomysql
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -46,7 +47,7 @@ def _to_out(row: UserPlant) -> UserPlantOut:
 async def create_plant(
     body: UserPlantCreate,
     user: Dict[str, Any] = Depends(get_current_user),
-    db=Depends(get_db),
+    db: tuple[aiomysql.Connection, aiomysql.DictCursor] = Depends(get_db),
 ):
     """새 식물 등록 (plant_id는 자동 생성)"""
     row = await user_plant_crud.create(
@@ -65,7 +66,7 @@ async def list_plants(
     limit: int = Query(10, ge=1, le=100),
     cursor: Optional[str] = Query(None),
     user: Dict[str, Any] = Depends(get_current_user),
-    db=Depends(get_db),
+    db: tuple[aiomysql.Connection, aiomysql.DictCursor] = Depends(get_db),
 ):
     """
     내 식물 목록 (커서 기반, idx DESC)
@@ -88,7 +89,7 @@ async def list_plants(
 async def get_plant(
     plant_id: int,
     user: Dict[str, Any] = Depends(get_current_user),
-    db=Depends(get_db),
+    db: tuple[aiomysql.Connection, aiomysql.DictCursor] = Depends(get_db),
 ):
     """
     식물 단건 조회 (plant_id 기준)
@@ -105,7 +106,7 @@ async def patch_plant(
     plant_id: int,
     body: UserPlantUpdate,
     user: Dict[str, Any] = Depends(get_current_user),
-    db=Depends(get_db),
+    db: tuple[aiomysql.Connection, aiomysql.DictCursor] = Depends(get_db),
 ):
     """
     식물 수정 (plant_id 기준)

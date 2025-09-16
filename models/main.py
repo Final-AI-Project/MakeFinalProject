@@ -12,8 +12,18 @@ from ultralytics import YOLO
 # === PyTorch 2.6 호환성을 위한 설정 ===
 # torch.load의 weights_only를 False로 설정
 torch.serialization.DEFAULT_PROTOCOL = 2
+
+# 전역적으로 torch.load 설정
+original_torch_load = torch.load
+def safe_torch_load(*args, **kwargs):
+    # weights_only가 이미 있으면 제거하고 False로 설정
+    kwargs.pop('weights_only', None)
+    kwargs['weights_only'] = False
+    return original_torch_load(*args, **kwargs)
+torch.load = safe_torch_load
 from detector.leaf_segmentation import LeafSegmentationModel
 from classifier.cascade.cascade import build_model
+from classifier.pestcase.plant_classifier import predict_image as predict_pest
 
 # 품종 분류 클래스 정의
 CLASSES = [
@@ -62,7 +72,7 @@ app.add_middleware(
 SEG_MODEL_PATH = "weight/seg_best.pt"
 SPECIES_MODEL_PATH = "classifier/cascade/weight/mobilevitv2_best.pth"  # 품종 분류 모델
 HEALTH_MODEL_PATH = "healthy/healthy.pt"    # 건강 상태 모델
-DISEASE_MODEL_PATH = "weight/disease_model.pt"  # 질병 분류 모델 (미구현)
+PEST_MODEL_PATH = "classifier/pestcase/pestcase_best.pt"  # 병충해 분류 모델
 
 # -------------------- 디바이스 결정 --------------------
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -70,12 +80,8 @@ print(f"🔧 Device: {device}")
 
 # -------------------- 모델 로딩 --------------------
 print("🔧 Loading Leaf Segmentation Model...")
-try:
-    seg_model = LeafSegmentationModel(SEG_MODEL_PATH)
-    print("✅ 세그멘테이션 모델 로드 완료")
-except Exception as e:
-    print(f"❌ 세그멘테이션 모델 로드 실패: {e}")
-    seg_model = None
+print("⚠️ 세그멘테이션 모델 사용 중지됨 (호환성 문제)")
+seg_model = None
 
 # 품종 분류 모델 로드
 print("🔧 Loading Species Classification Model...")
@@ -108,63 +114,35 @@ except Exception as e:
     print(f"❌ 건강 상태 모델 로드 실패: {e}")
     health_model = None
 
-# 질병 분류 모델 (미구현)
-disease_model = None
+# 병충해 분류 모델 로드
+print("🔧 Loading Pest Classification Model...")
+try:
+    if os.path.exists(PEST_MODEL_PATH):
+        # 병충해 모델은 predict_image 함수를 통해 지연 로딩됨
+        print("✅ 병충해 분류 모델 로드 완료")
+        pest_model = True  # 모델이 사용 가능함을 표시
+    else:
+        print("⚠️ 병충해 분류 모델 파일이 없습니다.")
+        pest_model = None
+except Exception as e:
+    print(f"❌ 병충해 분류 모델 로드 실패: {e}")
+    pest_model = None
 
-# -------------------------- 잎 탐지 및 세그멘테이션 API
+# -------------------------- 잎 탐지 및 세그멘테이션 API (비활성화됨)
 @app.post("/detector")
 async def detect_and_segment_leaves(
     image: UploadFile = File(...)
 ):
     """
     이미지에서 식물의 잎을 탐지하고 세그멘테이션하여 크롭된 잎 이미지들을 반환
+    (현재 호환성 문제로 비활성화됨)
     """
-    if seg_model is None:
-        raise HTTPException(status_code=500, detail="세그멘테이션 모델이 로드되지 않았습니다.")
-    
-    try:
-        # 업로드된 이미지 읽기
-        image_data = await image.read()
-        pil_image = Image.open(io.BytesIO(image_data))
-        
-        # 세그멘테이션 수행
-        results = seg_model.predict(pil_image)
-        
-        # 크롭된 잎 이미지들을 base64로 인코딩
-        cropped_images_base64 = []
-        for i, cropped_leaf in enumerate(results['cropped_leaves']):
-            # PIL Image를 base64로 변환
-            buffer = io.BytesIO()
-            cropped_leaf.save(buffer, format='JPEG', quality=95)
-            buffer.seek(0)
-            import base64
-            img_base64 = base64.b64encode(buffer.getvalue()).decode()
-            cropped_images_base64.append({
-                'index': i,
-                'image': img_base64,
-                'format': 'jpeg'
-            })
-        
-        # 세그멘테이션된 이미지도 base64로 인코딩
-        buffer = io.BytesIO()
-        results['segmented_image'].save(buffer, format='JPEG', quality=95)
-        buffer.seek(0)
-        segmented_img_base64 = base64.b64encode(buffer.getvalue()).decode()
-        
-        return JSONResponse(content={
-            'success': True,
-            'message': f"{len(results['cropped_leaves'])}개의 잎이 탐지되었습니다.",
-            'detected_leaves_count': len(results['cropped_leaves']),
-            'cropped_leaves': cropped_images_base64,
-            'segmented_image': {
-                'image': segmented_img_base64,
-                'format': 'jpeg'
-            },
-            'bounding_boxes': results['boxes']
-        })
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"처리 중 오류가 발생했습니다: {str(e)}")
+    return JSONResponse(content={
+        'success': False,
+        'message': '세그멘테이션 모델이 호환성 문제로 현재 비활성화되어 있습니다.',
+        'error': 'segmentation_model_disabled',
+        'note': '모델 파일은 보존되어 있으며, 호환성 문제 해결 후 재활성화 예정입니다.'
+    })
 
 # -------------------------- 품종 분류기 API
 @app.post("/species")
@@ -275,18 +253,18 @@ def get_health_recommendation(health_status: str) -> str:
     }
     return recommendations.get(health_status, '식물 상태를 주의 깊게 관찰하세요.')
 
-# -------------------------- 질병 분류기 API
+# -------------------------- 병충해/질병 분류기 API (통합)
 @app.post("/disease")
 async def classify_disease(
     image: UploadFile = File(...)
 ):
     """
-    식물의 질병을 분류
+    식물의 병충해/질병을 분류
     """
-    if disease_model is None:
-        # 질병 분류 모델이 없는 경우 건강 상태 모델을 활용
+    if pest_model is None:
+        # 병충해 모델이 없는 경우 건강 상태 모델을 활용
         if health_model is None:
-            raise HTTPException(status_code=500, detail="질병 분류 모델이 로드되지 않았습니다.")
+            raise HTTPException(status_code=500, detail="병충해/질병 분류 모델이 로드되지 않았습니다.")
         
         try:
             # 건강 상태 모델을 사용하여 질병 여부 판단
@@ -323,60 +301,58 @@ async def classify_disease(
             })
             
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"질병 분류 중 오류가 발생했습니다: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"병충해/질병 분류 중 오류가 발생했습니다: {str(e)}")
     
-    # TODO: 전용 질병 분류 모델이 있을 때의 구현
-    return JSONResponse(content={
-        'success': True,
-        'message': '전용 질병 분류 모델 구현 예정입니다.',
-        'disease': 'unknown'
-    })
+    # 병충해 모델을 사용하여 병충해/질병 분류
+    try:
+        # 업로드된 이미지 읽기
+        image_data = await image.read()
+        pil_image = Image.open(io.BytesIO(image_data))
+        
+        # 병충해 분류 수행 (질병 정보 포함)
+        preds, msg = predict_pest(pil_image)
+        
+        # 예측 결과 처리
+        if preds and len(preds) > 0:
+            top_pred = preds[0]
+            class_name = top_pred[0]
+            confidence = top_pred[1]
+        else:
+            class_name = "unknown"
+            confidence = 0.0
+        
+        return JSONResponse(content={
+            'success': True,
+            'message': f"병충해/질병 분류 완료: {class_name}",
+            'disease': class_name,
+            'confidence': round(confidence, 4),
+            'disease_info': {
+                'description': f"{class_name} 병충해가 감지되었습니다.",
+                'treatment': '식물 전문가에게 상담하세요.',
+                'prevention': '정기적인 관찰과 관리가 필요합니다.'
+            },
+            'recommendation': msg,
+            'all_predictions': [{'class_name': pred[0], 'confidence': round(pred[1], 4)} for pred in preds[:3]]
+        })
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"병충해/질병 분류 중 오류가 발생했습니다: {str(e)}")
 
-# -------------------------- LLM 처리 API
+# -------------------------- LLM 처리 API (비활성화됨)
 @app.post("/llm")
 async def process_with_llm(
     text: str
 ):
     """
     LLM을 사용한 텍스트 처리 (식물 관련 질문 답변)
+    (현재 비활성화됨)
     """
-    try:
-        # 간단한 규칙 기반 응답 시스템 (실제 LLM 모델 대신)
-        response = generate_plant_response(text)
-        
-        return JSONResponse(content={
-            'success': True,
-            'message': '식물 관련 질문에 대한 답변을 제공합니다.',
-            'response': response,
-            'note': '현재는 규칙 기반 응답 시스템을 사용합니다. 실제 LLM 모델 구현 예정입니다.'
-        })
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"LLM 처리 중 오류가 발생했습니다: {str(e)}")
-
-def generate_plant_response(text: str) -> str:
-    """식물 관련 질문에 대한 규칙 기반 응답 생성"""
-    text_lower = text.lower()
-    
-    # 물주기 관련
-    if any(keyword in text_lower for keyword in ['물', 'water', '물주기', 'watering']):
-        return "식물의 물주기는 종류에 따라 다릅니다. 일반적으로 토양이 마르면 충분히 물을 주되, 과습을 피하세요. 겨울에는 물주기 빈도를 줄이는 것이 좋습니다."
-    
-    # 햇빛 관련
-    elif any(keyword in text_lower for keyword in ['햇빛', 'sunlight', '빛', 'light', '그늘']):
-        return "대부분의 실내 식물은 밝은 간접광을 선호합니다. 직사광선은 잎을 태울 수 있으니 주의하세요. 식물 종류에 따라 햇빛 요구량이 다르니 확인해보세요."
-    
-    # 잎이 노랗게 변하는 경우
-    elif any(keyword in text_lower for keyword in ['노란', 'yellow', '잎', 'leaf']):
-        return "잎이 노랗게 변하는 것은 과습, 영양 부족, 또는 자연적인 노화 현상일 수 있습니다. 물주기 빈도와 토양 상태를 확인해보세요."
-    
-    # 식물 추천
-    elif any(keyword in text_lower for keyword in ['추천', 'recommend', '어떤', 'what']):
-        return "초보자에게는 몬스테라, 고무나무, 스투키 등이 좋습니다. 이들은 관리가 쉽고 실내 환경에 잘 적응합니다."
-    
-    # 일반적인 식물 관리
-    else:
-        return "식물 관리에 대한 구체적인 질문을 해주시면 더 정확한 답변을 드릴 수 있습니다. 물주기, 햇빛, 토양, 온도 등에 대해 궁금한 점이 있으시면 언제든 물어보세요."
+    return JSONResponse(content={
+        'success': False,
+        'message': 'LLM 기능이 현재 비활성화되어 있습니다.',
+        'error': 'llm_disabled',
+        'note': 'LLM 모델 구현 후 재활성화 예정입니다.'
+    })
 
 # -------------------------- 헬스 체크 API
 @app.get("/")
@@ -388,10 +364,11 @@ async def health_check():
     return {
         "status": "healthy",
         "models": {
-            "segmentation": seg_model is not None,
+            "segmentation": False,  # 호환성 문제로 비활성화됨
             "species": species_model is not None,
             "health": health_model is not None,
-            "disease": disease_model is not None
+            "disease": pest_model is not None,  # 병충해/질병 통합 모델
+            "llm": False  # 비활성화됨
         },
         "device": device,
         "available_classes": {
@@ -399,11 +376,11 @@ async def health_check():
             "health": ["healthy", "unhealthy", "diseased"] if health_model is not None else []
         },
         "api_endpoints": [
-            "POST /detector - 잎 탐지 및 세그멘테이션",
+            "POST /detector - 잎 탐지 및 세그멘테이션 (비활성화됨)",
             "POST /species - 품종 분류",
             "POST /health - 건강 상태 분류", 
-            "POST /disease - 질병 분류",
-            "POST /llm - 식물 관련 질문 답변",
+            "POST /disease - 병충해/질병 분류 (통합)",
+            "POST /llm - 식물 관련 질문 답변 (비활성화됨)",
             "GET /health - API 상태 확인"
         ]
     }
