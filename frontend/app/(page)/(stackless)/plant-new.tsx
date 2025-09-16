@@ -63,6 +63,11 @@ export default function PlantNew() {
 	}, [startedAt]);
 
 	function handlePickImage() {
+		if (Platform.OS === "web") {
+			pickFromLibrary();
+			return;
+		}
+		
 		Alert.alert("사진 등록", "사진을 불러올 방법을 선택하세요.", [
 			{ text: "사진 찍기", onPress: takePhoto },
 			{ text: "앨범 선택", onPress: pickFromLibrary },
