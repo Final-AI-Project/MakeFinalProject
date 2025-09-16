@@ -44,8 +44,6 @@ export default function PlantNew() {
 	const [species, setSpecies] = useState<string>("");
 	const [nickname, setNickname] = useState<string>("");
 	const [startedAt, setStartedAt] = useState<string>("");
-	const [place, setPlace] = useState<string>("");
-	const [inout, setInout] = useState<IndoorOutdoor>(null);
 
 	const isKnownSpecies = useMemo(
 		() => (species ? (SPECIES as readonly string[]).includes(species) : true),
@@ -56,9 +54,7 @@ export default function PlantNew() {
 		imageUri &&
 			species.trim() &&
 			nickname.trim() &&
-			startedAt.trim() &&
-			place.trim() &&
-			inout !== null,
+			startedAt.trim()
 	);
 
 	const isDateLike = useMemo(() => {
@@ -114,9 +110,17 @@ export default function PlantNew() {
 			return;
 		}
 
+		// place 제거했으니 species, nickname, startedAt, inout만 사용
 		Alert.alert("등록 완료", "새 식물이 등록되었습니다! (로컬 처리 가정)", [
 			{ text: "확인", onPress: () => router.replace("/(page)/home") },
 		]);
+	}
+
+	function formatDateInput(text: string): string {
+		const digits = text.replace(/\D/g, "").slice(0, 8);
+		if (digits.length <= 4) return digits;
+		if (digits.length <= 6) return `${digits.slice(0, 4)}-${digits.slice(4)}`;
+		return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6, 8)}`;
 	}
 
 	return (
@@ -197,8 +201,8 @@ export default function PlantNew() {
 							placeholder="YYYY-MM-DD"
 							placeholderTextColor="#909090"
 							value={startedAt}
-							onChangeText={setStartedAt}
-							keyboardType="numbers-and-punctuation"
+							onChangeText={(text) => setStartedAt(formatDateInput(text))}
+							keyboardType="number-pad"
 							maxLength={10}
 							style={[styles.input, { color: theme.text, borderColor: theme.border }]}
 						/>
@@ -251,6 +255,7 @@ const styles = StyleSheet.create({
 		position:'absolute',
 		left:0,
 		top:0,
+		width:'100%',
 		height:260,
 		resizeMode:'cover',
 	},
