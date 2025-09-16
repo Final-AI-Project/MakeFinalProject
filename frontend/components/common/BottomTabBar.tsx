@@ -22,18 +22,23 @@ export default function BottomTabBar({ state, descriptors, navigation }: BottomT
 	const insets = useSafeAreaInsets();
 	const scheme = useColorScheme();
 	const theme = Colors[scheme === "dark" ? "dark" : "light"];
+	const activeRoute = state.routes[state.index];
+	const activeOpts = descriptors[activeRoute.key]?.options ?? {};
+	const shouldHideBar =
+		activeRoute.name.startsWith("(") ||
+		((activeOpts as any)?.tabBarStyle && (activeOpts as any).tabBarStyle.display === "none");
+	if (shouldHideBar) return null;
+
+	const visibleRoutes = state.routes.filter((route) => {
+		const opts = descriptors[route.key]?.options ?? {};
+		return !(route.name.startsWith("(") || (opts as any).href === null);
+	});
 
 	const onPress = (index: number) => {
 		const route = state.routes[index];
 		const event = navigation.emit({ type: "tabPress", target: route.key, canPreventDefault: true });
 		if (!event.defaultPrevented) navigation.navigate(route.name);
 	};
-
-	// ✅ 탭에서 숨길 라우트 필터: 괄호 라우트 & href:null
-	const visibleRoutes = state.routes.filter((route) => {
-		const opts = descriptors[route.key]?.options ?? {};
-		return !(route.name.startsWith("(") || opts.href === null);
-	});
 
 	return (
 		<View pointerEvents="box-none" style={[styles.wrap, { paddingBottom: Math.max(insets.bottom, 8) }]}>
