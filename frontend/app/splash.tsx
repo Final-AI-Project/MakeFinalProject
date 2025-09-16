@@ -1,12 +1,12 @@
 import React, { useEffect } from "react";
 import { View, StyleSheet, useColorScheme } from "react-native";
 import { router } from "expo-router";
-import { getToken } from "../../libs/auth";
+import { getToken } from "../libs/auth";
 import Animated, { Keyframe } from "react-native-reanimated";
-import logoImage from "../../assets/images/logo_image.png";
-import logoTextLight from "../../assets/images/logo_text.png";
-import logoTextDark from "../../assets/images/d_logo_text.png";
-import Colors from "../../constants/Colors";
+import logoImage from "../assets/images/logo_image.png";
+import logoTextLight from "../assets/images/logo_text.png";
+import logoTextDark from "../assets/images/d_logo_text.png";
+import Colors from "../constants/Colors";
 
 const LogoTextAni = new Keyframe({
 	0:   { transform: [{ rotate: "90deg" }] },
@@ -27,10 +27,8 @@ export default function SplashScreen() {
 
 	useEffect(() => {
 		(async () => {
-			const token = await getToken();
 			setTimeout(() => {
-				if (token) router.replace("/(main)/home");
-				else router.replace("/(auth)/login");
+				router.replace("/(auth)/login");
 			}, 3200); // 살짝 노출용 딜레이 (옵션) 3200
 		})();
 	}, []);

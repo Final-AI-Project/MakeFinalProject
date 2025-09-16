@@ -1,0 +1,416 @@
+import React, { useMemo, useState } from "react";
+import {
+	View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform,
+	TextInput, Pressable, Image, Alert
+} from "react-native";
+import * as ImagePicker from "expo-image-picker";
+import { useRouter, Stack } from "expo-router";
+import { useColorScheme } from "react-native";
+import Colors from "../../../constants/Colors"; // 프로젝트에 이미 있는 Colors 사용
+
+type IndoorOutdoor = "indoor" | "outdoor" | null;
+
+const SPECIES = [
+	"몬스테라",
+	"스투키",
+	"금전수",
+	"선인장",
+	"호접란",
+	"테이블야자",
+	"홍콩야자",
+	"스파티필럼",
+	"관음죽",
+	"벵갈고무나무",
+	"올리브나무",
+	"디펜바키아",
+	"보스턴고사리",
+] as const;
+
+export default function PlantNew() {
+	const router = useRouter();
+	const scheme = useColorScheme();
+	const theme = Colors[scheme === "dark" ? "dark" : "light"];
+
+	const [imageUri, setImageUri] = useState<string | null>(null);
+	const [species, setSpecies] = useState<string>("");             // 드롭다운 대신 단순 입력/선택 겸용
+	const [nickname, setNickname] = useState<string>("");
+	const [startedAt, setStartedAt] = useState<string>("");         // YYYY-MM-DD 형식 텍스트 입력
+	const [place, setPlace] = useState<string>("");                 // 장소
+	const [inout, setInout] = useState<IndoorOutdoor>(null);        // 실내/실외
+	const isKnownSpecies = useMemo(
+		() => (species ? SPECIES.includes(species as any) : true),
+		[species]
+	);
+
+	// 모든 값이 채워졌는지 검증
+	const isAllFilled = Boolean(
+		imageUri &&
+		species.trim() &&
+		nickname.trim() &&
+		startedAt.trim() &&
+		place.trim() &&
+		inout !== null
+	);
+
+	// 간단 YYYY-MM-DD 검사 (형식만)
+	const isDateLike = useMemo(() => {
+		if (!startedAt) return true;
+		return /^\d{4}-\d{2}-\d{2}$/.test(startedAt);
+	}, [startedAt]);
+
+	/************************
+			프론트엔드
+	************************/
+
+	function handlePickImage() {
+		Alert.alert("사진 등록", "사진을 불러올 방법을 선택하세요.", [
+			{ text: "사진 찍기", onPress: takePhoto },
+			{ text: "앨범 선택", onPress: pickFromLibrary },
+			{ text: "취소", style: "cancel" },
+		]);
+	}
+
+	async function pickFromLibrary() {
+		const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+		if (status !== "granted") {
+			Alert.alert("권한 필요", "앨범 접근 권한을 허용해주세요.");
+			return;
+		}
+		const res = await ImagePicker.launchImageLibraryAsync({
+			allowsEditing: true,
+			quality: 0.9,
+			mediaTypes: ImagePicker.MediaTypeOptions.Images,
+			aspect: [1, 1],
+		});
+		if (!res.canceled && res.assets?.[0]?.uri) {
+			setImageUri(res.assets[0].uri);
+		}
+	}
+
+	async function takePhoto() {
+		const { status } = await ImagePicker.requestCameraPermissionsAsync();
+		if (status !== "granted") {
+			Alert.alert("권한 필요", "카메라 권한을 허용해주세요.");
+			return;
+		}
+		const res = await ImagePicker.launchCameraAsync({
+			allowsEditing: true,
+			quality: 0.9,
+			aspect: [1, 1],
+		});
+		if (!res.canceled && res.assets?.[0]?.uri) {
+			setImageUri(res.assets[0].uri);
+		}
+	}
+
+	function handleSubmit() {
+		// 백엔드 X: 여기서는 단순히 확인만 하고 홈으로 이동
+		// 실제 저장은 이후 로컬 스토리지/상태관리로 대체 가능
+		if (!isAllFilled) return;
+		if (!isDateLike) {
+			Alert.alert("날짜 형식 확인", "날짜는 YYYY-MM-DD 형식으로 입력해주세요.");
+			return;
+		}
+
+		Alert.alert("등록 완료", "새 식물이 등록되었습니다! (로컬 처리 가정)", [
+			{ text: "확인", onPress: () => router.replace("/(page)/home") },
+		]);
+	}
+
+	return (
+		<>
+			<Stack
+				screenOptions={{
+					headerShown: false,        // ✅ 헤더 숨김
+					headerBackVisible: false,  // ✅ ← 버튼 숨김
+					headerLeft: () => null,    // ✅ 잔여 요소 제거
+					gestureEnabled: false,     // ✅ 뒤로 제스처 차단
+					contentStyle: { backgroundColor: theme.bg },
+				}}
+			/>
+			<KeyboardAvoidingView
+				style={[styles.container, { backgroundColor: theme.bg }]}
+				behavior={Platform.select({ ios: "padding", android: "height" })}
+			>
+
+				<ScrollView
+					keyboardShouldPersistTaps="handled"
+					keyboardDismissMode="interactive"
+					contentContainerStyle={{ padding: 16, paddingBottom: 220 }}
+				>
+					<View style={styles.photoBox}>
+						{imageUri ? (
+							<Image source={{ uri: imageUri }} style={styles.photo} />
+						) : (
+							<Pressable
+								style={[styles.photoPlaceholder, { borderColor: theme.border }]}
+								onPress={handlePickImage}
+							>
+								<Text style={{ color: theme.text, fontSize: 40 }}>+</Text>
+								<Text style={{ color: theme.text, marginTop: 4 }}>등록해주세요</Text>
+							</Pressable>
+						)}
+					</View>
+
+					{/* 분류결과 / 직접입력 */}
+					<View style={{ marginTop: 24 }}>
+						<Text style={[styles.sectionLabel, { color: theme.text }]}>품종 분류</Text>
+						<Text style={[styles.helper, { color: theme.text }]}>
+							AI 분류는 아직 대기 상태예요. 아래 목록에서 선택하거나 직접 입력할 수 있어요.
+						</Text>
+
+						{/* 간단 선택 버튼들 */}
+						<View style={styles.chipWrap}>
+							{SPECIES.map((sp) => (
+								<Pressable
+									key={sp}
+									onPress={() => setSpecies(sp)}
+									style={[
+										styles.chip,
+										{ borderColor: theme.border, backgroundColor: species === sp ? theme.primary : "transparent" },
+									]}
+								>
+									<Text style={{ color: species === sp ? "#fff" : theme.text, fontSize: 12 }}>{sp}</Text>
+								</Pressable>
+							))}
+						</View>
+
+						{/* 직접입력 */}
+						<TextInput
+							placeholder="직접입력 (예: 몬스테라)"
+							placeholderTextColor="#909090"
+							value={species}
+							onChangeText={setSpecies}
+							style={[styles.input, { color: theme.text, borderColor: theme.border }]}
+						/>
+						<Text style={[styles.notice, { color: theme.text }]}>
+							* 직접입력 시 올바른 품종정보나 생육정보의 제공이 어려울 수 있습니다.
+						</Text>
+
+						{species.trim().length > 0 && !isKnownSpecies && (
+							<Text style={styles.warn}>
+								* 데이터 베이스에 없는 식물입니다. 식물주님의 품종을 학습하여 조만간 업데이트 하겠습니다.
+							</Text>
+						)}
+					</View>
+
+					{/* 별명 */}
+					<View style={{ marginTop: 24 }}>
+						<Text style={[styles.sectionLabel, { color: theme.text }]}>내 식물 별명</Text>
+						<TextInput
+							placeholder="예: 몬몬이"
+							placeholderTextColor="#909090"
+							value={nickname}
+							onChangeText={setNickname}
+							style={[styles.input, { color: theme.text, borderColor: theme.border }]}
+						/>
+					</View>
+
+					{/* 키우기 시작한 날 */}
+					<View style={{ marginTop: 24 }}>
+						<Text style={[styles.sectionLabel, { color: theme.text }]}>키우기 시작한 날</Text>
+						<TextInput
+							placeholder="YYYY-MM-DD"
+							placeholderTextColor="#909090"
+							value={startedAt}
+							onChangeText={setStartedAt}
+							keyboardType="numbers-and-punctuation"
+							maxLength={10}
+							style={[styles.input, { color: theme.text, borderColor: theme.border }]}
+						/>
+						{startedAt.length > 0 && !isDateLike && (
+							<Text style={styles.warn}>YYYY-MM-DD 형식으로 입력해주세요.</Text>
+						)}
+					</View>
+
+					{/* 키우는 위치 */}
+					<View style={{ marginTop: 24 }}>
+						<Text style={[styles.sectionLabel, { color: theme.text }]}>키우는 위치</Text>
+						<Text style={[styles.helper, { color: theme.text }]}>장소 + 실내/실외를 선택하세요.</Text>
+
+						<Text style={[styles.smallLabel, { color: theme.text }]}>장소</Text>
+						<TextInput
+							placeholder="예: 거실 창가, 베란다"
+							placeholderTextColor="#909090"
+							value={place}
+							onChangeText={setPlace}
+							style={[styles.input, { color: theme.text, borderColor: theme.border }]}
+						/>
+
+						<View style={styles.radioRow}>
+							<Pressable
+								onPress={() => setInout("indoor")}
+								style={[
+									styles.radio,
+									{ borderColor: theme.border, backgroundColor: inout === "indoor" ? theme.primary : "transparent" },
+								]}
+							>
+								<Text style={{ color: inout === "indoor" ? "#fff" : theme.text }}>실내</Text>
+							</Pressable>
+							<Pressable
+								onPress={() => setInout("outdoor")}
+								style={[
+									styles.radio,
+									{ borderColor: theme.border, backgroundColor: inout === "outdoor" ? theme.primary : "transparent" },
+								]}
+							>
+								<Text style={{ color: inout === "outdoor" ? "#fff" : theme.text }}>실외</Text>
+							</Pressable>
+						</View>
+					</View>
+				</ScrollView>
+
+				{/* 하단 고정 버튼 영역 */}
+				<View style={[styles.bottomBar, { backgroundColor: theme.bg, borderTopColor: theme.border }]}>
+					<Pressable
+						onPress={() => router.replace("/(page)/home")}
+						style={[styles.cancelBtn, { borderColor: theme.border }]}
+					>
+						<Text style={[styles.cancelText, { color: theme.text }]}>취소</Text>
+					</Pressable>
+
+					<Pressable
+						disabled={!isAllFilled || !isDateLike}
+						onPress={handleSubmit}
+						style={[
+							styles.submitBtn,
+							{ backgroundColor: !isAllFilled || !isDateLike ? "#ccc" : theme.primary },
+						]}
+					>
+						<Text style={styles.submitText}>등록하기</Text>
+					</Pressable>
+				</View>
+			</KeyboardAvoidingView>
+		</>
+	);
+}
+
+const styles = StyleSheet.create({
+	container: {
+		flex: 1,
+	},
+	title: {
+		fontSize: 22,
+		fontWeight: "700",
+		marginBottom: 16,
+	},
+	sectionLabel: {
+		fontSize: 16,
+		fontWeight: "700",
+		marginBottom: 8,
+	},
+	helper: {
+		fontSize: 12,
+		marginBottom: 8,
+		opacity: 0.8,
+	},
+	imageRow: {
+		flexDirection: "row",
+		gap: 8,
+	},
+	button: {
+		paddingVertical: 10,
+		paddingHorizontal: 14,
+		borderWidth: 1,
+		borderRadius: 10,
+	},
+	buttonText: {
+		fontSize: 14,
+	},
+	photoBox: {
+		marginTop: 12,
+		alignItems: "center",
+	},
+	photo: {
+		width: 260,
+		height: 260,
+		borderRadius: 16,
+	},
+	photoPlaceholder: {
+		width: 260,
+		height: 260,
+		borderRadius: 16,
+		borderWidth: 1,
+		alignItems: "center",
+		justifyContent: "center",
+	},
+	chipWrap: {
+		flexDirection: "row",
+		flexWrap: "wrap",
+		gap: 8,
+		marginBottom: 8,
+	},
+	chip: {
+		paddingVertical: 6,
+		paddingHorizontal: 10,
+		borderRadius: 999,
+		borderWidth: 1,
+	},
+	input: {
+		borderWidth: 1,
+		borderRadius: 10,
+		paddingHorizontal: 12,
+		paddingVertical: 12,
+		marginTop: 8,
+	},
+	notice: {
+		fontSize: 12,
+		marginTop: 6,
+	},
+	warn: {
+		fontSize: 12,
+		marginTop: 6,
+		color: "#d93025",
+	},
+	smallLabel: {
+		fontSize: 13,
+		fontWeight: "600",
+		marginTop: 8,
+	},
+	radioRow: {
+		flexDirection: "row",
+		gap: 8,
+		marginTop: 10,
+	},
+	radio: {
+		paddingVertical: 10,
+		paddingHorizontal: 14,
+		borderRadius: 10,
+		borderWidth: 1,
+	},
+
+	bottomBar: {
+		position: "absolute",
+		left: 0,
+		right: 0,
+		bottom: 0,
+		flexDirection: "row",
+		gap: 8,
+		padding: 12,
+		borderTopWidth: 1,
+	},
+	cancelBtn: {
+		flex: 1,
+		borderWidth: 1,
+		borderRadius: 12,
+		alignItems: "center",
+		justifyContent: "center",
+		paddingVertical: 14,
+	},
+	cancelText: {
+		fontSize: 15,
+		fontWeight: "600",
+	},
+	submitBtn: {
+		flex: 2,
+		borderRadius: 12,
+		alignItems: "center",
+		justifyContent: "center",
+		paddingVertical: 14,
+	},
+	submitText: {
+		color: "#fff",
+		fontWeight: "700",
+		fontSize: 16,
+	},
+});

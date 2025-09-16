@@ -55,7 +55,7 @@ export default function Home() {
 			</View>
 
 			<View style={styles.linkList}>
-				<Link style={styles.newPlant} href="../(auth)/login">
+				<Link style={styles.newPlant} href="../(stackless)/plant-new">
 					<Text style={{ color: "#fff" }}>새 식물 등록</Text>
 				</Link>
 				<Link style={styles.plantInfo} href="../(auth)/login">
