@@ -7,6 +7,7 @@ const Colors = {
 		border:"#2c2c2c",
 		bg:"#f0f2f5",
 		text:"#1a1a1a",
+		graybg:"#e6e6e6",
 		statusBarStyle:"dark" as const,
 	},
 	dark:{
@@ -16,6 +17,7 @@ const Colors = {
 		border:"#faf9f6",
 		bg:"#222",
 		text:"#fff",
+		graybg:"#575757",
 		statusBarStyle:"light" as const,
 	},
 	blue:'#6a9eff',
