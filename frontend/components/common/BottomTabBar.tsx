@@ -11,11 +11,11 @@ import Colors from "../../constants/Colors";
 type RouteKey = "home" | "camera" | "diary" | "menu" | "medical";
 
 const ICONS: Record<RouteKey, { active: keyof typeof Ionicons.glyphMap; inactive: keyof typeof Ionicons.glyphMap }> = {
-	home:	 { active: "home",	 inactive: "home-outline" },
-	camera:   { active: "camera",   inactive: "camera-outline" },
-	diary:	{ active: "create",   inactive: "create-outline" },
-	menu:	 { active: "grid",	 inactive: "grid-outline" },	  // ✅ 전체메뉴
-	medical:  { active: "medkit",   inactive: "medkit-outline" },	// ✅ 의료
+	home:    { active: "home",    inactive: "home-outline" },
+	camera:  { active: "camera",  inactive: "camera-outline" },
+	diary:   { active: "create",  inactive: "create-outline" },
+	menu:    { active: "grid",    inactive: "grid-outline" },   // ✅ 전체메뉴
+	medical: { active: "medkit",  inactive: "medkit-outline" }, // ✅ 의료
 };
 
 export default function BottomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
@@ -29,6 +29,12 @@ export default function BottomTabBar({ state, descriptors, navigation }: BottomT
 		if (!event.defaultPrevented) navigation.navigate(route.name);
 	};
 
+	// ✅ 탭에서 숨길 라우트 필터: 괄호 라우트 & href:null
+	const visibleRoutes = state.routes.filter((route) => {
+		const opts = descriptors[route.key]?.options ?? {};
+		return !(route.name.startsWith("(") || opts.href === null);
+	});
+
 	return (
 		<View pointerEvents="box-none" style={[styles.wrap, { paddingBottom: Math.max(insets.bottom, 8) }]}>
 			<View
@@ -40,7 +46,7 @@ export default function BottomTabBar({ state, descriptors, navigation }: BottomT
 					},
 				]}
 			>
-				{state.routes.map((route, index) => {
+				{visibleRoutes.map((route, index) => {
 					const isFocused = state.index === index;
 					const options = descriptors[route.key].options;
 					const label =
@@ -79,9 +85,7 @@ export default function BottomTabBar({ state, descriptors, navigation }: BottomT
 							) : (
 								<View style={styles.pill}>
 									<Ionicons name={iconName || "ellipse-outline"} size={22} color={color} />
-									{/* 🔇 라벨 전부 숨김 (원하면 아래를 주석 해제해 개별 표시 가능)
-									<Text style={[styles.label, { color }]} numberOfLines={1}>{label}</Text>
-									*/}
+									{/* <Text style={[styles.label, { color }]} numberOfLines={1}>{label}</Text> */}
 								</View>
 							)}
 						</TouchableOpacity>
@@ -109,8 +113,8 @@ const styles = StyleSheet.create({
 		borderRadius: 24,
 		width: "92%",
 		...Platform.select({
-			ios:	 { shadowOpacity: 0.15, shadowRadius: 14, shadowOffset: { width: 0, height: 8 } },
-			android: { elevation: 12 },
+			ios:    { shadowOpacity: 0.15, shadowRadius: 14, shadowOffset: { width: 0, height: 8 } },
+			android:{ elevation: 12 },
 		}),
 	},
 	tabBtn: {
@@ -140,8 +144,8 @@ const styles = StyleSheet.create({
 		alignItems: "center", justifyContent: "center",
 		marginTop: -18,
 		...Platform.select({
-			ios:	 { shadowOpacity: 0.25, shadowRadius: 12, shadowOffset: { width: 0, height: 10 } },
-			android: { elevation: 16 },
+			ios:    { shadowOpacity: 0.25, shadowRadius: 12, shadowOffset: { width: 0, height: 10 } },
+			android:{ elevation: 16 },
 		}),
 	},
 });

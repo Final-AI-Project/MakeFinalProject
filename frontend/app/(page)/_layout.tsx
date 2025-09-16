@@ -9,17 +9,23 @@ export default function PageLayout() {
 	const theme = Colors[scheme === "dark" ? "dark" : "light"];
 
 	return (
-		<View style={{ flex: 1, backgroundColor: theme.bg }}>
-			<Tabs
-				screenOptions={{ headerShown: false }}
-				tabBar={(props) => <BottomTabBar {...props} />}
-			>
-				<Tabs.Screen name="home" options={{ title: "홈" }} />
-				<Tabs.Screen name="medical" options={{ title: "의료" }} />
-				<Tabs.Screen name="camera" options={{ title: "카메라" }} />
-				<Tabs.Screen name="diary" options={{ title: "일기장" }} />
-				<Tabs.Screen name="menu" options={{ title: "전체메뉴" }} />
-			</Tabs>
-		</View>
+		<Tabs
+			screenOptions={{
+				headerShown: false,
+				tabBarStyle: { backgroundColor: theme.bg }, // 기존 배경 유지
+			}}
+			tabBar={(props) => <BottomTabBar {...props} />}
+		>
+			<Tabs.Screen name="home" options={{ title: "홈" }} />
+			<Tabs.Screen name="medical" options={{ title: "의료" }} />
+			<Tabs.Screen name="camera" options={{ title: "카메라" }} />
+			<Tabs.Screen name="diary" options={{ title: "일기장" }} />
+			<Tabs.Screen name="menu" options={{ title: "전체메뉴" }} />
+
+			<Tabs.Screen
+				name="(stackless)"
+				options={{ href: null, headerShown: false }}
+			/>
+		</Tabs>
 	);
 }
