@@ -219,7 +219,7 @@ export default function PlantNew() {
 			</ScrollView>
 
 			{/* 하단 고정 버튼 영역 */}
-			<View style={[styles.bottomBar, { backgroundColor: theme.bg, borderTopColor: theme.border }]}>
+			<View style={[styles.bottomBar, { backgroundColor: theme.bg }]}>
 				<Pressable onPress={() => router.replace("/(page)/home")} style={[styles.cancelBtn, { borderColor: theme.border }]}>
 					<Text style={[styles.cancelText, { color: theme.text }]}>취소</Text>
 				</Pressable>
@@ -315,7 +315,6 @@ const styles = StyleSheet.create({
 		flexDirection: "row",
 		gap: 8,
 		padding: 12,
-		borderTopWidth: 1,
 	},
 	cancelBtn: {
 		flex: 1,
