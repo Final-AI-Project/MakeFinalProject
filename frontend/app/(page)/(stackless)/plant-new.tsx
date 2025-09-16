@@ -227,9 +227,9 @@ export default function PlantNew() {
 				<Pressable
 					disabled={!isAllFilled || !isDateLike}
 					onPress={handleSubmit}
-					style={[styles.submitBtn, { backgroundColor: !isAllFilled || !isDateLike ? "#ccc" : theme.primary }]}
+					style={[styles.submitBtn, { backgroundColor: !isAllFilled || !isDateLike ? theme.graybg : theme.primary }]}
 				>
-					<Text style={styles.submitText}>등록하기</Text>
+					<Text style={[styles.submitText, { color: theme.text }]}>등록하기</Text>
 				</Pressable>
 			</View>
 		</KeyboardAvoidingView>
@@ -337,7 +337,6 @@ const styles = StyleSheet.create({
 		paddingVertical: 14,
 	},
 	submitText: {
-		color: "#fff",
 		fontWeight: "700",
 		fontSize: 16,
 	},
