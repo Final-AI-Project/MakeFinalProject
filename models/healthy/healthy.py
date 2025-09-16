@@ -22,18 +22,11 @@ def _load_model():
     """모델을 지연 로딩하는 함수"""
     global model, names
     if model is None:
-        # weights_only=False로 모델 로딩
-        import torch
-        original_load = torch.load
-        torch.load = lambda *args, **kwargs: original_load(*args, **kwargs, weights_only=False)
-        
+        # 간단한 방법으로 모델 로드 (재귀 문제 방지)
         model = YOLO(MODEL_PATH)
         if DEVICE:
             model.to(DEVICE)
         names = model.names
-        
-        # 원래 torch.load 복원
-        torch.load = original_load
 
 def predict_image(img: Image.Image, topk: int = 5):
     _load_model()  # 필요할 때 모델 로딩

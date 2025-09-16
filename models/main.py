@@ -13,7 +13,14 @@ from ultralytics import YOLO
 # torch.load의 weights_only를 False로 설정
 torch.serialization.DEFAULT_PROTOCOL = 2
 from detector.leaf_segmentation import LeafSegmentationModel
-from classifier.plant_classifier import build_model, CLASSES
+from classifier.cascade.cascade import build_model
+
+# 품종 분류 클래스 정의
+CLASSES = [
+    "monstera","stuckyi_sansevieria","zz_plant","cactus_succulent","phalaenopsis",
+    "chamaedorea","schefflera","spathiphyllum","lady_palm","ficus_audrey",
+    "olive_tree","dieffenbachia","boston_fern"
+]
 from healthy.healthy import predict_image as predict_health
 
 # ------ FastAPI 앱
@@ -53,7 +60,7 @@ app.add_middleware(
 
 # ----------------- 모델 경로 설정
 SEG_MODEL_PATH = "weight/seg_best.pt"
-SPECIES_MODEL_PATH = "weight/efficientnet_b0_dummy_best.pth"  # 품종 분류 모델
+SPECIES_MODEL_PATH = "classifier/cascade/weight/mobilevitv2_best.pth"  # 품종 분류 모델
 HEALTH_MODEL_PATH = "healthy/healthy.pt"    # 건강 상태 모델
 DISEASE_MODEL_PATH = "weight/disease_model.pt"  # 질병 분류 모델 (미구현)
 
@@ -74,7 +81,7 @@ except Exception as e:
 print("🔧 Loading Species Classification Model...")
 try:
     if os.path.exists(SPECIES_MODEL_PATH):
-        species_model, _ = build_model("efficientnet_b0", len(CLASSES))
+        species_model, _ = build_model("mobilevitv2_100", len(CLASSES), 256)
         checkpoint = torch.load(SPECIES_MODEL_PATH, map_location=device)
         species_model.load_state_dict(checkpoint["model"])
         species_model.to(device)
@@ -82,7 +89,7 @@ try:
         print("✅ 품종 분류 모델 로드 완료")
     else:
         print("⚠️ 품종 분류 모델 파일이 없습니다. 더미 모델을 생성합니다.")
-        species_model, _ = build_model("efficientnet_b0", len(CLASSES))
+        species_model, _ = build_model("mobilevitv2_100", len(CLASSES), 256)
         species_model.to(device)
         species_model.eval()
 except Exception as e:

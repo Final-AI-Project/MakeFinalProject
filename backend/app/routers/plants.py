@@ -5,17 +5,16 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, Query, status
 from pydantic import BaseModel, Field
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.database import get_db
-from db.crud import user_plant as user_plant_crud
-from db.schemas.user_plant import (
+from crud import user_plant as user_plant_crud
+from schemas.user_plant import (
     UserPlantCreate, 
     UserPlantOut,
     UserPlantUpdate,
     PlantListOut
     )
-from db.models.user_plant import UserPlant
+from models.user_plant import UserPlant
 
 from utils.errors import http_error
 from utils.security import get_current_user
@@ -47,18 +46,12 @@ def _to_out(row: UserPlant) -> UserPlantOut:
 async def create_plant(
     body: UserPlantCreate,
     user: Dict[str, Any] = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db=Depends(get_db),
 ):
-    """"""
-    # plant_id 중복 검증
-    exists = await user_plant_crud.get_by_plant_id(db, body.plant_id)
-    if exists:
-        raise http_error("plant_conflict", "이미 등록된 plant_id 입니다.", 409)
-    
+    """새 식물 등록 (plant_id는 자동 생성)"""
     row = await user_plant_crud.create(
         db,
         user_id=user["user_id"],
-        plant_id=body.plant_id,
         plant_name=body.plant_name,
         species=body.species,
         pest_id=body.pest_id,
@@ -72,7 +65,7 @@ async def list_plants(
     limit: int = Query(10, ge=1, le=100),
     cursor: Optional[str] = Query(None),
     user: Dict[str, Any] = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db=Depends(get_db),
 ):
     """
     내 식물 목록 (커서 기반, idx DESC)
@@ -95,7 +88,7 @@ async def list_plants(
 async def get_plant(
     plant_id: int,
     user: Dict[str, Any] = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db=Depends(get_db),
 ):
     """
     식물 단건 조회 (plant_id 기준)
@@ -112,7 +105,7 @@ async def patch_plant(
     plant_id: int,
     body: UserPlantUpdate,
     user: Dict[str, Any] = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db=Depends(get_db),
 ):
     """
     식물 수정 (plant_id 기준)
