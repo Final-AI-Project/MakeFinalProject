@@ -12,10 +12,10 @@ type RouteKey = "home" | "camera" | "diary" | "menu" | "medical";
 
 const ICONS: Record<RouteKey, { active: keyof typeof Ionicons.glyphMap; inactive: keyof typeof Ionicons.glyphMap }> = {
 	home:    { active: "home",    inactive: "home-outline" },
+	medical: { active: "medkit",  inactive: "medkit-outline" },
 	camera:  { active: "camera",  inactive: "camera-outline" },
 	diary:   { active: "create",  inactive: "create-outline" },
-	menu:    { active: "grid",    inactive: "grid-outline" },   // ✅ 전체메뉴
-	medical: { active: "medkit",  inactive: "medkit-outline" }, // ✅ 의료
+	menu:    { active: "grid",    inactive: "grid-outline" },
 };
 
 export default function BottomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
@@ -41,16 +41,8 @@ export default function BottomTabBar({ state, descriptors, navigation }: BottomT
 	};
 
 	return (
-		<View pointerEvents="box-none" style={[styles.wrap, { paddingBottom: Math.max(insets.bottom, 8) }]}>
-			<View
-				style={[
-					styles.bar,
-					{
-						backgroundColor: theme.bg,
-						shadowColor: scheme === "dark" ? "#000" : "#777",
-					},
-				]}
-			>
+		<View pointerEvents="box-none" style={styles.wrap}>
+			<View style={[ styles.bar, { backgroundColor: theme.bg } ]}>
 				{visibleRoutes.map((route, index) => {
 					const isFocused = state.index === index;
 					const options = descriptors[route.key].options;
@@ -80,8 +72,7 @@ export default function BottomTabBar({ state, descriptors, navigation }: BottomT
 									style={[
 										styles.fab,
 										{
-											backgroundColor: theme.primary,
-											shadowColor: scheme === "dark" ? "#000" : theme.primary,
+											backgroundColor: theme.primary
 										},
 									]}
 								>
@@ -106,17 +97,14 @@ const styles = StyleSheet.create({
 		position: "absolute",
 		left: 0, right: 0, bottom: 0,
 		alignItems: "center",
-		borderTopColor:'red',
 	},
 	bar: {
 		flexDirection: "row",
 		alignItems: "center",
 		justifyContent: "space-between",
 		gap: 8,
-		paddingHorizontal: 12,
+		paddingHorizontal: 24,
 		height: 68,
-		borderRadius: 24,
-		width: "92%",
 		...Platform.select({
 			ios:    { shadowOpacity: 0.15, shadowRadius: 14, shadowOffset: { width: 0, height: 8 } },
 			android:{ elevation: 12 },
@@ -147,10 +135,6 @@ const styles = StyleSheet.create({
 	fab: {
 		width: 56, height: 56, borderRadius: 28,
 		alignItems: "center", justifyContent: "center",
-		marginTop: -18,
-		...Platform.select({
-			ios:    { shadowOpacity: 0.25, shadowRadius: 12, shadowOffset: { width: 0, height: 10 } },
-			android:{ elevation: 16 },
-		}),
+		marginTop: -18
 	},
 });
