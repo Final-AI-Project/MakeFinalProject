@@ -140,30 +140,28 @@ export default function PlantNew() {
 			>
 				{/* 사진 */}
 				<View style={styles.photoBox}>
-					{imageUri ? (
-						<Image source={{ uri: imageUri }} style={styles.photo} />
-					) : (
-						<Pressable
-							style={[
-								styles.photoPlaceholder,
-								{ borderColor: theme.border, backgroundColor: theme.graybg },
-							]}
-							onPress={handlePickImage}
-						>
-							{imageUri ? (
-								<Image
-									source={{ uri: imageUri }}
-									style={styles.photo}
-									resizeMode="cover"   // object-fit: cover 역할
-								/>
-							) : (
-								<>
-									<Text style={{ color: theme.text, fontSize: 40 }}>+</Text>
-									<Text style={{ color: theme.text, marginTop: 4 }}>키우는 식물을 자랑해주세요!</Text>
-								</>
-							)}
-						</Pressable>
-					)}
+					<Pressable
+						onPress={handlePickImage}
+						style={[
+							styles.photoPlaceholder,
+							{ borderColor: theme.border, backgroundColor: theme.graybg },
+						]}
+					>
+						{imageUri ? (
+							<>
+								<Image source={{ uri: imageUri }} style={styles.photo} resizeMode="cover" />
+								{/* 사진 변경 배지 (선택사항) */}
+								<View style={[styles.changeBadge, { borderColor: theme.border, backgroundColor: theme.bg + "cc" }]}>
+									<Text style={[styles.changeBadgeText, { color: theme.text }]}>사진 변경</Text>
+								</View>
+							</>
+						) : (
+							<>
+								<Text style={{ color: theme.text, fontSize: 40 }}>+</Text>
+								<Text style={{ color: theme.text, marginTop: 4 }}>키우는 식물을 자랑해주세요!</Text>
+							</>
+						)}
+					</Pressable>
 				</View>
 
 				<View style={styles.inputArea}>
@@ -338,5 +336,18 @@ const styles = StyleSheet.create({
 	submitText: {
 		fontWeight: "700",
 		fontSize: 16,
+	},
+	changeBadge: {
+		position: "absolute",
+		right: 10,
+		bottom: 10,
+		borderWidth: 1,
+		borderRadius: 8,
+		paddingHorizontal: 10,
+		paddingVertical: 6,
+	},
+	changeBadgeText: {
+		fontSize: 12,
+		fontWeight: "700",
 	},
 });
