@@ -24,7 +24,7 @@ import loginEffDef from "../../assets/images/login_eff_def.png";
 import normalface from "../../assets/images/login_eff_normalface.png";
 import inputface from "../../assets/images/login_eff_inputface.png";
 import pwface from "../../assets/images/login_eff_pwface.png";
-import { startLoading } from "../common/loading";
+import { startLoading, stopLoading } from "../../components/common/loading";
 
 
 // 서버 주소를 환경에 맞게 바꿔주세요. (Expo 클라이언트에서 접근하려면 EXPO_PUBLIC_* prefix 필수)
@@ -198,7 +198,7 @@ export default function LoginScreen() {
 			await setToken(data.access_token);
 
 			// 로그인 성공 후 home으로 이동
-			const next = typeof params.redirect === "string" ? (params.redirect as string) : "/(main)/home";
+			const next = typeof params.redirect === "string" ? (params.redirect as string) : "/(page)/home";
 			router.replace(next as any);
 		} catch (err: any) {
 			console.error("Login error:", err);
@@ -213,7 +213,7 @@ export default function LoginScreen() {
 	return (
 		<SafeAreaView
 			edges={["top", "bottom"]}
-			style={{ flex: 1, backgroundColor: theme.bg }}
+			style={{ flex: 1, paddingHorizontal: 24, backgroundColor: theme.bg }}
 		>
 			<KeyboardAvoidingView
 				behavior="padding" enabled
@@ -316,7 +316,7 @@ export default function LoginScreen() {
 								task: async () => {
 									await new Promise(r => setTimeout(r, 3000));
 								},
-								to: "/(main)/home",          // 완료 후 이동할 경로
+								to: "/(page)/home",          // 완료 후 이동할 경로
 								replace: true,               // replace로 이동
 							})
 						}

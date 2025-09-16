@@ -88,7 +88,7 @@ export default function SignupScreen() {
     };
 
     return (
-        <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
+        <SafeAreaView style={{ flex: 1, paddingHorizontal: 24, backgroundColor: theme.bg }}>
             <KeyboardAvoidingView
                 behavior={Platform.select({ ios: "padding", android: undefined })}
                 style={{ flex: 1 }}
@@ -199,7 +199,7 @@ const styles = StyleSheet.create({
         alignItems: "center",
     },
     btnText: {
-        color: "#FFFFFF",
+        color: "#fff",
         fontSize: 18,
         fontWeight: "700",
     },

@@ -1,13 +1,18 @@
 // app/(tabs)/index.tsx
 import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, Dimensions } from 'react-native';
-import { Link } from 'expo-router';
+import { View, Text, StyleSheet, Dimensions, useColorScheme } from 'react-native';
+import { Link, useRouter } from 'expo-router';
+import Colors from "../../constants/Colors";
+import WeatherBox from "../../components/common/weatherBox";
 import Carousel from 'react-native-reanimated-carousel';
-import WeatherBox from "../common/weatherBox";
 
 const { width } = Dimensions.get('window');
 
 export default function Home() {
+	const router = useRouter();
+	const scheme = useColorScheme();
+	const theme = Colors[scheme === "dark" ? "dark" : "light"];
+	
 	// 캐러셀 상태만 유지
 	const [activeIndex, setActiveIndex] = useState(0);
 	const slides = useMemo(() => ([
@@ -17,7 +22,7 @@ export default function Home() {
 	]), []);
 
 	return (
-		<View style={styles.container}>
+		<View style={[styles.container, {backgroundColor: theme.bg}]}>
 			{/* ✅ 공통 날씨 컴포넌트만 사용 */}
 			<WeatherBox
 				serviceKey="GTr1cI7Wi0FRbOTFBaUzUCzCDP4OnyyEmHnn11pxCUC5ehG5bQnbyztgeydnOWz1O04tjw1SE5RsX8RNo6XCgQ==" 
@@ -50,7 +55,7 @@ export default function Home() {
 			</View>
 
 			<View style={styles.linkList}>
-				<Link style={styles.newPlant} href="../(auth)/login">
+				<Link style={styles.newPlant} href="../(stackless)/plant-new">
 					<Text style={{ color: "#fff" }}>새 식물 등록</Text>
 				</Link>
 				<Link style={styles.plantInfo} href="../(auth)/login">
@@ -65,8 +70,9 @@ export default function Home() {
 const styles = StyleSheet.create({
 	container: {
 		flex: 1,
-		alignItems: 'stretch',
 		paddingTop:20,
+		paddingHorizontal:24,
+		paddingBottom:0,
 	},
 	// 캐러셀
 	carouselRoot: {

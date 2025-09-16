@@ -6,7 +6,7 @@ import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { StyleSheet, useColorScheme } from "react-native";
 import Colors from "../constants/Colors";
-import { GlobalLoadingHost } from "./common/loading";
+import { GlobalLoadingHost } from "../components/common/loading";
 
 export default function RootLayout() {
 	const scheme = useColorScheme();
@@ -22,7 +22,8 @@ export default function RootLayout() {
 				<Stack
 					screenOptions={{
 						headerShown: false,
-						contentStyle: { backgroundColor: "transparent" },
+						contentStyle: { backgroundColor: theme.bg },
+						animation: "fade", // 또는 "fade", "simple_push, slide_from_right"
 					}}
 				/>
 				{/* ✅ 전역 딤 로딩 모달 호스트 */}
@@ -36,6 +37,5 @@ const styles = StyleSheet.create({
 	layout: {
 		flex: 1,
 		paddingTop: 5,
-		paddingHorizontal: 24,
 	},
 });
