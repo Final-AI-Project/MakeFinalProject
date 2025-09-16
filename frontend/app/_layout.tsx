@@ -1,10 +1,12 @@
 // app/_layout.tsx
+import 'react-native-gesture-handler';
+import 'react-native-reanimated';
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { StyleSheet, useColorScheme } from "react-native";
 import Colors from "../constants/Colors";
-import { GlobalLoadingHost } from "./common/loading";   // ✅ 추가
+import { GlobalLoadingHost } from "./common/loading";
 
 export default function RootLayout() {
 	const scheme = useColorScheme();

@@ -4,9 +4,8 @@ import os
 from datetime import datetime, timezone
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
-# from backend.app.core.config import settings  # 잘못된 경로
-# from backend.app.core.database import engine   # 잘못된 경로
+from core.config import settings
+from core.database import get_db_connection
 
 try:
     from core.config import get_settings  # type: ignore
@@ -19,10 +18,9 @@ from routers.dashboard import router as dashboard_router
 from routers.auth import router as auth_router
 from routers.plants import router as plants_router
 from routers.images import router as images_router
-
 from utils.errors import register_error_handlers
 
-import backend.app.db.models 
+# import db.models  # 임시 주석처리 
 
 
 app = FastAPI(title="Pland API", version="0.1.0")
@@ -50,11 +48,12 @@ app.add_middleware(
 def healthcheck():
     return {"ok": True, "now": datetime.now(timezone.utc).isoformat()}
 
+
 # DB 헬스체크
 @app.get("/health/db")
 async def health_db():
-    async with engine.connect() as conn:
-        await conn.execute(text("SELECT 1"))
+    async with get_db_connection() as (conn, cursor):
+        await cursor.execute("SELECT 1")
     return {"db": "ok"}
 
 # 버전 정보

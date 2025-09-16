@@ -1,5 +1,0 @@
-# plants-dataset/train, val 에 실제 식물 이미지 넣은 뒤
-python models/classifier/train_classifier.py --data_root plants-dataset --model efficientnet_b0 --epochs 20 --weighted_sampler
-
-# 추론
-python models/classifier/infer_classifier.py --weights models/weight/efficientnet_b0_best.pth --model efficientnet_b0 --image myplant.jpg

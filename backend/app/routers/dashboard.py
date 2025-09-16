@@ -5,11 +5,11 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, Query, Body
 from pydantic import BaseModel, Field
-from sqlalchemy.ext.asyncio import AsyncSession
+import aiomysql
 
-from ..core.database import get_db
-from ..utils.security import get_current_user
-from ..services.dashboard_service import DashboardService
+from core.database import get_db
+from utils.security import get_current_user
+from services.dashboard_service import DashboardService
 
 # ===메인화면 (dashboard) 라우터===
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
@@ -51,13 +51,14 @@ class PlantCardsOut(BaseModel):
 async def weather_bridge(
     payload: WeatherBridgeIn,
     user: Dict[str,Any] = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db: tuple[aiomysql.Connection, aiomysql.DictCursor] = Depends(get_db),
 ):
     """
     프론트에서 넘긴 현재 날씨 정보를 서버 표준 포맷으로 정규화하여 반환합니다.
     - 저장은 하지 않습니다.
     """
-    svc = DashboardService(db=db)
+    conn, cursor = db
+    svc = DashboardService(conn=conn, cursor=cursor)
     out = await svc.normalize_weather_from_front(payload.model_dump())
     return WeatherBridgeOut(**out)
 
@@ -68,12 +69,13 @@ async def get_my_plants_cards(
     limit: int = Query(5, ge=1, le=50),
     cursor: Optional[str] = Query(None),
     user: Dict[str, Any] = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db: tuple[aiomysql.Connection, aiomysql.DictCursor] = Depends(get_db),
 ):
     """
     메인 화면 스와이프용 '내 식물' 리스트 (DB 연동)
     - user_plant 기준, 각 plant의 최신 humid_info 1건 포함
     """
-    svc = DashboardService(db=db)
+    conn, cursor = db
+    svc = DashboardService(conn=conn, cursor=cursor)
     data = await svc.list_plants_summary(user_id=user["user_id"], limit=limit, cursor=cursor)
     return PlantCardsOut(**data)

@@ -6,9 +6,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 
-from ..db.models import User
-from ..db.schemas.user import UserCreate
-from ..db.crud import user as users_crud
+from db.models import User
+from db.schemas.user import UserCreate
+from db.crud import user as users_crud
 
 from ..utils.errors import http_error
 from ..utils.security import (

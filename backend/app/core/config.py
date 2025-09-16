@@ -50,7 +50,7 @@ class Settings(BaseSettings):
     DB_HOST: str = Field(default="", validation_alias='DB_HOST')
     DB_PORT: int = Field(default=3306, validation_alias='DB_PORT')
     DB_USER: str = Field(default="", validation_alias='DB_USER')
-    DB_PASSWORD: SecretStr = Field(default="", validation_alias='DB_PASSWORD')
+    DB_PASSWORD: SecretStr = Field(..., validation_alias='DB_PASSWORD')
     DB_NAME: str = Field(default="", validation_alias='DB_NAME')
 
     DB_POOL_SIZE: int = Field(default=20, validation_alias='DB_POOL_SIZE')
@@ -58,7 +58,7 @@ class Settings(BaseSettings):
     SQL_ECHO: bool = Field(default=False, validation_alias='SQL_ECHO')
     
     # SQLite 사용 여부 (개발용)
-    USE_SQLITE: bool = Field(default=True, validation_alias='USE_SQLITE')
+    USE_SQLITE: bool = Field(default=False, validation_alias='USE_SQLITE')
 
     @property
     def ROOT_DIR(self) -> Path:
