@@ -135,11 +135,24 @@ export default function PlantNew() {
 						<Image source={{ uri: imageUri }} style={styles.photo} />
 					) : (
 						<Pressable
-							style={[styles.photoPlaceholder, { borderColor: theme.border, backgroundColor: theme.graybg }]}
+							style={[
+								styles.photoPlaceholder,
+								{ borderColor: theme.border, backgroundColor: theme.graybg },
+							]}
 							onPress={handlePickImage}
 						>
-							<Text style={{ color: theme.text, fontSize: 40 }}>+</Text>
-							<Text style={{ color: theme.text, marginTop: 4 }}>등록해주세요</Text>
+							{imageUri ? (
+								<Image
+									source={{ uri: imageUri }}
+									style={styles.photo}
+									resizeMode="cover"   // object-fit: cover 역할
+								/>
+							) : (
+								<>
+									<Text style={{ color: theme.text, fontSize: 40 }}>+</Text>
+									<Text style={{ color: theme.text, marginTop: 4 }}>키우는 식물을 자랑해주세요!</Text>
+								</>
+							)}
 						</Pressable>
 					)}
 				</View>
@@ -193,42 +206,6 @@ export default function PlantNew() {
 							<Text style={styles.warn}>YYYY-MM-DD 형식으로 입력해주세요.</Text>
 						)}
 					</View>
-
-					{/* 키우는 위치 */}
-					<View style={styles.field}>
-						<Text style={[styles.sectionLabel, { color: theme.text }]}>키우는 위치</Text>
-						<Text style={[styles.helper, { color: theme.text }]}>장소 + 실내/실외를 선택하세요.</Text>
-
-						<Text style={[styles.smallLabel, { color: theme.text }]}>장소</Text>
-						<TextInput
-							placeholder="예: 거실 창가, 베란다"
-							placeholderTextColor="#909090"
-							value={place}
-							onChangeText={setPlace}
-							style={[styles.input, { color: theme.text, borderColor: theme.border }]}
-						/>
-
-						<View style={styles.radioRow}>
-							<Pressable
-								onPress={() => setInout("indoor")}
-								style={[
-									styles.radio,
-									{ borderColor: theme.border, backgroundColor: inout === "indoor" ? theme.primary : "transparent" },
-								]}
-							>
-								<Text style={{ color: inout === "indoor" ? "#fff" : theme.text }}>실내</Text>
-							</Pressable>
-							<Pressable
-								onPress={() => setInout("outdoor")}
-								style={[
-									styles.radio,
-									{ borderColor: theme.border, backgroundColor: inout === "outdoor" ? theme.primary : "transparent" },
-								]}
-							>
-								<Text style={{ color: inout === "outdoor" ? "#fff" : theme.text }}>실외</Text>
-							</Pressable>
-						</View>
-					</View>
 				</View>
 			</ScrollView>
 
@@ -265,11 +242,17 @@ const styles = StyleSheet.create({
 		opacity: 0.8,
 	},
 	photoBox: {
-		marginTop: 12,
 		alignItems: "center",
+		position:'relative',
+		height:260,
+		marginTop: 12,
 	},
 	photo: {
-		height: 260,
+		position:'absolute',
+		left:0,
+		top:0,
+		height:260,
+		resizeMode:'cover',
 	},
 	photoPlaceholder: {
 		width:'100%',
@@ -282,18 +265,6 @@ const styles = StyleSheet.create({
 	},
 	field:{
 		marginTop:24,
-	},
-	chipWrap: {
-		flexDirection: "row",
-		flexWrap: "wrap",
-		gap: 8,
-		marginBottom: 8,
-	},
-	chip: {
-		paddingVertical: 6,
-		paddingHorizontal: 10,
-		borderRadius: 999,
-		borderWidth: 1,
 	},
 	input: {
 		borderWidth: 1,
