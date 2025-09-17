@@ -56,8 +56,8 @@ export default function Home() {
 
 	// 3-4) Data: Plants & Slides
 	const [plants, setPlants] = useState<Slide[]>([
-		{ key: "1", label: "몬스테라", bg: theme.bg, color: theme.text, waterLevel: 75 },
-		{ key: "2", label: "금전수", bg: theme.bg, color: theme.text, waterLevel: 30 },
+		{ key: "1", label: "몬스테라", bg: theme.bg, color: theme.text, waterLevel: 75, species: "몬스테라", startedAt: "2025-05-01", photoUri: null },
+		{ key: "2", label: "금전수", bg: theme.bg, color: theme.text, waterLevel: 30, species: "금전수", startedAt: "2025-06-10", photoUri: null },
 	]);
 
 	const slides = useMemo(() => {
@@ -148,7 +148,23 @@ export default function Home() {
 										</Text>
 									</Pressable>
 								) : (
-									<View style={styles.plantCard} onLayout={e => setParentW(e.nativeEvent.layout.width)}>
+									/* ── [MINIMAL CHANGE] 식물 카드 전체를 눌러 상세로 이동 */
+									<Pressable
+										style={styles.plantCard}
+										onLayout={e => setParentW(e.nativeEvent.layout.width)}
+										onPress={() =>
+											router.push({
+												pathname: "/(page)/(stackless)/plant-detail",
+												params: {
+													id: item.key,
+													imageUri: item.photoUri ?? "",
+													nickname: item.label,
+													species: item.species ?? "",
+													startedAt: item.startedAt ?? "",
+												},
+											})
+										}
+									>
 										{/* Gauge slots */}
 										<View style={[styles.slotBox, { left: parentW / 2 }]}>
 											<View style={styles.slot1} />
@@ -176,7 +192,7 @@ export default function Home() {
 										{/* Labels */}
 										<Text style={[styles.plantName, { color: theme.text }]}>{item.label}</Text>
 										{item.species && <Text style={styles.plantSpecies}>{item.species}</Text>}
-									</View>
+									</Pressable>
 								)}
 							</View>
 						);
