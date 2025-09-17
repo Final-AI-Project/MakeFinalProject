@@ -184,6 +184,7 @@ export default function PlantDetail() {
 					<TextInput
 						placeholder="예: 좋음 / 잎끝 마름 / 새잎 돋음 등"
 						placeholderTextColor="#909090"
+						readOnly={true}
 						value={health}
 						onChangeText={setHealth}
 						style={[styles.input, { color: theme.text, borderColor: theme.border }]}
