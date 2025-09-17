@@ -342,10 +342,10 @@ const styles = StyleSheet.create({
 	container: { flex: 1 },
 
 	// Photo
-	photoBox: { alignItems: "center", position: "relative", height: 260, marginTop: 12, paddingHorizontal: 24 },
-	photo: { position: "absolute", left: 24, top: 0, width: "100%", height: 260, resizeMode: "cover" },
-	photoPlaceholder: { width: "100%", height: 260, alignItems: "center", justifyContent: "center", borderWidth: 1, borderRadius: 12 },
-	changeBadge: { position: "absolute", right: 34, bottom: 10, borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 },
+	photoBox: { alignItems: "center", position: "relative", height: 260 },
+	photo: { position: "absolute", left: 0, top: 0, width: "100%", height: 260, resizeMode: "cover" },
+	photoPlaceholder: { width: "100%", height: 260, alignItems: "center", justifyContent: "center" },
+	changeBadge: { position: "absolute", right: 24, bottom: 10, borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 },
 	changeBadgeText: { fontSize: 12, fontWeight: "700" },
 
 	busyOverlay: {
