@@ -190,8 +190,9 @@ export default function Home() {
 										)}
 
 										{/* Labels */}
-										<Text style={[styles.plantName, { color: theme.text }]}>{item.label}</Text>
-										{item.species && <Text style={styles.plantSpecies}>{item.species}</Text>}
+										<Text style={[styles.plantName, { color: theme.text }]}>{item.label}
+											({item.species && <Text style={styles.plantSpecies}>{item.species})</Text>}
+										</Text>
 									</Pressable>
 								)}
 							</View>
@@ -242,16 +243,14 @@ const styles = StyleSheet.create({
 		width: 120,
 		height: 120,
 		borderRadius: 60,
-		marginTop:80,
-		marginBottom: 12,
+		marginTop:75,
 	},
 	plantImagePlaceholder: {
 		overflow: "hidden",
 		width: 120,
 		height: 120,
 		borderRadius: 60,
-		marginTop:80,
-		marginBottom: 12,
+		marginTop:75,
 		backgroundColor: "#ccc",
 		justifyContent: "center",
 		alignItems: "center",
