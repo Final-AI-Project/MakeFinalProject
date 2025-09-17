@@ -1,4 +1,5 @@
-// app/common/weatherBox.tsx
+// components/common/weatherBox.tsx
+
 import React, { useEffect, useMemo, useState } from "react";
 import { View, Text, StyleSheet, ActivityIndicator, Image, Pressable } from "react-native";
 import dayjs from "dayjs";
@@ -16,18 +17,17 @@ export type WeatherBoxProps = {
 	showRetryButton?: boolean;
 };
 
-/** ========= 설정/리소스 ========= */
 const KMA_ENDPOINT = "https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst";
 
-// PNG 아이콘 (프로젝트 구조: /assets/images/*, 파일명 정확히 맞춰주세요)
-const ICON_CLEAR_DAY   = require("../../assets/images/clearDay.png");
+// PNG 아이콘 (프로젝트 구조: /assets/images/*)
+const ICON_CLEAR_DAY	 = require("../../assets/images/clearDay.png");
 const ICON_CLEAR_NIGHT = require("../../assets/images/clearNight.png");
-const ICON_OVERCAST	= require("../../assets/images/overcast.png");
-const ICON_RAIN		= require("../../assets/images/rain.png");
-const ICON_RAIN_SNOW   = require("../../assets/images/rain_snow.png");
-const ICON_SNOW		= require("../../assets/images/snow.png");
-const ICON_SHOWER	  = require("../../assets/images/shower.png");
-const ICON_ETC		 = require("../../assets/images/etc.png");
+const ICON_OVERCAST		= require("../../assets/images/overcast.png");
+const ICON_RAIN				= require("../../assets/images/rain.png");
+const ICON_RAIN_SNOW	 = require("../../assets/images/rain_snow.png");
+const ICON_SNOW				= require("../../assets/images/snow.png");
+const ICON_SHOWER			= require("../../assets/images/shower.png");
+const ICON_ETC				 = require("../../assets/images/etc.png");
 
 /** ========= 좌표 변환 (위/경도 <-> KMA 격자) ========= */
 function dfs_xy_conv(mode: "toXY" | "toLL", v1: number, v2: number) {
@@ -37,7 +37,7 @@ function dfs_xy_conv(mode: "toXY" | "toLL", v1: number, v2: number) {
 	let sn = Math.tan(Math.PI * 0.25 + slat2 * 0.5) / Math.tan(Math.PI * 0.25 + slat1 * 0.5);
 	sn = Math.log(Math.cos(slat1) / Math.cos(slat2)) / Math.log(sn);
 	let sf = Math.tan(Math.PI * 0.25 + slat1 * 0.5); sf = Math.pow(sf, sn) * Math.cos(slat1) / sn;
-	let ro = Math.tan(Math.PI * 0.25 + olat * 0.5);  ro = re * sf / Math.pow(ro, sn);
+	let ro = Math.tan(Math.PI * 0.25 + olat * 0.5);	ro = re * sf / Math.pow(ro, sn);
 
 	if (mode === "toXY") {
 		const lat = v1, lon = v2;
@@ -83,37 +83,35 @@ function mapStateFromCodes(pty?: string, sky?: string): { label: string; stateCl
 	// PTY 우선
 	if (pty && pty !== "0") {
 		switch (pty) {
-			case "1": return { label: "비",	 stateClass: "rain" };
-			case "2": return { label: "비/눈",  stateClass: "rain_snow" };
-			case "3": return { label: "눈",	 stateClass: "snow" };
+			case "1": return { label: "비",		 stateClass: "rain" };
+			case "2": return { label: "비/눈",	stateClass: "rain_snow" };
+			case "3": return { label: "눈",		 stateClass: "snow" };
 			case "4": return { label: "소나기", stateClass: "shower" };
 			case "5": return { label: "빗방울", stateClass: "rain" };
 			case "6": return { label: "빗/눈날",stateClass: "rain_snow" };
 			case "7": return { label: "눈날림", stateClass: "snow" };
-			default:  return { label: "-",	  stateClass: "etc" };
+			default:	return { label: "-",			stateClass: "etc" };
 		}
 	}
-	// PTY=0 → SKY 기준: 1 맑음 / 3 구름많음 / 4 흐림 → 전부 overcast로 통합
+	// PTY=0 → SKY 기준
 	if (sky === "1") return { label: "맑음", stateClass: "clear" };
 	if (sky === "3" || sky === "4") return { label: "흐림", stateClass: "overcast" };
 	return { label: "-", stateClass: "etc" };
 }
 
-// 아이콘 선택 (요구사항: 맑음은 낮/밤으로 분기, 나머지는 고정)
 function pickWeatherIcon(period?: Period, stateClass?: StateClass) {
 	if (stateClass === "clear") return period === "night" ? ICON_CLEAR_NIGHT : ICON_CLEAR_DAY;
 	switch (stateClass) {
-		case "overcast":  return ICON_OVERCAST;
-		case "rain":	  return ICON_RAIN;
+		case "overcast":	return ICON_OVERCAST;
+		case "rain":			return ICON_RAIN;
 		case "rain_snow": return ICON_RAIN_SNOW;
-		case "snow":	  return ICON_SNOW;
-		case "shower":	return ICON_SHOWER;
+		case "snow":			return ICON_SNOW;
+		case "shower":		return ICON_SHOWER;
 		case "etc":
-		default:		  return ICON_ETC;
+		default:					return ICON_ETC;
 	}
 }
 
-// 배경은 3종(낮/밤/낮흐림)
 function pickContainerVariant(period: Period, stateClass: StateClass) {
 	if (period === "night") return "night" as const;
 	return stateClass === "clear" ? ("day" as const) : ("dayCloudy" as const);
@@ -122,7 +120,7 @@ function pickContainerVariant(period: Period, stateClass: StateClass) {
 /** ========= 데이터 모델 ========= */
 type Box = {
 	locationLabel: string;
-	time: string;	   // HH:mm
+	time: string;			 // HH:mm
 	tempC?: string;
 	stateText: string;
 	stateClass: StateClass;
@@ -133,7 +131,7 @@ type Box = {
 export default function WeatherBox(props: WeatherBoxProps) {
 	const { serviceKey, showRetryButton = true } = props;
 
-	// 기본: 서울 서초구 (서초구청 인근)
+	// 기본: 서울 서초구
 	const defaultLoc = useMemo(() => ({
 		lat: 37.4836, lon: 127.0327, label: "서울시 - 서초구"
 	}), []);
@@ -214,120 +212,6 @@ export default function WeatherBox(props: WeatherBoxProps) {
 	const variant = box ? pickContainerVariant(box.period, box.stateClass) : "day";
 	const icon = pickWeatherIcon(box?.period, box?.stateClass);
 
-
-
-
-
-
-
-
-
-
-	/* *********************** */
-	/* 
-		날씨 테스트 배포시 반드시 삭제
-	*/
-	// WeatherBox 컴포넌트 함수 내부에 추가 (setBox 아래)
-	useEffect(() => {
-		// 상태 라벨 맵 (cloudy 제거, overcast만 사용)
-		const labelMap: Record<StateClass, string> = {
-			clear: "맑음",
-			overcast: "흐림",
-			rain: "비",
-			rain_snow: "비/눈",
-			snow: "눈",
-			shower: "소나기",
-			etc: "-",
-		};
-
-		// prev가 null이어도 동작하도록 기본 박스 시드
-		function ensureBase(): Box {
-			return {
-			locationLabel: "서울시 - 서초구",
-			time: dayjs().format("HH:00"),
-			tempC: "20",
-			stateText: "맑음",
-			stateClass: "clear",
-			period: "day",
-		};
-	}
-
-  	
-	/* 
-		// 날씨 테스트 배포시 반드시 삭제
-	*/
-	// 낮 + 맑음 (clearDay 아이콘, Day 배경)
-	// setDayWeather("clear")
-	// 낮 + 흐림 (overcast 아이콘, DayCloudy 배경)
-	// setDayWeather("overcast")
-	// 밤 + 비 (rain 아이콘, Night 배경)
-	// setNightWeather("rain")
-	// 밤 + 눈 + 표시값 커스텀
-	// setWeatherScenario("night", "snow", { tempC: 0, time: "23:00", locationLabel: "서울시 - 강남구" })
-	// 기타 상태 (아이콘: etc.png, 라벨 커스텀)
-	// setDayWeather("etc", { stateText: "데이터 없음" })
-  	// (낮/밤, 날씨) 시나리오 적용
-	function setWeatherScenario(
-		period: Period,
-		stateClass: StateClass,
-		opts?: { tempC?: string | number; time?: string; locationLabel?: string; stateText?: string }
-	) {
-		setBox(prev => {
-		const base = prev ?? ensureBase();
-		return {
-			...base,
-			period,
-			stateClass,
-			tempC: opts?.tempC !== undefined ? String(opts.tempC) : base.tempC,
-			time: opts?.time ?? base.time,
-			locationLabel: opts?.locationLabel ?? base.locationLabel,
-			stateText: opts?.stateText ?? labelMap[stateClass],
-		};
-		});
-		console.log("[scenario]", { period, stateClass, ...opts });
-	}
-
-	// 단축 함수
-	function setDayWeather(sc: StateClass, opts?: Parameters<typeof setWeatherScenario>[2]) {
-		setWeatherScenario("day", sc, opts);
-	}
-	function setNightWeather(sc: StateClass, opts?: Parameters<typeof setWeatherScenario>[2]) {
-		setWeatherScenario("night", sc, opts);
-	}
-
-	// 전역 등록 (콘솔에서 호출)
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	(globalThis as any).setWeatherScenario = setWeatherScenario;
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	(globalThis as any).setDayWeather = setDayWeather;
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	(globalThis as any).setNightWeather = setNightWeather;
-
-	console.log(
-		'%cready: setDayWeather("overcast") / setNightWeather("rain") / setWeatherScenario("night","snow",{tempC:0})',
-		'background:#222;color:#0f0;padding:2px 6px;border-radius:4px;'
-	);
-
-	return () => {
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		delete (globalThis as any).setWeatherScenario;
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		delete (globalThis as any).setDayWeather;
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		delete (globalThis as any).setNightWeather;
-	};
-	}, []);
-	/* 
-		// 날씨 테스트 배포시 반드시 삭제
-	*/
-	/* *********************** */
-
-
-
-
-
-	
-
 	return (
 		<View
 			style={[
@@ -394,7 +278,6 @@ const styles = StyleSheet.create({
 		padding: 16,
 		marginBottom: 12,
 	},
-	/** 배경 3종 */
 	weatherBoxRootDay: {
 		backgroundColor: "#abf5ff", borderWidth: 1, borderColor: "#dfe9f2",
 	},
@@ -417,10 +300,8 @@ const styles = StyleSheet.create({
 	weatherBoxTemp: { color: "#fff", fontSize: 36, fontWeight: "800", marginTop: 8 },
 	weatherBoxTime: { color: "#c7d2e1", marginTop: 4, fontSize: 12 },
 
-	/** 낮 배경에서 가독성 보정 */
 	weatherBoxTextOnDay: { color: "#0e1a2b" },
 
-	/** 에러 시 재시도 버튼 */
 	weatherBoxButton: {
 		marginTop: 12,
 		paddingHorizontal: 14,
@@ -431,3 +312,64 @@ const styles = StyleSheet.create({
 	},
 	weatherBoxButtonText: { color: "white", fontWeight: "600" },
 });
+
+/* ============================================================================
+	 ⬇️ 여기가 추가된 부분: 간단 날씨 API (맑음/흐림/비/눈)
+	 ============================================================================ */
+export async function fetchSimpleWeather(
+	serviceKey: string,
+	location: { lat: number; lon: number; label: string } | { nx: number; ny: number; label: string }
+): Promise<"맑음" | "흐림" | "비" | "눈" | null> {
+	try {
+		// 좌표 준비
+		let nx: number, ny: number;
+		if ("nx" in location && "ny" in location) {
+			nx = (location as any).nx; ny = (location as any).ny;
+		} else {
+			const p = dfs_xy_conv("toXY", (location as any).lat, (location as any).lon) as { nx: number; ny: number };
+			nx = p.nx; ny = p.ny;
+		}
+
+		const { baseDate, baseTime } = getNearestBase();
+		const params = new URLSearchParams({
+			serviceKey,
+			pageNo: "1",
+			numOfRows: "1000",
+			dataType: "JSON",
+			base_date: baseDate,
+			base_time: baseTime,
+			nx: String(nx),
+			ny: String(ny),
+		});
+		const url = `${KMA_ENDPOINT}?${params.toString()}`;
+		const res = await fetch(url);
+		if (!res.ok) throw new Error(`KMA ${res.status}`);
+		const json = await res.json();
+		const items = json?.response?.body?.items?.item ?? [];
+
+		// 시간대별 묶기
+		const grouped = new Map<string, Record<string, string>>();
+		for (const it of items as any[]) {
+			const key = `${it.fcstDate}-${it.fcstTime}`;
+			if (!grouped.has(key)) grouped.set(key, {});
+			grouped.get(key)![it.category] = String(it.fcstValue);
+		}
+		const sorted = Array.from(grouped.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+
+		const nowHHmm = dayjs().format("HHmm");
+		const picked = sorted.find(([k]) => parseInt(k.split("-")[1]) >= parseInt(nowHHmm)) ?? sorted[0];
+		if (!picked) return null;
+
+		const [, vals] = picked;
+		const { stateClass } = mapStateFromCodes(vals["PTY"], vals["SKY"]);
+
+		// 간단 라벨로 축약
+		if (stateClass === "clear") return "맑음";
+		if (stateClass === "overcast") return "흐림";
+		if (stateClass === "snow") return "눈";
+		// rain / shower / rain_snow / etc → “비”로 통합
+		return "비";
+	} catch {
+		return null;
+	}
+}
