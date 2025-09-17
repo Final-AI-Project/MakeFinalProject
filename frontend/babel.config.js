@@ -2,9 +2,9 @@
 module.exports = function (api) {
 	api.cache(true);
 	return {
-		presets: ["babel-preset-expo"],     // ✅ expo-router/babel 제거
+		presets: ["babel-preset-expo"],
 		plugins: [
-			"react-native-worklets/plugin", // ✅ reanimated 플러그인 새 이름
+			"react-native-worklets/plugin",
 		],
 	};
 };
