@@ -2,12 +2,13 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // ① Imports
 // ─────────────────────────────────────────────────────────────────────────────
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import {
 	View, Text, StyleSheet, ScrollView, Image, Pressable, TouchableOpacity,
-	TextInput, Alert, Modal, ActivityIndicator
+	TextInput, Alert, ActivityIndicator
 } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams } from "expo-router";
+import { useRouter, type Href } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import { useColorScheme } from "react-native";
 import Colors from "../../../constants/Colors";
@@ -37,6 +38,7 @@ export default function PlantDetail() {
 		nickname?: string;
 		species?: string;
 		startedAt?: string;
+		plantId?: string;
 	}>();
 
 	// 3-2) Local States
@@ -45,19 +47,12 @@ export default function PlantDetail() {
 	const [species] = useState<string>(params.species ?? "");
 	const [startedAt] = useState<string>(params.startedAt ?? "");
 	const [health, setHealth] = useState<string>("좋음"); // 기본값
-	const [pestLogs, setPestLogs] = useState<PestLog[]>([]);
-	const [diaryLogs, setDiaryLogs] = useState<DiaryLog[]>([]);
+	const [pestLogs] = useState<PestLog[]>([]);   // ✨ 작성은 별도 페이지에서
+	const [diaryLogs] = useState<DiaryLog[]>([]); // ✨ 작성은 별도 페이지에서
 	const [waterLogs, setWaterLogs] = useState<WaterLog[]>([]);
 	const [busy, setBusy] = useState(false);
 
-	// 3-3) Modals (병충해/일기)
-	const [pestModal, setPestModal] = useState(false);
-	const [pestText, setPestText] = useState("");
-
-	const [diaryModal, setDiaryModal] = useState(false);
-	const [diaryText, setDiaryText] = useState("");
-
-	// 3-4) Photo handlers (사진 변경)
+	// 3-3) Photo handlers (사진 변경)
 	async function changePhoto() {
 		const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
 		if (status !== "granted") {
@@ -67,7 +62,10 @@ export default function PlantDetail() {
 		setBusy(true);
 		try {
 			const res = await ImagePicker.launchImageLibraryAsync({
-				allowsEditing: true, quality: 0.9, mediaTypes: ImagePicker.MediaTypeOptions.Images, aspect: [1, 1],
+				allowsEditing: true,
+				quality: 0.9,
+				mediaTypes: ['images'], // ✅ 최신 enum
+				aspect: [1, 1],
 			});
 			if (!res.canceled && res.assets?.[0]?.uri) {
 				setImageUri(res.assets[0].uri);
@@ -77,25 +75,8 @@ export default function PlantDetail() {
 		}
 	}
 
-	// 3-5) Create logs
-	function addPest() {
-		const text = pestText.trim();
-		if (!text) return;
-		setPestLogs(prev => [{ id: String(Date.now()), note: text, createdAt: fmtDate(new Date()) }, ...prev]);
-		setPestText("");
-		setPestModal(false);
-	}
-
-	function addDiary() {
-		const text = diaryText.trim();
-		if (!text) return;
-		setDiaryLogs(prev => [{ id: String(Date.now()), text, createdAt: fmtDate(new Date()) }, ...prev]);
-		setDiaryText("");
-		setDiaryModal(false);
-	}
-
-	// 3-6) “습도계 지수 n% 증가 시 물준날로 기록?”
-	const [humidityRise, setHumidityRise] = useState<string>("10"); // 가정: 10% 이상 증가 시
+	// 3-4) “습도계 지수 n% 증가 시 물준날로 기록?”
+	const [humidityRise, setHumidityRise] = useState<string>("10");
 	function markWateringByHumidity() {
 		const n = Number(humidityRise);
 		if (Number.isNaN(n) || n <= 0) {
@@ -109,7 +90,7 @@ export default function PlantDetail() {
 		Alert.alert("기록 완료", `습도 ${n}% 증가로 물 준 날을 기록했어요.`);
 	}
 
-	// 3-7) Delete / Edit / Back
+	// 3-5) Delete / Edit / Back
 	function onDelete() {
 		Alert.alert("삭제 확인", "정말 이 식물을 삭제할까요?", [
 			{ text: "취소", style: "cancel" },
@@ -129,7 +110,24 @@ export default function PlantDetail() {
 		router.push("/(page)/(stackless)/plant-new");
 	}
 
-	// 3-8) Render
+	// 3-6) ✨ 기록/일기 페이지로 이동
+	function goPestNew() {
+		const href: Href = {
+			pathname: "/(page)/medical" as const,
+			params: { plantId: String(params.plantId ?? ""), nickname, species },
+		};
+		router.push(href);
+	}
+
+	function goDiaryNew() {
+		const href: Href = {
+			pathname: "/(page)/diary" as const,
+			params: { plantId: String(params.plantId ?? ""), nickname, species },
+		};
+		router.push(href);
+	}
+
+	// 3-7) Render
 	return (
 		<View style={[styles.container, { backgroundColor: theme.bg }]}>
 			<ScrollView contentContainerStyle={{ paddingBottom: 140 }}>
@@ -191,11 +189,11 @@ export default function PlantDetail() {
 					/>
 				</View>
 
-				{/* 병충해 기록 */}
+				{/* 병충해 기록 (보기 전용 / 작성은 페이지 이동) */}
 				<View style={styles.card}>
 					<View style={styles.cardHeader}>
 						<Text style={[styles.cardTitle, { color: theme.text }]}>병충해 기록</Text>
-						<TouchableOpacity style={[styles.smallBtn, { backgroundColor: theme.primary }]} onPress={() => setPestModal(true)}>
+						<TouchableOpacity style={[styles.smallBtn, { backgroundColor: theme.primary }]} onPress={goPestNew}>
 							<Text style={styles.smallBtnText}>기록 추가</Text>
 						</TouchableOpacity>
 					</View>
@@ -211,11 +209,11 @@ export default function PlantDetail() {
 					)}
 				</View>
 
-				{/* 일기 목록 */}
+				{/* 일기 목록 (보기 전용 / 작성은 페이지 이동) */}
 				<View style={styles.card}>
 					<View style={styles.cardHeader}>
 						<Text style={[styles.cardTitle, { color: theme.text }]}>일기 목록</Text>
-						<TouchableOpacity style={[styles.smallBtn, { backgroundColor: theme.primary }]} onPress={() => setDiaryModal(true)}>
+						<TouchableOpacity style={[styles.smallBtn, { backgroundColor: theme.primary }]} onPress={goDiaryNew}>
 							<Text style={styles.smallBtnText}>일기 작성</Text>
 						</TouchableOpacity>
 					</View>
@@ -282,56 +280,6 @@ export default function PlantDetail() {
 					<Text style={styles.bottomBtnText}>수정하기</Text>
 				</TouchableOpacity>
 			</View>
-
-			{/* 병충해 기록 모달 */}
-			<Modal visible={pestModal} transparent animationType="fade" onRequestClose={() => setPestModal(false)}>
-				<View style={styles.modalBackdrop}>
-					<View style={[styles.modalCard, { backgroundColor: theme.bg }]}>
-						<Text style={[styles.modalTitle, { color: theme.text }]}>병충해 기록 추가</Text>
-						<TextInput
-							placeholder="증상/대처 등을 적어주세요"
-							placeholderTextColor="#909090"
-							value={pestText}
-							onChangeText={setPestText}
-							style={[styles.input, { color: theme.text, borderColor: theme.border }]}
-							multiline
-						/>
-						<View style={styles.modalRow}>
-							<TouchableOpacity style={[styles.modalBtn, { backgroundColor: "#5f6368" }]} onPress={() => setPestModal(false)}>
-								<Text style={styles.modalBtnText}>취소</Text>
-							</TouchableOpacity>
-							<TouchableOpacity style={[styles.modalBtn, { backgroundColor: theme.primary }]} onPress={addPest}>
-								<Text style={styles.modalBtnText}>추가</Text>
-							</TouchableOpacity>
-						</View>
-					</View>
-				</View>
-			</Modal>
-
-			{/* 일기 작성 모달 */}
-			<Modal visible={diaryModal} transparent animationType="fade" onRequestClose={() => setDiaryModal(false)}>
-				<View style={styles.modalBackdrop}>
-					<View style={[styles.modalCard, { backgroundColor: theme.bg }]}>
-						<Text style={[styles.modalTitle, { color: theme.text }]}>일기 작성</Text>
-						<TextInput
-							placeholder="오늘의 변화를 기록해요"
-							placeholderTextColor="#909090"
-							value={diaryText}
-							onChangeText={setDiaryText}
-							style={[styles.input, { color: theme.text, borderColor: theme.border }]}
-							multiline
-						/>
-						<View style={styles.modalRow}>
-							<TouchableOpacity style={[styles.modalBtn, { backgroundColor: "#5f6368" }]} onPress={() => setDiaryModal(false)}>
-								<Text style={styles.modalBtnText}>취소</Text>
-							</TouchableOpacity>
-							<TouchableOpacity style={[styles.modalBtn, { backgroundColor: theme.primary }]} onPress={addDiary}>
-								<Text style={styles.modalBtnText}>저장</Text>
-							</TouchableOpacity>
-						</View>
-					</View>
-				</View>
-			</Modal>
 		</View>
 	);
 }
@@ -386,12 +334,4 @@ const styles = StyleSheet.create({
 	bottomBtn: { flex: 1, height: 48, borderRadius: 12, alignItems: "center", justifyContent: "center" },
 	outlineBtn: { borderWidth: 1 },
 	bottomBtnText: { color: "#fff", fontSize: 15, fontWeight: "700" },
-
-	// Modal (공용)
-	modalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", alignItems: "center", justifyContent: "center", padding: 24 },
-	modalCard: { width: "100%", borderRadius: 16, paddingTop: 20, paddingHorizontal: 20, paddingBottom: 20, borderWidth: 1, borderColor: "#e0e0e0" },
-	modalTitle: { fontSize: 16, fontWeight: "700", marginBottom: 8 },
-	modalRow: { flexDirection: "row", gap: 8, marginTop: 12 },
-	modalBtn: { flex: 1, height: 44, borderRadius: 12, alignItems: "center", justifyContent: "center" },
-	modalBtnText: { color: "#fff", fontSize: 15, fontWeight: "700" },
 });
