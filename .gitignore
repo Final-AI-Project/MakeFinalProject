@@ -122,3 +122,13 @@ backend/static/images/temp/*
 !backend/static/images/temp/.gitkeep
 backend/static/images/*/
 !backend/static/images/*/.gitkeep
+
+# 환경변수 파일
+.env
+.env.local
+.env.development
+.env.production
+backend/.env
+models/.env
+models/llm/.env
+frontend/.env
