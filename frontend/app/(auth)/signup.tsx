@@ -81,7 +81,10 @@ export default function SignupScreen() {
     try {
       Keyboard.dismiss(); // 모든 인풋 포커스 해제 + 키보드 닫기
       setLoading(true);
-      const res = await fetch(`${API_BASE_URL}/auth/signup`, {
+
+      // 공용 API 설정을 사용하여 URL 생성
+      const signupUrl = await getApiUrl(API_ENDPOINTS.AUTH.SIGNUP);
+      const res = await fetch(signupUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
