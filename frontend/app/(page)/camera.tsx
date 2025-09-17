@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { View, Text, StyleSheet, Image, Alert, useColorScheme, TouchableOpacity, ActivityIndicator } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import Colors from "../../constants/Colors";
@@ -50,10 +50,28 @@ export default function CameraScreen() {
 
 	const clearImage = () => setUri(null);
 
+	const didAutoOpen = useRef(false);
+	useEffect(() => {
+		if (didAutoOpen.current) return;
+		didAutoOpen.current = true;
+		setTimeout(() => {
+			askCamera().catch(() => {
+				// 실패해도 페이지는 유지, 필요시 플래그 리셋 가능
+			});
+		}, 0);
+	}, []);
+
 	return (
 		<View style={[styles.container, { backgroundColor: theme.bg }]}>
-			<Text style={[styles.title, { color: theme.text }]}>카메라 / 갤러리</Text>
-
+			<View style={styles.previewWrap}>
+				{busy ? (
+					<ActivityIndicator size="large" />
+				) : uri ? (
+					<Image source={{ uri }} style={styles.preview} />
+				) : (
+					<Text style={{ color: "#909090" }}>이미지를 선택하거나 촬영해 주세요.</Text>
+				)}
+			</View>
 			<View style={styles.row}>
 				<TouchableOpacity style={[styles.btn, { backgroundColor: theme.primary }]} onPress={askCamera} activeOpacity={0.9}>
 					<Text style={styles.btnText}>촬영</Text>
@@ -67,24 +85,13 @@ export default function CameraScreen() {
 					</TouchableOpacity>
 				)}
 			</View>
-
-			<View style={styles.previewWrap}>
-				{busy ? (
-					<ActivityIndicator size="large" />
-				) : uri ? (
-					<Image source={{ uri }} style={styles.preview} />
-				) : (
-					<Text style={{ color: "#909090" }}>이미지를 선택하거나 촬영해 주세요.</Text>
-				)}
-			</View>
 		</View>
 	);
 }
 
 const styles = StyleSheet.create({
-	container: { flex: 1, padding: 16 },
-	title: { fontSize: 18, fontWeight: "700", marginBottom: 12 },
-	row: { flexDirection: "row", gap: 8, marginBottom: 12 },
+	container: { flex: 1, paddingHorizontal:24, paddingBottom:72 },
+	row: { flexDirection: "row", gap: 8, marginTop: 12 },
 	btn: { flex: 1, height: 44, borderRadius: 12, alignItems: "center", justifyContent: "center" },
 	btnText: { color: "#fff", fontSize: 15, fontWeight: "700" },
 	previewWrap: {

@@ -13,6 +13,8 @@ import { Link, useRouter } from 'expo-router';
 import Colors from "../../constants/Colors";
 import WeatherBox from "../../components/common/weatherBox";
 import Carousel from 'react-native-reanimated-carousel';
+import { useThemeColor } from '@/hooks/useThemeColor';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming, useAnimatedReaction } from 'react-native-reanimated';
 
 const { width } = Dimensions.get('window');
 
@@ -25,9 +27,11 @@ type Slide = {
 	photoUri?: string | null;
 	startedAt?: string;
 	type?: "action";
+	waterLevel?: number;
 };
 
 export default function Home() {
+	const progress = useSharedValue(0);
 	const router = useRouter();
 	const scheme = useColorScheme();
 	const theme = Colors[scheme === "dark" ? "dark" : "light"];
@@ -39,8 +43,8 @@ export default function Home() {
 
 	// 내 식물 리스트 상태
 	const [plants, setPlants] = useState<Slide[]>([
-		{ key: "1", label: "몬스테라", bg: theme.bg, color: theme.text },
-		{ key: "2", label: "금전수", bg: theme.bg, color: theme.text },
+		{ key: "1", label: "몬스테라", bg: theme.bg, color: theme.text, waterLevel: 75 },
+		{ key: "2", label: "금전수", bg: theme.bg, color: theme.text, waterLevel: 30 },
 	]);
 
 	const slides = useMemo(() => {
@@ -49,6 +53,47 @@ export default function Home() {
 			{ key: "add", label: "+ \n 새 식물 등록", bg: theme.graybg, type: "action" as const },
 		];
 	}, [plants, theme]);
+
+	const AnimatedGauge = React.memo(function AnimatedGauge({
+		index,
+		progress,
+		size,
+		targetDeg,
+		style,
+	}: {
+		index: number;
+		progress: ReturnType<typeof useSharedValue<number>>;
+		size: number;
+		targetDeg: number;     // 0~180 (급수계 각도)
+		style?: any;
+	}) {
+		// 현재 회전 각도(숫자)를 보관
+		const rot = useSharedValue(0);
+
+		// 보이는지 여부에 따라 rot를 0 ↔ targetDeg로 부드럽게 이동
+		useAnimatedReaction(
+			() => {
+				const visible = Math.abs(progress.value - index) < 0.5; // 중앙 근처 = 보임
+				return visible ? targetDeg : 0;
+			},
+			(to, prev) => {
+				if (to !== prev) {
+					rot.value = withTiming(to, { duration: 500 });
+				}
+			}
+		);
+
+		const slot2AnimatedStyle = useAnimatedStyle(() => ({
+			transform: [
+				{ translateY: -size / 2 }, 
+				{ rotate: `${rot.value}deg` },
+				{ translateY:  size / 2 },
+			],
+		}));
+
+		return <Animated.View style={[style, slot2AnimatedStyle]} />;
+	});
+
 
 	return (
 		<View style={[styles.container, { backgroundColor: theme.bg }]}>
@@ -66,57 +111,59 @@ export default function Home() {
 					height={250}
 					data={slides}
 					scrollAnimationDuration={700}
-					onProgressChange={(_, abs) => setActiveIndex(Math.round(abs))}
-					renderItem={({ item }) => (
-						<View style={[styles.carouselSlide, { backgroundColor: item.bg }]}>
+					defaultIndex={0}
+					onProgressChange={(_, abs) => {
+						progress.value = abs;
+						setActiveIndex(Math.round(abs));
+					}}
+					renderItem={({ item, index }) => {
+						// 급수계(%) → 각도(0~180deg) 변환
+						const percent = Math.max(0, Math.min(100, item.waterLevel ?? 0));
+						const targetDeg = percent * 1.8; // (percent / 100) * 180
+
+						return (
+							<View style={[styles.carouselSlide, { backgroundColor: item.bg }]}>
 							{item.type === "action" ? (
+								/* ...기존 그대로... */
 								<Pressable onPress={() => router.push("/(page)/(stackless)/plant-new")}>
-									<Text style={[styles.carouselSlideText, { color: theme.text, textAlign: 'center' }]}>
-										{item.label}
-									</Text>
+								<Text style={[styles.carouselSlideText, { color: theme.text, textAlign: 'center' }]}>
+									{item.label}
+								</Text>
 								</Pressable>
 							) : (
-								<View 
-									style={styles.plantCard}
-									onLayout={e => setParentW(e.nativeEvent.layout.width)}
-								>
-									<View style={[styles.slotBox, {left: parentW / 2}]}>
-										<View style={styles.slot1} />
-										<View
-											style={[
-												styles.slot2,
-												{
-													left: parentW / 2,
-													transform: [
-														{ rotate: '45deg' },
-													],
-												}
-											]}
-										/>
-										<View style={styles.slot3}/>
-										<View style={styles.slot4}/>
+								<View style={styles.plantCard} onLayout={e => setParentW(e.nativeEvent.layout.width)}>
+								<View style={[styles.slotBox, { left: parentW / 2 }]}>
+									<View style={styles.slot1} />
+
+									{/* ★ 여기만 교체 */}
+									<AnimatedGauge
+									index={index}
+									progress={progress}
+									size={250}
+									targetDeg={targetDeg}
+									style={styles.slot2}
+									/>
+
+									<View style={[styles.slot3, { backgroundColor: theme.bg }]} />
+								</View>
+
+								<View style={[styles.slot4, { backgroundColor: theme.bg }]} />
+
+								{item.photoUri ? (
+									<Image source={{ uri: item.photoUri }} style={styles.plantImage} resizeMode="cover" />
+								) : (
+									<View style={styles.plantImagePlaceholder}>
+									<Text style={{ color: theme.text }}>🌱</Text>
 									</View>
-									{item.photoUri ? (
-										// ✅ photoUri가 있는 경우에만 Image 렌더 → 타입 안전
-										<Image
-											source={{ uri: item.photoUri }}
-											style={styles.plantImage}
-											resizeMode="cover"
-										/>
-									) : (
-										// ✅ placeholder
-										<View style={styles.plantImagePlaceholder}>
-											<Text style={{ color: theme.text }}>🌱</Text>
-										</View>
-									)}
-									<Text style={[styles.plantName, {color:theme.text}]}>{item.label}</Text>
-									{item.species && (
-										<Text style={styles.plantSpecies}>{item.species}</Text>
-									)}
+								)}
+
+								<Text style={[styles.plantName, { color: theme.text }]}>{item.label}</Text>
+								{item.species && <Text style={styles.plantSpecies}>{item.species}</Text>}
 								</View>
 							)}
-						</View>
-					)}
+							</View>
+						);
+					}}
 				/>
 				<View style={styles.carouselDots}>
 					{slides.map((_, i) => (
@@ -158,7 +205,7 @@ const styles = StyleSheet.create({
 		width: 120,
 		height: 120,
 		borderRadius: 60,
-		marginTop:100,
+		marginTop:80,
 		marginBottom: 12,
 	},
 	plantImagePlaceholder: {
@@ -166,7 +213,7 @@ const styles = StyleSheet.create({
 		width: 120,
 		height: 120,
 		borderRadius: 60,
-		marginTop:100,
+		marginTop:80,
 		marginBottom: 12,
 		backgroundColor: "#ccc",
 		justifyContent: "center",
@@ -190,39 +237,38 @@ const styles = StyleSheet.create({
 		height: 250,
 		transform: [{ translateX: -125 }],
 		borderRadius: '100%',
-		backgroundColor: 'red',
 	},
 	slot1: {
 		position: 'absolute',
 		top:0,
 		width: 250,
-		height: 250,
-		transform: [{ translateX: -125 }],
-		borderRadius: '100%',
-		backgroundColor: 'red',
+		height: 125,
+		backgroundColor:'#e6e6e6',
 	},
 	slot2: {
-		overflow: 'hidden',
 		position: 'absolute',
-		top:0,
-		width: 500,
-		height: 500,
-		marginLeft:-250,
-		backgroundColor: '#e6e6e6',
+		top:125,
+		width: '100%',
+		height: '100%',
+		backgroundColor: '#6a9eff',
+		transitionProperty:'transform',
+		transitionDuration:'0.5s'
 	},
 	slot3: {
 		position: 'absolute',
-		top:75,
-		width: 150,
-		height: 150,
-		transform: [{ translateX: -75 }],
+		top:40,
+		left:-45,
+		transform:[{ translateX:'50%' }],
+		width: 170,
+		height: 170,
 		borderRadius: '100%',
 	},
 	slot4: {
 		position: 'absolute',
-		top:160,
-		width: '100%',
-		height: '100%',
+		top:145,
+		width: 290,
+		height: 290,
+		transform:[{ translateX:-20 }],
 	},
 	/*  */
 	carouselRoot: {
@@ -241,7 +287,7 @@ const styles = StyleSheet.create({
 	carouselSlideText: { color: '#fff', fontSize: 28, fontWeight: 'bold' },
 	carouselDots: { position: 'absolute', bottom: -19, flexDirection: 'row', gap: 6 },
 	carouselDot: { width: 6, height: 6, borderRadius: 4, backgroundColor: '#cfcfcf' },
-	carouselDotActive: { backgroundColor: '#333' },
+	carouselDotActive: { backgroundColor: '#666' },
 	linkList: {
 		display: 'flex',
 		alignItems: 'center',
