@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import List
 from pydantic import Field
 from .common import OrmBase
 
@@ -29,3 +30,8 @@ class PlantWikiOut(OrmBase):
     flowering: str | None
     fertilizer: str | None
     toxicity: str | None
+
+class PlantWikiListOut(OrmBase):
+    items: List[PlantWikiOut]
+    next_cursor: str | None
+    has_more: bool

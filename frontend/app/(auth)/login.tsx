@@ -25,13 +25,7 @@ import normalface from "../../assets/images/login_eff_normalface.png";
 import inputface from "../../assets/images/login_eff_inputface.png";
 import pwface from "../../assets/images/login_eff_pwface.png";
 import { startLoading, stopLoading } from "../../components/common/loading";
-
-// 서버 주소를 환경에 맞게 바꿔주세요. (Expo 클라이언트에서 접근하려면 EXPO_PUBLIC_* prefix 필수)
-const API_BASE_URL =
-  process.env.EXPO_PUBLIC_API_BASE_URL || "http://localhost:3000";
-
-// 디버깅용: 여러 포트 시도 (외부 환경 고려)
-const POSSIBLE_PORTS = [3000, 5000, 8080, 8000, 8001, 9000, 4000];
+import { getApiUrl, API_ENDPOINTS } from "../../config/api";
 
 type LoginForm = {
   user_id: string;
@@ -115,59 +109,25 @@ export default function LoginScreen() {
     to: string,
     message?: string
   ) => {
-    startLoading(router, { task, to, replace: true, message });
+    startLoading(router, { task, to: to as any, replace: true, message });
   };
 
   const handleLogin = async () => {
     Keyboard.dismiss();
+    setLoading(true);
     try {
-      Keyboard.dismiss();
-      setLoading(true);
-
       // 백엔드가 기대하는 데이터 구조로 변환
       const requestData = {
         id_or_email: form.user_id,
         password: form.user_pw,
       };
 
-      console.log("Sending login request to:", `${API_BASE_URL}/auth/login`);
+      // 공용 API 설정을 사용하여 URL 생성
+      const loginUrl = await getApiUrl(API_ENDPOINTS.AUTH.LOGIN);
+      console.log("Sending login request to:", loginUrl);
       console.log("Request data:", requestData);
 
-      // 서버 연결 테스트 (여러 포트 시도)
-      console.log("Testing server connection...");
-      let workingPort = null;
-
-      for (const port of POSSIBLE_PORTS) {
-        try {
-          const testUrl = `http://localhost:${port}/healthcheck`;
-          console.log(`Trying port ${port}: ${testUrl}`);
-          const testRes = await fetch(testUrl, {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            mode: "cors", // CORS 모드 명시적 설정
-          });
-          console.log(`Port ${port} - Status:`, testRes.status);
-          if (testRes.ok) {
-            workingPort = port;
-            break;
-          }
-        } catch (testError) {
-          console.log(`Port ${port} failed:`, testError.message);
-        }
-      }
-
-      if (!workingPort) {
-        throw new Error(
-          "모든 포트에서 서버에 연결할 수 없습니다. 백엔드 서버가 실행 중인지 확인해주세요."
-        );
-      }
-
-      console.log(`Working port found: ${workingPort}`);
-      const workingApiUrl = `http://localhost:${workingPort}`;
-
-      const res = await fetch(`${workingApiUrl}/auth/login`, {
+      const res = await fetch(loginUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -207,10 +167,35 @@ export default function LoginScreen() {
     } catch (err: any) {
       console.error("Login error:", err);
 
-      Alert.alert(
-        "로그인 실패",
-        err?.message ?? "아이디/비밀번호를 확인해주세요."
-      );
+      // 서버 연결 실패인지 확인
+      const isConnectionError =
+        err?.message?.includes("서버에 연결할 수 없습니다") ||
+        err?.message?.includes("fetch") ||
+        err?.message?.includes("Network") ||
+        err?.message?.includes("connection");
+
+      if (isConnectionError) {
+        Alert.alert(
+          "서버 연결 실패",
+          "서버에 연결할 수 없습니다.\n백엔드 서버가 실행 중인지 확인해주세요.",
+          [{ text: "확인" }]
+        );
+      } else {
+        // 인증 실패 (아이디/비밀번호 오류)
+        Alert.alert(
+          "로그인 실패",
+          "아이디 또는 비밀번호가 올바르지 않습니다.\n\n혹시 아직 회원가입을 하지 않으셨나요?",
+          [
+            { text: "다시 시도", style: "cancel" },
+            {
+              text: "회원가입",
+              onPress: () => router.replace("/(auth)/signup" as any),
+            },
+          ]
+        );
+      }
+    } finally {
+      setLoading(false);
     }
   };
 

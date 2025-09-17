@@ -21,6 +21,7 @@ from routers.auth import router as auth_router
 from routers.plants import router as plants_router
 from routers.images import router as general_images_router
 from routers.ai import router as ai_router
+from routers.plant_info import router as plant_info_router
 from utils.errors import register_error_handlers
 
 # import db.models  # 임시 주석처리 
@@ -44,6 +45,7 @@ app.include_router(general_images_router, prefix="/images")
 app.include_router(auth_router)  # auth는 prefix 없이 직접 등록
 app.include_router(plants_router, prefix="/plants")
 app.include_router(ai_router, prefix="/ai")  # AI 기능 라우터
+app.include_router(plant_info_router)  # 식물 정보 라우터
 
 # CORS (모바일/프론트 개발 편의) - 모든 오리진 허용
 app.add_middleware(
