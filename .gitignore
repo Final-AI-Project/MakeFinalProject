@@ -1,3 +1,14 @@
+<<<<<<< HEAD
+=======
+# 환경 변수 파일
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.dotenv
+
+>>>>>>> origin/jihwan-front
 # Python 관련
 __pycache__/
 *.py[cod]
@@ -116,19 +127,3 @@ backend/app/dev.db
 *.backup
 *.bak
 requirements_backup.txt
-
-# 이미지 파일 (임시 저장용)
-backend/static/images/temp/*
-!backend/static/images/temp/.gitkeep
-backend/static/images/*/
-!backend/static/images/*/.gitkeep
-
-# 환경변수 파일
-.env
-.env.local
-.env.development
-.env.production
-backend/.env
-models/.env
-models/llm/.env
-frontend/.env

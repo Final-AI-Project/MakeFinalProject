@@ -1,4 +1,7 @@
 // app/(tabs)/index.tsx
+// ─────────────────────────────────────────────────────────────────────────────
+// ① Imports
+// ─────────────────────────────────────────────────────────────────────────────
 import React, { useMemo, useState } from 'react';
 import {
 	View,
@@ -16,6 +19,9 @@ import Carousel from 'react-native-reanimated-carousel';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming, useAnimatedReaction } from 'react-native-reanimated';
 
+// ─────────────────────────────────────────────────────────────────────────────
+// ② Types & Constants
+// ─────────────────────────────────────────────────────────────────────────────
 const { width } = Dimensions.get('window');
 
 type Slide = {
@@ -28,23 +34,31 @@ type Slide = {
 	startedAt?: string;
 	type?: "action";
 	waterLevel?: number;
+	health?: "좋음" | "주의" | "나쁨";
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// ③ Component
+// ─────────────────────────────────────────────────────────────────────────────
 export default function Home() {
-	const progress = useSharedValue(0);
+	// 3-1) Router & Theme
 	const router = useRouter();
 	const scheme = useColorScheme();
 	const theme = Colors[scheme === "dark" ? "dark" : "light"];
+
+	// 3-2) Shared/Local States
+	const progress = useSharedValue(0);
 	const [activeIndex, setActiveIndex] = useState(0);
 	const [parentW, setParentW] = useState(0);
 
+	// 3-3) Gauge layout constants
 	const SIZE = 250;
 	const HALF = SIZE / 2;
 
-	// 내 식물 리스트 상태
+	// 3-4) Data: Plants & Slides
 	const [plants, setPlants] = useState<Slide[]>([
-		{ key: "1", label: "몬스테라", bg: theme.bg, color: theme.text, waterLevel: 75 },
-		{ key: "2", label: "금전수", bg: theme.bg, color: theme.text, waterLevel: 30 },
+		{ key: "1", label: "몬스테라", bg: theme.bg, color: theme.text, waterLevel: 75, species: "몬스테라", startedAt: "2025-05-01", photoUri: null, health: "좋음" },
+		{ key: "2", label: "금전수", bg: theme.bg, color: theme.text, waterLevel: 30, species: "금전수", startedAt: "2025-06-10", photoUri: null, health: "주의" },
 	]);
 
 	const slides = useMemo(() => {
@@ -54,6 +68,9 @@ export default function Home() {
 		];
 	}, [plants, theme]);
 
+	// ─────────────────────────────────────────────────────────────────────────
+	// 3-5) UI Sub-Component: AnimatedGauge (water level needle)
+	// ─────────────────────────────────────────────────────────────────────────
 	const AnimatedGauge = React.memo(function AnimatedGauge({
 		index,
 		progress,
@@ -94,7 +111,9 @@ export default function Home() {
 		return <Animated.View style={[style, slot2AnimatedStyle]} />;
 	});
 
-
+	// ─────────────────────────────────────────────────────────────────────────
+	// 3-6) Render
+	// ─────────────────────────────────────────────────────────────────────────
 	return (
 		<View style={[styles.container, { backgroundColor: theme.bg }]}>
 			{/* ✅ 공통 날씨 컴포넌트만 사용 */}
@@ -123,48 +142,77 @@ export default function Home() {
 
 						return (
 							<View style={[styles.carouselSlide, { backgroundColor: item.bg }]}>
-							{item.type === "action" ? (
-								/* ...기존 그대로... */
-								<Pressable onPress={() => router.push("/(page)/(stackless)/plant-new")}>
-								<Text style={[styles.carouselSlideText, { color: theme.text, textAlign: 'center' }]}>
-									{item.label}
-								</Text>
-								</Pressable>
-							) : (
-								<View style={styles.plantCard} onLayout={e => setParentW(e.nativeEvent.layout.width)}>
-								<View style={[styles.slotBox, { left: parentW / 2 }]}>
-									<View style={styles.slot1} />
-
-									{/* ★ 여기만 교체 */}
-									<AnimatedGauge
-									index={index}
-									progress={progress}
-									size={250}
-									targetDeg={targetDeg}
-									style={styles.slot2}
-									/>
-
-									<View style={[styles.slot3, { backgroundColor: theme.bg }]} />
-								</View>
-
-								<View style={[styles.slot4, { backgroundColor: theme.bg }]} />
-
-								{item.photoUri ? (
-									<Image source={{ uri: item.photoUri }} style={styles.plantImage} resizeMode="cover" />
+								{item.type === "action" ? (
+									<Pressable onPress={() => router.push("/(page)/(stackless)/plant-new")}>
+										<Text style={[styles.carouselSlideText, { color: theme.text, textAlign: 'center' }]}>
+											{item.label}
+										</Text>
+									</Pressable>
 								) : (
-									<View style={styles.plantImagePlaceholder}>
-									<Text style={{ color: theme.text }}>🌱</Text>
-									</View>
-								)}
+									/* ── [MINIMAL CHANGE] 식물 카드 전체를 눌러 상세로 이동 */
+									<Pressable
+										style={styles.plantCard}
+										onLayout={e => setParentW(e.nativeEvent.layout.width)}
+										onPress={() =>
+											router.push({
+												pathname: "/(page)/(stackless)/plant-detail",
+												params: {
+													id: item.key,
+													imageUri: item.photoUri ?? "",
+													nickname: item.label,
+													species: item.species ?? "",
+													startedAt: item.startedAt ?? "",
+												},
+											})
+										}
+									>
+										{/* Gauge slots */}
+										<View style={[styles.slotBox, { left: parentW / 2 }]}>
+											<View style={styles.slot1} />
+											<AnimatedGauge
+												index={index}
+												progress={progress}
+												size={250}
+												targetDeg={targetDeg}
+												style={styles.slot2}
+											/>
+											<View style={[styles.slot3, { backgroundColor: theme.bg }]} />
+										</View>
 
-								<Text style={[styles.plantName, { color: theme.text }]}>{item.label}</Text>
-								{item.species && <Text style={styles.plantSpecies}>{item.species}</Text>}
-								</View>
-							)}
+										<View style={[styles.slot4, { backgroundColor: theme.bg }]} />
+
+										{/* Plant image */}
+										<View style={ styles.photoBox }>
+											{item.photoUri ? (
+												<Image source={{ uri: item.photoUri }} style={styles.plantImage} resizeMode="cover" />
+											) : (
+												<View style={styles.plantImagePlaceholder}>
+													<Text style={{ color: theme.text }}>🌱</Text>
+												</View>
+											)}
+											
+											{/* ✨ 상태에 따라 표시 */}
+											{(item.health === "주의" || item.health === "나쁨" ) && (
+												<View
+													style={[
+														styles.medicalInfo,
+														item.health === "주의" ? { backgroundColor: "#ffc900" } : { backgroundColor: "#d32f2f" },
+													]}
+												/>
+											)}
+										</View>
+
+										{/* Labels */}
+										<Text style={[styles.plantName, { color: theme.text }]}>{item.label}
+											{item.species && <Text style={styles.plantSpecies}>({item.species})</Text>}
+										</Text>
+									</Pressable>
+								)}
 							</View>
 						);
 					}}
 				/>
+				{/* Dots */}
 				<View style={styles.carouselDots}>
 					{slides.map((_, i) => (
 						<View key={String(i)} style={[styles.carouselDot, i === activeIndex && styles.carouselDotActive]} />
@@ -172,12 +220,12 @@ export default function Home() {
 				</View>
 			</View>
 			
+			{/* Links */}
 			<View style={styles.linkList}>
 				<Link style={styles.newPlant} href="/(page)/(stackless)/plant-new">
 					<Text style={{ color: "#fff" }}>타임랩스를 경험해 보세요</Text>
 				</Link>
 				<Link style={styles.plantInfo} href="/(auth)/login">
-					{/* ✅ 잘못된 색상코드 '#1a1a1' → '#1a1a1a'로 수정 */}
 					<Text style={{ color: "#1a1a1a" }}>식물 정보방</Text>
 				</Link>
 			</View>
@@ -185,7 +233,9 @@ export default function Home() {
 	);
 }
 
-/** 스타일 (캐러셀/페이지용만 남김) */
+// ─────────────────────────────────────────────────────────────────────────────
+// ④ Styles (섹션별 주석 유지)
+// ─────────────────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
 	container: {
 		flex: 1,
@@ -193,7 +243,8 @@ const styles = StyleSheet.create({
 		paddingHorizontal: 24,
 		paddingBottom: 68,
 	},
-	// 캐러셀
+
+	// ── Carousel card & image
 	plantCard: {
 		flex: 1,
 		justifyContent: "center",
@@ -201,23 +252,37 @@ const styles = StyleSheet.create({
 		width: '100%',
 		padding: 16,
 	},
+	photoBox: {
+		position:'relative',
+		width: 120,
+		height: 120,
+		borderRadius: 60,
+		marginTop:75,
+	},
 	plantImage: {
 		width: 120,
 		height: 120,
 		borderRadius: 60,
-		marginTop:80,
-		marginBottom: 12,
+		objectFit: 'cover',
 	},
 	plantImagePlaceholder: {
 		overflow: "hidden",
 		width: 120,
 		height: 120,
 		borderRadius: 60,
-		marginTop:80,
-		marginBottom: 12,
 		backgroundColor: "#ccc",
 		justifyContent: "center",
 		alignItems: "center",
+	},
+	medicalInfo: {
+		position:'absolute',
+		right:0,
+		bottom:0,
+		width:36,
+		height:36,
+		borderRadius:18,
+		justifyContent:'center',
+		alignItems:'center',
 	},
 	plantName: {
 		fontSize: 20,
@@ -228,7 +293,8 @@ const styles = StyleSheet.create({
 		color: "#eee",
 		marginTop: 4,
 	},
-	/*  */
+
+	// ── Gauge slots
 	slotBox: {
 		overflow:'hidden',
 		position: 'absolute',
@@ -270,7 +336,8 @@ const styles = StyleSheet.create({
 		height: 290,
 		transform:[{ translateX:-20 }],
 	},
-	/*  */
+
+	// ── Carousel wrapper
 	carouselRoot: {
 		height: 250,
 		alignSelf: 'stretch',
@@ -288,6 +355,8 @@ const styles = StyleSheet.create({
 	carouselDots: { position: 'absolute', bottom: -19, flexDirection: 'row', gap: 6 },
 	carouselDot: { width: 6, height: 6, borderRadius: 4, backgroundColor: '#cfcfcf' },
 	carouselDotActive: { backgroundColor: '#666' },
+
+	// ── Link cards
 	linkList: {
 		display: 'flex',
 		alignItems: 'center',

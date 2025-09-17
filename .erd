@@ -4,9 +4,15 @@
   "settings": {
     "width": 2000,
     "height": 2000,
+<<<<<<< HEAD
     "scrollTop": -415,
     "scrollLeft": -227,
     "zoomLevel": 0.79,
+=======
+    "scrollTop": -200,
+    "scrollLeft": -200,
+    "zoomLevel": 0.91,
+>>>>>>> origin/jihwan-front
     "show": 431,
     "database": 4,
     "databaseName": "",

@@ -1,73 +1,87 @@
 // app/(page)/(stackless)/plant-new.tsx
-import React, { useMemo, useState } from "react";
+// ─────────────────────────────────────────────────────────────────────────────
+// ① Imports
+// ─────────────────────────────────────────────────────────────────────────────
+import React, { useMemo, useState, useEffect } from "react";
 import {
-	View,
-	Text,
-	StyleSheet,
-	ScrollView,
-	KeyboardAvoidingView,
-	Platform,
-	TextInput,
-	Pressable,
-	Image,
-	Alert,
+	View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform,
+	TextInput, Pressable, Image, Alert, ActivityIndicator, TouchableOpacity,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { useColorScheme } from "react-native";
 import Colors from "../../../constants/Colors";
+import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withSequence, withTiming, Easing, withDelay, cancelAnimation } from "react-native-reanimated";
 
+// 공통 모달
+import ClassifierResultModal, { ClassifyResult } from "../../../components/common/ClassifierResultModal";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ② Types & Constants
+// ─────────────────────────────────────────────────────────────────────────────
 type IndoorOutdoor = "indoor" | "outdoor" | null;
 
 const SPECIES = [
-	"몬스테라",
-	"스투키",
-	"금전수",
-	"선인장",
-	"호접란",
-	"테이블야자",
-	"홍콩야자",
-	"스파티필럼",
-	"관음죽",
-	"벵갈고무나무",
-	"올리브나무",
-	"디펜바키아",
-	"보스턴고사리",
+	"몬스테라","스투키","금전수","선인수","호접란","테이블야자",
+	"홍콩야자","스파티필럼","관음죽","벵갈고무나무","올리브나무","디펜바키아","보스턴고사리",
 ] as const;
 
+// (카메라와 동일한 가짜 분류기)
+function mockClassify(_uri: string): ClassifyResult {
+	const pool = [
+		"몬스테라","스투키","금전수","선인장","호접란","테이블야자",
+		"홍콩야자","스파티필럼","관음죽","벵갈고무나무","올리브나무","디펜바키아","보스턴고사리",
+	] as const;
+	const species = pool[Math.floor(Math.random() * pool.length)];
+	const confidence = Math.round(70 + Math.random() * 29);
+	return { species, confidence };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ③ Component
+// ─────────────────────────────────────────────────────────────────────────────
 export default function PlantNew() {
+	// 3-1) Router & Theme
 	const router = useRouter();
 	const scheme = useColorScheme();
 	const theme = Colors[scheme === "dark" ? "dark" : "light"];
 
+	// 3-2) Form states
 	const [imageUri, setImageUri] = useState<string | null>(null);
 	const [species, setSpecies] = useState<string>("");
 	const [nickname, setNickname] = useState<string>("");
 	const [startedAt, setStartedAt] = useState<string>("");
 
+	// 3-3) UI states
+	const [busy, setBusy] = useState(false);
+	const [resultVisible, setResultVisible] = useState(false);
+	const [result, setResult] = useState<ClassifyResult | null>(null);
+
+	// 3-4) Validation & derived
 	const isKnownSpecies = useMemo(
 		() => (species ? (SPECIES as readonly string[]).includes(species) : true),
-		[species],
+		[species]
 	);
-
-	const isAllFilled = Boolean(
-		imageUri &&
-			species.trim() &&
-			nickname.trim() &&
-			startedAt.trim()
-	);
-
+	const isAllFilled = Boolean(imageUri && species.trim() && nickname.trim() && startedAt.trim());
 	const isDateLike = useMemo(() => {
 		if (!startedAt) return true;
 		return /^\d{4}-\d{2}-\d{2}$/.test(startedAt);
 	}, [startedAt]);
 
+	// 3-5) Helpers
+	function formatDateInput(text: string): string {
+		const digits = text.replace(/\D/g, "").slice(0, 8);
+		if (digits.length <= 4) return digits;
+		if (digits.length <= 6) return `${digits.slice(0, 4)}-${digits.slice(4)}`;
+		return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6, 8)}`;
+	}
+
+	// 3-6) Image pick handlers
 	function handlePickImage() {
 		if (Platform.OS === "web") {
 			pickFromLibrary();
 			return;
 		}
-		
 		Alert.alert("사진 등록", "사진을 불러올 방법을 선택하세요.", [
 			{ text: "사진 찍기", onPress: takePhoto },
 			{ text: "앨범 선택", onPress: pickFromLibrary },
@@ -81,14 +95,19 @@ export default function PlantNew() {
 			Alert.alert("권한 필요", "앨범 접근 권한을 허용해주세요.");
 			return;
 		}
-		const res = await ImagePicker.launchImageLibraryAsync({
-			allowsEditing: true,
-			quality: 0.9,
-			mediaTypes: ImagePicker.MediaTypeOptions.Images,
-			aspect: [1, 1],
-		});
-		if (!res.canceled && res.assets?.[0]?.uri) {
-			setImageUri(res.assets[0].uri);
+		setBusy(true);
+		try {
+			const res = await ImagePicker.launchImageLibraryAsync({
+				allowsEditing: true, quality: 0.9, mediaTypes: ImagePicker.MediaTypeOptions.Images, aspect: [1, 1],
+			});
+			if (!res.canceled && res.assets?.[0]?.uri) {
+				setImageUri(res.assets[0].uri);
+				const r = mockClassify(res.assets[0].uri);
+				setResult(r);
+				setTimeout(() => setResultVisible(true), 80);
+			}
+		} finally {
+			setBusy(false);
 		}
 	}
 
@@ -98,59 +117,51 @@ export default function PlantNew() {
 			Alert.alert("권한 필요", "카메라 권한을 허용해주세요.");
 			return;
 		}
-		const res = await ImagePicker.launchCameraAsync({
-			allowsEditing: true,
-			quality: 0.9,
-			aspect: [1, 1],
-		});
-		if (!res.canceled && res.assets?.[0]?.uri) {
-			setImageUri(res.assets[0].uri);
+		setBusy(true);
+		try {
+			const res = await ImagePicker.launchCameraAsync({
+				allowsEditing: true, quality: 0.9, aspect: [1, 1],
+			});
+			if (!res.canceled && res.assets?.[0]?.uri) {
+				setImageUri(res.assets[0].uri);
+				const r = mockClassify(res.assets[0].uri);
+				setResult(r);
+				setTimeout(() => setResultVisible(true), 80);
+			}
+		} finally {
+			setBusy(false);
 		}
 	}
 
+	// 3-7) Submit
 	function handleSubmit() {
 		if (!isAllFilled) return;
 		if (!isDateLike) {
 			Alert.alert("날짜 형식 확인", "날짜는 YYYY-MM-DD 형식으로 입력해주세요.");
 			return;
 		}
-
-		// place 제거했으니 species, nickname, startedAt, inout만 사용
 		Alert.alert("등록 완료", "새 식물이 등록되었습니다! (로컬 처리 가정)", [
 			{ text: "확인", onPress: () => router.replace("/(page)/home") },
 		]);
 	}
 
-	function formatDateInput(text: string): string {
-		const digits = text.replace(/\D/g, "").slice(0, 8);
-		if (digits.length <= 4) return digits;
-		if (digits.length <= 6) return `${digits.slice(0, 4)}-${digits.slice(4)}`;
-		return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6, 8)}`;
-	}
-
+	// 3-8) Render
 	return (
 		<KeyboardAvoidingView
 			style={[styles.container, { backgroundColor: theme.bg }]}
 			behavior={Platform.select({ ios: "padding", android: "height" })}
 		>
-			<ScrollView
-				keyboardShouldPersistTaps="handled"
-				keyboardDismissMode="interactive"
-				contentContainerStyle={{ paddingBottom: 120 }}
-			>
+			<ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive" contentContainerStyle={{ paddingBottom: 120 }}>
 				{/* 사진 */}
 				<View style={styles.photoBox}>
 					<Pressable
 						onPress={handlePickImage}
-						style={[
-							styles.photoPlaceholder,
-							{ borderColor: theme.border, backgroundColor: theme.graybg },
-						]}
+						disabled={busy}
+						style={[styles.photoPlaceholder, { borderColor: theme.border, backgroundColor: theme.graybg }]}
 					>
 						{imageUri ? (
 							<>
 								<Image source={{ uri: imageUri }} style={styles.photo} resizeMode="cover" />
-								{/* 사진 변경 배지 (선택사항) */}
 								<View style={[styles.changeBadge, { borderColor: theme.border, backgroundColor: theme.bg + "cc" }]}>
 									<Text style={[styles.changeBadgeText, { color: theme.text }]}>사진 변경</Text>
 								</View>
@@ -162,8 +173,16 @@ export default function PlantNew() {
 							</>
 						)}
 					</Pressable>
+
+					{/* 1단계 로딩 오버레이 */}
+					{busy && (
+						<View style={styles.busyOverlay}>
+							<ActivityIndicator size="large" />
+						</View>
+					)}
 				</View>
 
+				{/* 입력들 */}
 				<View style={styles.inputArea}>
 					{/* 품종 분류 */}
 					<View style={styles.field}>
@@ -230,81 +249,51 @@ export default function PlantNew() {
 					<Text style={[styles.submitText, { color: theme.text }]}>등록하기</Text>
 				</Pressable>
 			</View>
+
+			{/* 공통 Result Modal */}
+			<ClassifierResultModal
+				visible={resultVisible}
+				theme={theme}
+				result={result}
+				onClose={() => setResultVisible(false)}
+				onRetake={handlePickImage}
+			/>
 		</KeyboardAvoidingView>
 	);
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// ④ Styles
+// ─────────────────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-	container: {
-		flex: 1,
-	},
-	sectionLabel: {
-		fontSize: 16,
-		fontWeight: "700",
-		marginBottom: 8,
-	},
-	helper: {
-		fontSize: 12,
-		marginBottom: 8,
-		opacity: 0.8,
-	},
-	photoBox: {
-		alignItems: "center",
-		position:'relative',
-		height:260,
-		marginTop: 12,
-	},
-	photo: {
-		position:'absolute',
-		left:0,
-		top:0,
-		width:'100%',
-		height:260,
-		resizeMode:'cover',
-	},
-	photoPlaceholder: {
-		width:'100%',
-		height: 260,
+	container: { flex: 1 },
+
+	sectionLabel: { fontSize: 16, fontWeight: "700", marginBottom: 8 },
+	helper: { fontSize: 12, marginBottom: 8, opacity: 0.8 },
+
+	photoBox: { alignItems: "center", position: "relative", height: 260, marginTop: 12 },
+	photo: { position: "absolute", left: 0, top: 0, width: "100%", height: 260, resizeMode: "cover" },
+	photoPlaceholder: { width: "100%", height: 260, alignItems: "center", justifyContent: "center" },
+
+	// 1단계 로딩 오버레이
+	busyOverlay: {
+		position: "absolute",
+		left: 0,
+		right: 0,
+		top: 0,
+		bottom: 0,
 		alignItems: "center",
 		justifyContent: "center",
+		backgroundColor: "rgba(0,0,0,0.08)",
+		borderRadius: 12,
 	},
-	inputArea: {
-		paddingHorizontal:24,
-	},
-	field:{
-		marginTop:24,
-	},
-	input: {
-		borderWidth: 1,
-		borderRadius: 10,
-		paddingHorizontal: 12,
-		paddingVertical: 12,
-	},
-	notice: {
-		fontSize: 12,
-		marginTop: 6,
-	},
-	warn: {
-		fontSize: 12,
-		marginTop: 6,
-		color: "#d93025",
-	},
-	smallLabel: {
-		fontSize: 13,
-		fontWeight: "600",
-		marginTop: 8,
-	},
-	radioRow: {
-		flexDirection: "row",
-		gap: 8,
-		marginTop: 10,
-	},
-	radio: {
-		paddingVertical: 10,
-		paddingHorizontal: 14,
-		borderRadius: 10,
-		borderWidth: 1,
-	},
+
+	inputArea: { paddingHorizontal: 24 },
+	field: { marginTop: 24 },
+	input: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 12 },
+	notice: { fontSize: 12, marginTop: 6 },
+	warn: { fontSize: 12, marginTop: 6, color: "#d93025" },
+
 	bottomBar: {
 		position: "absolute",
 		left: 0,
@@ -314,40 +303,10 @@ const styles = StyleSheet.create({
 		gap: 8,
 		padding: 12,
 	},
-	cancelBtn: {
-		flex: 1,
-		borderWidth: 1,
-		borderRadius: 12,
-		alignItems: "center",
-		justifyContent: "center",
-		paddingVertical: 14,
-	},
-	cancelText: {
-		fontSize: 15,
-		fontWeight: "600",
-	},
-	submitBtn: {
-		flex: 2,
-		borderRadius: 12,
-		alignItems: "center",
-		justifyContent: "center",
-		paddingVertical: 14,
-	},
-	submitText: {
-		fontWeight: "700",
-		fontSize: 16,
-	},
-	changeBadge: {
-		position: "absolute",
-		right: 10,
-		bottom: 10,
-		borderWidth: 1,
-		borderRadius: 8,
-		paddingHorizontal: 10,
-		paddingVertical: 6,
-	},
-	changeBadgeText: {
-		fontSize: 12,
-		fontWeight: "700",
-	},
+	cancelBtn: { flex: 1, borderWidth: 1, borderRadius: 12, alignItems: "center", justifyContent: "center", paddingVertical: 14 },
+	cancelText: { fontSize: 15, fontWeight: "600" },
+	submitBtn: { flex: 2, borderRadius: 12, alignItems: "center", justifyContent: "center", paddingVertical: 14 },
+	submitText: { fontWeight: "700", fontSize: 16 },
+	changeBadge: { position: "absolute", right: 10, bottom: 10, borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 },
+	changeBadgeText: { fontSize: 12, fontWeight: "700" },
 });
