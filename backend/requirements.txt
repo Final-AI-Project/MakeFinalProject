@@ -48,6 +48,12 @@ pyasn1==0.6.0
 rsa==4.9
 six==1.17.0
 
+# LLM & AI
+langchain-core==0.3.76
+langchain-openai==0.3.33
+openai==1.107.3
+tiktoken==0.11.0
+
 # Development & Testing
 pytest==8.3.4
 pytest-asyncio==0.24.0
