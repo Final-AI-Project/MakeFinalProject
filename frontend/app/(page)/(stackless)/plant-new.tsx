@@ -1,129 +1,66 @@
 // app/(page)/(stackless)/plant-new.tsx
+// ─────────────────────────────────────────────────────────────────────────────
+// ① Imports
+// ─────────────────────────────────────────────────────────────────────────────
 import React, { useMemo, useState, useEffect } from "react";
 import {
-	View,
-	Text,
-	StyleSheet,
-	ScrollView,
-	KeyboardAvoidingView,
-	Platform,
-	TextInput,
-	Pressable,
-	Image,
-	Alert,
-	ActivityIndicator,
-	Modal,
-	TouchableOpacity,
+	View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform,
+	TextInput, Pressable, Image, Alert, ActivityIndicator, TouchableOpacity,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { useColorScheme } from "react-native";
 import Colors from "../../../constants/Colors";
+import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withSequence, withTiming, Easing, withDelay, cancelAnimation } from "react-native-reanimated";
 
-// 꾸미기 이미지 (카메라 화면과 동일 자산)
-import classifiercharacter from "../../../assets/images/classifier_setting.png";
-import classifiercharacterWeapon from "../../../assets/images/classifier_weapon.png";
-import classifiercharacterHand from "../../../assets/images/classifier_hand.png";
+// 공통 모달
+import ClassifierResultModal, { ClassifyResult } from "../../../components/common/ClassifierResultModal";
 
-// Reanimated
-import Animated, {
-	useSharedValue,
-	useAnimatedStyle,
-	withTiming,
-	withRepeat,
-	withSequence,
-	withDelay,
-	Easing,
-	cancelAnimation,
-} from "react-native-reanimated";
-
+// ─────────────────────────────────────────────────────────────────────────────
+// ② Types & Constants
+// ─────────────────────────────────────────────────────────────────────────────
 type IndoorOutdoor = "indoor" | "outdoor" | null;
 
 const SPECIES = [
-	"몬스테라","스투키","금전수","선인장","호접란","테이블야자",
+	"몬스테라","스투키","금전수","선인수","호접란","테이블야자",
 	"홍콩야자","스파티필럼","관음죽","벵갈고무나무","올리브나무","디펜바키아","보스턴고사리",
 ] as const;
 
+// (카메라와 동일한 가짜 분류기)
+function mockClassify(_uri: string): ClassifyResult {
+	const pool = [
+		"몬스테라","스투키","금전수","선인장","호접란","테이블야자",
+		"홍콩야자","스파티필럼","관음죽","벵갈고무나무","올리브나무","디펜바키아","보스턴고사리",
+	] as const;
+	const species = pool[Math.floor(Math.random() * pool.length)];
+	const confidence = Math.round(70 + Math.random() * 29);
+	return { species, confidence };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ③ Component
+// ─────────────────────────────────────────────────────────────────────────────
 export default function PlantNew() {
+	// 3-1) Router & Theme
 	const router = useRouter();
 	const scheme = useColorScheme();
 	const theme = Colors[scheme === "dark" ? "dark" : "light"];
 
+	// 3-2) Form states
 	const [imageUri, setImageUri] = useState<string | null>(null);
 	const [species, setSpecies] = useState<string>("");
 	const [nickname, setNickname] = useState<string>("");
 	const [startedAt, setStartedAt] = useState<string>("");
 
-	// 🔹 촬영/선택 중 로딩 (1단계)
+	// 3-3) UI states
 	const [busy, setBusy] = useState(false);
-
-	// 🔹 결과 모달(2단계) — 텍스트 없이 꾸미기 이미지만 노출
 	const [resultVisible, setResultVisible] = useState(false);
+	const [result, setResult] = useState<ClassifyResult | null>(null);
 
-	// ======= Reanimated (모달 꾸미기 애니) =======
-	const weaponAngle = useSharedValue(0);
-	const handY = useSharedValue(0);
-	const W = 75, H = 70; // weapon 이미지 크기
-
-	// 무기: 45° ↔ 0° 무한 반복 + 시작 딜레이/홀드
-	function startWeaponLoop({
-		startDelay = 300, // 시작 대기
-		hold = 200,       // 각 상태 머무름
-		up = 220,         // 0→45
-		down = 220,       // 45→0
-	} = {}) {
-		weaponAngle.value = 0;
-		const seq = withSequence(
-			withTiming(45, { duration: up, easing: Easing.out(Easing.cubic) }),
-			withDelay(hold, withTiming(0, { duration: down, easing: Easing.in(Easing.cubic) })),
-			withDelay(hold, withTiming(0, { duration: 0 }))
-		);
-		weaponAngle.value = withDelay(startDelay, withRepeat(seq, -1, false));
-	}
-
-	// 손: 위로 살짝 바운스 무한 반복
-	function startHandLoop() {
-		handY.value = withRepeat(
-			withSequence(
-				withTiming(-2, { duration: 250, easing: Easing.inOut(Easing.quad) }),
-				withTiming( 0, { duration: 600, easing: Easing.inOut(Easing.quad) }),
-				withTiming( 0, { duration: 250, easing: Easing.inOut(Easing.quad) }),
-			),
-			-1, false
-		);
-	}
-
-	// 모달 열릴 때 시작 / 닫히면 정지 및 초기화
-	useEffect(() => {
-		if (resultVisible) {
-			startWeaponLoop();
-			startHandLoop();
-		} else {
-			cancelAnimation(weaponAngle);
-			cancelAnimation(handY);
-			weaponAngle.value = 0;
-			handY.value = 0;
-		}
-	}, [resultVisible]);
-
-	// bottom-right 축 회전
-	const weaponAnimatedStyle = useAnimatedStyle(() => ({
-		transform: [
-			{ translateX:  (W / 2) + 10 },
-			{ translateY:  (H / 2) + 10 },
-			{ rotate: `${weaponAngle.value}deg` },
-			{ translateX: -(W / 2) + 10 },
-			{ translateY: -(H / 2) + 10 },
-		],
-	}));
-	const handAnimatedStyle = useAnimatedStyle(() => ({
-		transform: [{ translateY: handY.value }],
-	}));
-	// ============================================
-
+	// 3-4) Validation & derived
 	const isKnownSpecies = useMemo(
 		() => (species ? (SPECIES as readonly string[]).includes(species) : true),
-		[species],
+		[species]
 	);
 	const isAllFilled = Boolean(imageUri && species.trim() && nickname.trim() && startedAt.trim());
 	const isDateLike = useMemo(() => {
@@ -131,6 +68,15 @@ export default function PlantNew() {
 		return /^\d{4}-\d{2}-\d{2}$/.test(startedAt);
 	}, [startedAt]);
 
+	// 3-5) Helpers
+	function formatDateInput(text: string): string {
+		const digits = text.replace(/\D/g, "").slice(0, 8);
+		if (digits.length <= 4) return digits;
+		if (digits.length <= 6) return `${digits.slice(0, 4)}-${digits.slice(4)}`;
+		return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6, 8)}`;
+	}
+
+	// 3-6) Image pick handlers
 	function handlePickImage() {
 		if (Platform.OS === "web") {
 			pickFromLibrary();
@@ -143,7 +89,6 @@ export default function PlantNew() {
 		]);
 	}
 
-	// 📸 갤러리/카메라 모두 1단계 로딩 → 2단계 모달(꾸미기)로 동일 처리
 	async function pickFromLibrary() {
 		const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
 		if (status !== "granted") {
@@ -153,14 +98,12 @@ export default function PlantNew() {
 		setBusy(true);
 		try {
 			const res = await ImagePicker.launchImageLibraryAsync({
-				allowsEditing: true,
-				quality: 0.9,
-				mediaTypes: ImagePicker.MediaTypeOptions.Images,
-				aspect: [1, 1],
+				allowsEditing: true, quality: 0.9, mediaTypes: ImagePicker.MediaTypeOptions.Images, aspect: [1, 1],
 			});
 			if (!res.canceled && res.assets?.[0]?.uri) {
 				setImageUri(res.assets[0].uri);
-				// 1단계 로딩 끝 → 2단계 모달
+				const r = mockClassify(res.assets[0].uri);
+				setResult(r);
 				setTimeout(() => setResultVisible(true), 80);
 			}
 		} finally {
@@ -177,13 +120,12 @@ export default function PlantNew() {
 		setBusy(true);
 		try {
 			const res = await ImagePicker.launchCameraAsync({
-				allowsEditing: true,
-				quality: 0.9,
-				aspect: [1, 1],
+				allowsEditing: true, quality: 0.9, aspect: [1, 1],
 			});
 			if (!res.canceled && res.assets?.[0]?.uri) {
 				setImageUri(res.assets[0].uri);
-				// 1단계 로딩 끝 → 2단계 모달
+				const r = mockClassify(res.assets[0].uri);
+				setResult(r);
 				setTimeout(() => setResultVisible(true), 80);
 			}
 		} finally {
@@ -191,6 +133,7 @@ export default function PlantNew() {
 		}
 	}
 
+	// 3-7) Submit
 	function handleSubmit() {
 		if (!isAllFilled) return;
 		if (!isDateLike) {
@@ -202,13 +145,7 @@ export default function PlantNew() {
 		]);
 	}
 
-	function formatDateInput(text: string): string {
-		const digits = text.replace(/\D/g, "").slice(0, 8);
-		if (digits.length <= 4) return digits;
-		if (digits.length <= 6) return `${digits.slice(0, 4)}-${digits.slice(4)}`;
-		return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6, 8)}`;
-	}
-
+	// 3-8) Render
 	return (
 		<KeyboardAvoidingView
 			style={[styles.container, { backgroundColor: theme.bg }]}
@@ -313,48 +250,21 @@ export default function PlantNew() {
 				</Pressable>
 			</View>
 
-			{/* 2단계: 결과 모달(꾸미기) */}
-			<Modal visible={resultVisible} transparent animationType="fade" onRequestClose={() => setResultVisible(false)}>
-				<View style={styles.modalBackdrop}>
-					<View style={[styles.modalCard, { backgroundColor: theme.bg }]}>
-						<Text style={[styles.modalTitle, { color: theme.text }]}>분류 결과</Text>
-
-						<View style={styles.imageDecoBox}>
-							<Image source={classifiercharacter} style={styles.imageDeco} resizeMode="contain" />
-							<Animated.Image
-								source={classifiercharacterWeapon}
-								style={[styles.imageWeapon, weaponAnimatedStyle]}
-								resizeMode="contain"
-							/>
-							<Animated.Image
-								source={classifiercharacterHand}
-								style={[styles.imageHand, handAnimatedStyle]}
-								resizeMode="contain"
-							/>
-						</View>
-
-						<View style={styles.modalRow}>
-							<TouchableOpacity
-								style={[styles.btn, { backgroundColor: "#5f6368" }]}
-								onPress={handlePickImage}
-								activeOpacity={0.9}
-							>
-								<Text style={styles.btnText}>다시 촬영</Text>
-							</TouchableOpacity>
-							<Pressable
-								style={[styles.btn, { backgroundColor: theme.primary, flex: 1 }]}
-								onPress={() => setResultVisible(false)}
-							>
-								<Text style={styles.btnText}>확인</Text>
-							</Pressable>
-						</View>
-					</View>
-				</View>
-			</Modal>
+			{/* 공통 Result Modal */}
+			<ClassifierResultModal
+				visible={resultVisible}
+				theme={theme}
+				result={result}
+				onClose={() => setResultVisible(false)}
+				onRetake={handlePickImage}
+			/>
 		</KeyboardAvoidingView>
 	);
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// ④ Styles
+// ─────────────────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
 	container: { flex: 1 },
 
@@ -383,9 +293,6 @@ const styles = StyleSheet.create({
 	input: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 12 },
 	notice: { fontSize: 12, marginTop: 6 },
 	warn: { fontSize: 12, marginTop: 6, color: "#d93025" },
-	smallLabel: { fontSize: 13, fontWeight: "600", marginTop: 8 },
-	radioRow: { flexDirection: "row", gap: 8, marginTop: 10 },
-	radio: { paddingVertical: 10, paddingHorizontal: 14, borderRadius: 10, borderWidth: 1 },
 
 	bottomBar: {
 		position: "absolute",
@@ -402,22 +309,4 @@ const styles = StyleSheet.create({
 	submitText: { fontWeight: "700", fontSize: 16 },
 	changeBadge: { position: "absolute", right: 10, bottom: 10, borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 },
 	changeBadgeText: { fontSize: 12, fontWeight: "700" },
-
-	/* modal */
-	modalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", alignItems: "center", justifyContent: "center", padding: 24 },
-	modalCard: { width: "100%", borderRadius: 16, paddingTop: 20, paddingHorizontal: 20, paddingBottom: 20, borderWidth: 1, borderColor: "#e0e0e0" },
-	modalTitle: { fontSize: 16, fontWeight: "700", marginBottom: 8 },
-
-	imageDecoBox: { display: "flex", flexDirection: "row", justifyContent: "flex-end", position: "relative" },
-	imageDeco: { width: 200, height: 170 },
-
-	// weapon: bottom-right 기준 위치 (무기 크기: 75x70)
-	imageWeapon: { position: "absolute", right: 128, bottom: 77, width: 75, height: 70 },
-
-	// hand: 살짝 바운스
-	imageHand: { position: "absolute", right: 20, bottom: 73, width: 28 },
-
-	modalRow: { flexDirection: "row", gap: 8, },
-	btn: { flex: 1, height: 44, borderRadius: 12, alignItems: "center", justifyContent: "center" },
-	btnText: { color: "#fff", fontSize: 15, fontWeight: "700" },
 });
