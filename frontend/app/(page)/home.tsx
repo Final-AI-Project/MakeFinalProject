@@ -34,6 +34,7 @@ type Slide = {
 	startedAt?: string;
 	type?: "action";
 	waterLevel?: number;
+	health?: "좋음" | "주의" | "나쁨";
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -56,8 +57,8 @@ export default function Home() {
 
 	// 3-4) Data: Plants & Slides
 	const [plants, setPlants] = useState<Slide[]>([
-		{ key: "1", label: "몬스테라", bg: theme.bg, color: theme.text, waterLevel: 75, species: "몬스테라", startedAt: "2025-05-01", photoUri: null },
-		{ key: "2", label: "금전수", bg: theme.bg, color: theme.text, waterLevel: 30, species: "금전수", startedAt: "2025-06-10", photoUri: null },
+		{ key: "1", label: "몬스테라", bg: theme.bg, color: theme.text, waterLevel: 75, species: "몬스테라", startedAt: "2025-05-01", photoUri: null, health: "좋음" },
+		{ key: "2", label: "금전수", bg: theme.bg, color: theme.text, waterLevel: 30, species: "금전수", startedAt: "2025-06-10", photoUri: null, health: "주의" },
 	]);
 
 	const slides = useMemo(() => {
@@ -181,17 +182,29 @@ export default function Home() {
 										<View style={[styles.slot4, { backgroundColor: theme.bg }]} />
 
 										{/* Plant image */}
-										{item.photoUri ? (
-											<Image source={{ uri: item.photoUri }} style={styles.plantImage} resizeMode="cover" />
-										) : (
-											<View style={styles.plantImagePlaceholder}>
-												<Text style={{ color: theme.text }}>🌱</Text>
-											</View>
-										)}
+										<View style={ styles.photoBox }>
+											{item.photoUri ? (
+												<Image source={{ uri: item.photoUri }} style={styles.plantImage} resizeMode="cover" />
+											) : (
+												<View style={styles.plantImagePlaceholder}>
+													<Text style={{ color: theme.text }}>🌱</Text>
+												</View>
+											)}
+											
+											{/* ✨ 상태에 따라 표시 */}
+											{(item.health === "주의" || item.health === "나쁨" ) && (
+												<View
+													style={[
+														styles.medicalInfo,
+														item.health === "주의" ? { backgroundColor: "#ffc900" } : { backgroundColor: "#d32f2f" },
+													]}
+												/>
+											)}
+										</View>
 
 										{/* Labels */}
 										<Text style={[styles.plantName, { color: theme.text }]}>{item.label}
-											({item.species && <Text style={styles.plantSpecies}>{item.species})</Text>}
+											{item.species && <Text style={styles.plantSpecies}>({item.species})</Text>}
 										</Text>
 									</Pressable>
 								)}
@@ -239,21 +252,37 @@ const styles = StyleSheet.create({
 		width: '100%',
 		padding: 16,
 	},
-	plantImage: {
+	photoBox: {
+		position:'relative',
 		width: 120,
 		height: 120,
 		borderRadius: 60,
 		marginTop:75,
+	},
+	plantImage: {
+		width: 120,
+		height: 120,
+		borderRadius: 60,
+		objectFit: 'cover',
 	},
 	plantImagePlaceholder: {
 		overflow: "hidden",
 		width: 120,
 		height: 120,
 		borderRadius: 60,
-		marginTop:75,
 		backgroundColor: "#ccc",
 		justifyContent: "center",
 		alignItems: "center",
+	},
+	medicalInfo: {
+		position:'absolute',
+		right:0,
+		bottom:0,
+		width:36,
+		height:36,
+		borderRadius:18,
+		justifyContent:'center',
+		alignItems:'center',
 	},
 	plantName: {
 		fontSize: 20,
