@@ -1,0 +1,44 @@
+{
+  "name": "pland-frontend",
+  "version": "1.0.0",
+  "description": "Plant care management mobile app frontend",
+  "main": "expo-router/entry",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "build": "expo build",
+    "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@expo/metro-runtime": "~6.1.2",
+    "@react-native-picker/picker": "^2.11.2",
+    "dayjs": "^1.11.18",
+    "expo": "^54.0.7",
+    "expo-image-picker": "~17.0.8",
+    "expo-router": "~6.0.4",
+    "expo-secure-store": "~15.0.7",
+    "expo-splash-screen": "~31.0.10",
+    "expo-status-bar": "^3.0.8",
+    "react": "19.1.1",
+    "react-dom": "19.1.0",
+    "react-native": "0.81.4",
+    "react-native-gesture-handler": "~2.28.0",
+    "react-native-reanimated": "~4.1.0",
+    "react-native-reanimated-carousel": "^4.0.3",
+    "react-native-safe-area-context": "~5.6.0",
+    "react-native-web": "^0.21.1",
+    "react-native-worklets-core": "^1.6.2"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.25.0",
+    "@types/react": "~18.3.0",
+    "babel-preset-expo": "~11.0.0",
+    "eslint": "^8.57.0",
+    "eslint-config-expo": "^7.1.0",
+    "typescript": "~5.3.0"
+  },
+  "private": true
+}
