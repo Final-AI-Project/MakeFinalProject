@@ -298,7 +298,7 @@ export default function Diary() {
 // ④ Styles (plant-new.tsx 톤과 동일 스케일)
 // ─────────────────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-	container: { flex: 1 },
+	container: { flex: 1, paddingBottom: 40 },
 
 	sectionLabel: { fontSize: 16, fontWeight: "700", marginBottom: 8 },
 	helper: { fontSize: 12, marginBottom: 8, opacity: 0.8 },
@@ -318,7 +318,7 @@ const styles = StyleSheet.create({
 	input: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 12 },
 
 	bottomBar: {
-		position: "absolute", left: 0, right: 0, bottom: 0,
+		position: "absolute", left: 0, right: 0, bottom: 68,
 		flexDirection: "row", gap: 8, padding: 12,
 	},
 	cancelBtn: { flex: 1, borderWidth: 1, borderRadius: 12, alignItems: "center", justifyContent: "center", paddingVertical: 14 },
