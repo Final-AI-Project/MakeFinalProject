@@ -196,7 +196,7 @@ export default function Home() {
 												<View
 													style={[
 														styles.medicalInfo,
-														item.health === "주의" ? { backgroundColor: "#ffc900" } : { backgroundColor: "#d32f2f" },
+														item.health === "주의" ? { backgroundColor: "#ffc900" } : { backgroundColor: "#d32f2e" },
 													]}
 												/>
 											)}
