@@ -1,12 +1,13 @@
-// app/(page)/(stackless)/diary.tsx
+// app/(page)/diary.tsx
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ① Imports
 // ─────────────────────────────────────────────────────────────────────────────
-import React, { useMemo, useRef, useState } from "react";
+import React, { useMemo, useRef, useState, useEffect } from "react";
 import {
 	View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform,
 	TextInput, Pressable, Image, Alert, ActivityIndicator, TouchableOpacity, Animated, Easing,
+	PanResponder, Dimensions,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { useColorScheme } from "react-native";
@@ -19,6 +20,9 @@ import { fetchSimpleWeather } from "../../components/common/weatherBox";
 // ─────────────────────────────────────────────────────────────────────────────
 type Weather = "맑음" | "흐림" | "비" | "눈" | null;
 
+// expo-image-picker 신/구 버전 호환(enum 폴리필)
+const MEDIA = (ImagePicker as any).MediaType ?? (ImagePicker as any).MediaTypeOptions;
+
 const todayStr = () => {
 	const d = new Date();
 	const yyyy = d.getFullYear();
@@ -26,6 +30,20 @@ const todayStr = () => {
 	const dd = String(d.getDate()).padStart(2, "0");
 	return `${yyyy}-${mm}-${dd}`;
 };
+
+// 한글 조사 자동(이/가, 을/를 등 지원 확장 가능)
+function withJosa(word: string, type: "이가" | "을를" = "이가") {
+	const code = word.charCodeAt(word.length - 1);
+	const HANGUL_BASE = 0xac00;
+	const HANGUL_END = 0xd7a3;
+	let hasJong = false;
+	if (code >= HANGUL_BASE && code <= HANGUL_END) {
+		const jong = (code - HANGUL_BASE) % 28;
+		hasJong = jong > 0;
+	}
+	if (type === "이가") return `${word}${hasJong ? "이" : "가"}`;
+	return `${word}${hasJong ? "을" : "를"}`;
+}
 
 /** 인라인 드롭다운(모달 없이) */
 function InlineSelect<T extends string>({
@@ -64,36 +82,167 @@ function InlineSelect<T extends string>({
 	);
 }
 
-/** 하단 슬라이드 토스트 */
-function BottomToast({ visible, text, onClose, theme }: {
+/** 한 글자씩 등장하는 애니메이션 텍스트 */
+function AnimatedChars({
+	text,
+	delayStep = 24,
+	duration = 280,
+	style,
+}: {
+	text: string;
+	delayStep?: number;
+	duration?: number;
+	style?: any;
+}) {
+	const chars = React.useMemo(() => [...(text ?? "")], [text]);
+
+	// 각 글자별 Animated.Value
+	const valuesRef = React.useRef(chars.map(() => new Animated.Value(0)));
+	if (valuesRef.current.length !== chars.length) {
+		valuesRef.current = chars.map(() => new Animated.Value(0));
+	}
+
+	useEffect(() => {
+		const animations = valuesRef.current.map((v, i) =>
+			Animated.timing(v, {
+				toValue: 1,
+				duration,
+				delay: i * delayStep,
+				easing: Easing.out(Easing.cubic),
+				useNativeDriver: true,
+			})
+		);
+		Animated.stagger(delayStep, animations).start();
+	}, [text, delayStep, duration]);
+
+	return (
+		<View style={{ flexDirection: "row", flexWrap: "wrap" }}>
+			{chars.map((ch, i) => {
+				const v = valuesRef.current[i];
+				const translateY = v.interpolate({ inputRange: [0, 1], outputRange: [12, 0] });
+				return (
+					<Animated.Text
+						key={`${ch}-${i}-${chars.length}`}
+						style={[style, { opacity: v, transform: [{ translateY }] }]}
+					>
+						{ch}
+					</Animated.Text>
+				);
+			})}
+		</View>
+	);
+}
+
+/** 바텀시트 (딤 탭으로는 닫히지 않음 / 드래그 & 버튼만 닫힘 / 닫은 뒤 스크롤 잠김 방지) */
+function BottomSheet({
+	visible,
+	text,
+	onClose,
+	theme,
+}: {
 	visible: boolean;
 	text: string;
 	onClose: () => void;
 	theme: typeof Colors.light;
 }) {
-	const slide = useRef(new Animated.Value(0)).current;
-	React.useEffect(() => {
-		Animated.timing(slide, {
-			toValue: visible ? 1 : 0,
-			duration: 280,
-			easing: visible ? Easing.out(Easing.cubic) : Easing.in(Easing.cubic),
+	const screenH = Dimensions.get("window").height;
+	const translateY = useRef(new Animated.Value(screenH)).current; // off-screen 시작
+	const [interactive, setInteractive] = useState(false);					// 포인터 잠금 제어
+
+	const openSheet = () => {
+		setInteractive(true); // 포인터 받기
+		Animated.timing(translateY, {
+			toValue: 0,
+			duration: 260,
+			easing: Easing.out(Easing.cubic),
 			useNativeDriver: true,
 		}).start();
+	};
+
+	const closeSheet = (after?: () => void) => {
+		Animated.timing(translateY, {
+			toValue: screenH,
+			duration: 200,
+			easing: Easing.in(Easing.cubic),
+			useNativeDriver: true,
+		}).start(() => {
+			setInteractive(false); // 포인터 해제 → 스크롤 잠김 방지
+			after?.();
+		});
+	};
+
+	// 외부 visible 변경에 동기화
+	useEffect(() => {
+		if (visible) openSheet();
+		else closeSheet(); // 부모가 false로 바꾸면 애니메이션으로 내려가되 after 콜백은 없음
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [visible]);
-	const translateY = slide.interpolate({ inputRange: [0, 1], outputRange: [80, 0] });
-	const opacity = slide.interpolate({ inputRange: [0, 1], outputRange: [0, 1] });
-	// @ts-ignore 내부값 확인용
-	if (!visible && slide._value === 0) return null;
+
+	// 드래그로 닫기
+	const panResponder = useRef(
+		PanResponder.create({
+			onMoveShouldSetPanResponder: (_, g) => g.dy > 6,
+			onPanResponderMove: (_, g) => {
+				const dy = Math.max(0, g.dy);
+				translateY.setValue(dy);
+			},
+			onPanResponderRelease: (_, g) => {
+				const shouldClose = g.dy > 120 || g.vy > 0.8;
+				if (shouldClose) closeSheet(onClose);
+				else {
+					Animated.spring(translateY, {
+						toValue: 0,
+						useNativeDriver: true,
+						bounciness: 3,
+					}).start();
+				}
+			},
+		})
+	).current;
+
+	const dimOpacity = translateY.interpolate({
+		inputRange: [0, screenH],
+		outputRange: [1, 0],
+	});
+
+	// 보이지 않을 때 렌더 최소화 (애니메이션 완전히 끝났을 때만 제거해도 OK)
+	// @ts-ignore
+	if (!visible && translateY._value === screenH && !interactive) return null;
+
 	return (
-		<Animated.View style={[styles.toastWrap, { transform: [{ translateY }], opacity }]}>
-			<View style={[styles.toastCard, { backgroundColor: theme.text === "#1a1a1a" ? "#1f2937" : "#0f172a" }]}>
-				<Text style={styles.toastTitle}>AI 코멘트</Text>
-				<Text style={styles.toastText}>{text || "임시 응답 텍스트가 없습니다."}</Text>
-				<TouchableOpacity style={styles.toastClose} onPress={onClose} activeOpacity={0.9}>
-					<Text style={styles.toastCloseText}>닫기</Text>
-				</TouchableOpacity>
-			</View>
-		</Animated.View>
+		<View style={[StyleSheet.absoluteFill, { pointerEvents: interactive ? "auto" : "none" }]}>
+			{/* DIM (탭해도 닫히지 않음) */}
+			<Animated.View
+				style={[
+					StyleSheet.absoluteFillObject,
+					{ backgroundColor: "rgba(0,0,0,0.5)", opacity: dimOpacity },
+				]}
+			/>
+
+			{/* SHEET */}
+			<Animated.View
+				style={[styles.sheetWrap, { transform: [{ translateY }] }]}
+				{...panResponder.panHandlers}
+			>
+				<View style={[styles.sheetHandle, { backgroundColor: theme.text === "#1a1a1a" ? "#d1d5db" : "#475569" }]} />
+				<Text style={[styles.sheetTitle, { color: theme.text }]}>AI 코멘트</Text>
+
+				<View style={styles.sheetBody}>
+					<AnimatedChars
+						text={text || "임시 응답 텍스트가 없습니다."}
+						delayStep={22}
+						duration={260}
+						style={[styles.sheetText, { color: theme.text }]}
+					/>
+				</View>
+
+				<View style={styles.sheetActions}>
+					<Pressable onPress={() => closeSheet(onClose)} style={[styles.sheetBtn]}>
+						<Text style={[styles.sheetBtnText, { color: theme.text }]}>닫기</Text>
+					</Pressable>
+				</View>
+			</Animated.View>
+		</View>
 	);
 }
 
@@ -111,13 +260,18 @@ export default function Diary() {
 	const [title, setTitle] = useState("");
 	const [selectedPlant, setSelectedPlant] = useState<string | null>(null);
 	const [date] = useState(todayStr());
-	const [weather, setWeather] = useState<Weather>(null);	 // 자동/readonly
+	const [weather, setWeather] = useState<Weather>(null); // 자동/readonly
 	const [body, setBody] = useState("");
 
 	// 기타 UI
 	const [busy, setBusy] = useState(false);
-	const [aiDraft, setAiDraft] = useState("오늘은 통풍만 잘 시켜주세요. 물은 내일 추천! 🌤️");
-	const [toastVisible, setToastVisible] = useState(false);
+	const [sheetVisible, setSheetVisible] = useState(false);
+
+	// AI 텍스트 (단일 소스)
+	const [aiText, setAiText] = useState<string>("오늘은 통풍만 잘 시켜주세요. 물은 내일 추천! 🌤️");
+
+	// 등록 후에만 미리보기 표시
+	const [aiPreviewVisible, setAiPreviewVisible] = useState(false);
 
 	// 내 식물(별명) — TODO: 실제 내 식물 리스트로 교체
 	const myPlants = useMemo(
@@ -129,7 +283,7 @@ export default function Diary() {
 	);
 
 	// 날씨 자동 채움 (WeatherBox 렌더링 없이)
-	React.useEffect(() => {
+	useEffect(() => {
 		(async () => {
 			const w = await fetchSimpleWeather(
 				"GTr1cI7Wi0FRbOTFBaUzUCzCDP4OnyyEmHnn11pxCUC5ehG5bQnbyztgeydnOWz1O04tjw1SE5RsX8RNo6XCgQ==",
@@ -139,8 +293,11 @@ export default function Diary() {
 		})();
 	}, []);
 
-	// 제출 버튼 활성 조건
+	// 제출 버튼 활성 조건 (모든 입력 완료 판정)
 	const canSubmit = Boolean(photoUri && title.trim() && selectedPlant && date && weather && body.trim());
+
+	// 섹션 라벨(별명 → ‘OOO이/가 하고픈 말’)
+	const aiSectionLabel = selectedPlant ? `${withJosa(selectedPlant, "이가")} 하고픈 말` : "AI 응답(미리보기)";
 
 	// 사진 선택
 	const pickImage = async () => {
@@ -149,19 +306,26 @@ export default function Diary() {
 		setBusy(true);
 		try {
 			const res = await ImagePicker.launchImageLibraryAsync({
-				allowsEditing: true, quality: 0.9, mediaTypes: ["images"], aspect: [1, 1],
+				allowsEditing: true,
+				quality: 0.9,
+				mediaTypes: MEDIA?.Images ?? ImagePicker.MediaTypeOptions.Images,
+				aspect: [1, 1],
 			});
-				if (!res.canceled && res.assets?.[0]?.uri) setPhotoUri(res.assets[0].uri);
-		} finally { setBusy(false); }
+			if (!res.canceled && res.assets?.[0]?.uri) setPhotoUri(res.assets[0].uri);
+		} finally {
+			setBusy(false);
+		}
 	};
 
-	// 등록
+	// 등록: 시트는 등록하면 열림, Alert 없음
 	const handleSubmit = async () => {
 		if (!canSubmit) return;
-		// TODO: 서버 저장 API
-		// await fetch("...", { method:"POST", body: JSON.stringify({ photoUri, title, selectedPlant, date, weather, body }) });
-		Alert.alert("등록 완료", "일기가 임시로 저장되었습니다.");
-		setToastVisible(true);
+
+		// TODO: 서버 저장 & LLM 호출 후 setAiText(resp.message)
+		// setAiText(resp.message);
+
+		setAiPreviewVisible(true); // 등록 후에만 미리보기 표시
+		setSheetVisible(true);		 // 등록하면 바텀시트 열림
 	};
 
 	return (
@@ -169,7 +333,10 @@ export default function Diary() {
 			style={[styles.container, { backgroundColor: theme.bg }]}
 			behavior={Platform.select({ ios: "padding", android: "height" })}
 		>
-			<ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive" contentContainerStyle={{ paddingBottom: 120 }}>
+			<ScrollView
+				keyboardShouldPersistTaps="handled"
+				keyboardDismissMode="interactive"
+			>
 				{/* 사진 등록 */}
 				<View style={styles.photoBox}>
 					<Pressable
@@ -260,36 +427,41 @@ export default function Diary() {
 						/>
 					</View>
 
-					{/* 임시 LLM 응답 텍스트 (토스트에 표시) */}
-					<View style={styles.field}>
-						<Text style={[styles.sectionLabel, { color: theme.text }]}>AI 응답(임시)</Text>
-						<TextInput
-							placeholder="등록 후 토스트에 표시될 임시 텍스트"
-							placeholderTextColor="#909090"
-							value={aiDraft}
-							onChangeText={setAiDraft}
-							style={[styles.input, { color: theme.text, borderColor: theme.border }]}
-						/>
+					{/* 🔹 AI 응답(미리보기): 등록 전엔 숨김, 등록 후에만 표시 */}
+					{aiPreviewVisible && (
+						<View style={styles.field}>
+							<Text style={[styles.sectionLabel, { color: theme.text }]}>
+								{selectedPlant ? `${withJosa(selectedPlant, "이가")} 하고픈 말` : "AI 응답(미리보기)"}
+							</Text>
+							<View style={[styles.input, { borderColor: theme.border, paddingVertical: 14 }]}>
+								<AnimatedChars text={aiText} style={{ color: theme.text, fontSize: 15, lineHeight: 22 }} />
+							</View>
+						</View>
+					)}
+
+					{/* 하단 버튼 */}
+					<View style={[styles.bottomBar, { backgroundColor: theme.bg }]}>
+						<Pressable onPress={() => router.back()} style={[styles.cancelBtn, { borderColor: theme.border }]}>
+							<Text style={[styles.cancelText, { color: theme.text }]}>취소</Text>
+						</Pressable>
+						<Pressable
+							disabled={!canSubmit}
+							onPress={handleSubmit}
+							style={[styles.submitBtn, { backgroundColor: !canSubmit ? theme.graybg : theme.primary }]}
+						>
+							<Text style={[styles.submitText, { color: "#fff" }]}>등록</Text>
+						</Pressable>
 					</View>
 				</View>
 			</ScrollView>
 
-			{/* 하단 버튼 */}
-			<View style={[styles.bottomBar, { backgroundColor: theme.bg }]}>
-				<Pressable onPress={() => router.back()} style={[styles.cancelBtn, { borderColor: theme.border }]}>
-					<Text style={[styles.cancelText, { color: theme.text }]}>취소</Text>
-				</Pressable>
-				<Pressable
-					disabled={!canSubmit}
-					onPress={handleSubmit}
-					style={[styles.submitBtn, { backgroundColor: !canSubmit ? theme.graybg : theme.primary }]}
-				>
-					<Text style={[styles.submitText, { color: theme.text }]}>등록</Text>
-				</Pressable>
-			</View>
-
-			{/* 토스트 */}
-			<BottomToast visible={toastVisible} text={aiDraft} onClose={() => setToastVisible(false)} theme={theme} />
+			{/* 바텀시트 (등록 시 자동 열림, 드래그/닫기버튼만 닫힘) */}
+			<BottomSheet
+				visible={sheetVisible}
+				text={aiText}
+				onClose={() => setSheetVisible(false)}
+				theme={theme}
+			/>
 		</KeyboardAvoidingView>
 	);
 }
@@ -298,7 +470,7 @@ export default function Diary() {
 // ④ Styles (plant-new.tsx 톤과 동일 스케일)
 // ─────────────────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-	container: { flex: 1, paddingBottom: 40 },
+	container: { flex: 1, paddingBottom:80 },
 
 	sectionLabel: { fontSize: 16, fontWeight: "700", marginBottom: 8 },
 	helper: { fontSize: 12, marginBottom: 8, opacity: 0.8 },
@@ -317,10 +489,7 @@ const styles = StyleSheet.create({
 	field: { marginTop: 24 },
 	input: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 12 },
 
-	bottomBar: {
-		position: "absolute", left: 0, right: 0, bottom: 68,
-		flexDirection: "row", gap: 8, padding: 12,
-	},
+	bottomBar: { flexDirection: "row", gap: 8, marginTop:24 },
 	cancelBtn: { flex: 1, borderWidth: 1, borderRadius: 12, alignItems: "center", justifyContent: "center", paddingVertical: 14 },
 	cancelText: { fontSize: 15, fontWeight: "600" },
 	submitBtn: { flex: 2, borderRadius: 12, alignItems: "center", justifyContent: "center", paddingVertical: 14 },
@@ -332,13 +501,31 @@ const styles = StyleSheet.create({
 	dropdownPanel: { borderWidth: 1, borderRadius: 10, overflow: "hidden", marginTop: -6 },
 	dropdownItem: { paddingHorizontal: 12, paddingVertical: 12 },
 
-	toastWrap: {
-		position: "absolute", left: 0, right: 0, bottom: 16,
-		alignItems: "center", justifyContent: "center", paddingHorizontal: 16,
+	// 바텀시트
+	sheetWrap: {
+		position: "absolute",
+		left: 0,
+		right: 0,
+		bottom: 65,
+		borderTopLeftRadius: 20,
+		borderTopRightRadius: 20,
+		paddingTop: 10,
+		paddingHorizontal: 20,
+		paddingBottom: 20,
+		backgroundColor: "#ffffff",
 	},
-	toastCard: { maxWidth: 640, alignSelf: "stretch", marginHorizontal: 16, borderRadius: 16, padding: 14 },
-	toastTitle: { color: "#fff", fontSize: 13, fontWeight: "800", marginBottom: 6, opacity: 0.9 },
-	toastText: { color: "#fff", fontSize: 15, lineHeight: 22 },
-	toastClose: { alignSelf: "flex-end", marginTop: 8, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: "rgba(255,255,255,0.14)" },
-	toastCloseText: { color: "#fff", fontWeight: "700" },
+	sheetHandle: {
+		alignSelf: "center",
+		width: 42,
+		height: 5,
+		borderRadius: 999,
+		opacity: 0.5,
+		marginBottom: 12,
+	},
+	sheetTitle: { fontSize: 14, fontWeight: "800", marginBottom: 8, opacity: 0.8 },
+	sheetBody: { paddingVertical: 6 },
+	sheetText: { fontSize: 16, lineHeight: 24 },
+	sheetActions: { marginTop: 12, alignItems: "flex-end" },
+	sheetBtn: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, backgroundColor: "rgba(0,0,0,0.06)" },
+	sheetBtnText: { fontWeight: "700" },
 });
