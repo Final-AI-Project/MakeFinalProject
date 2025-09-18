@@ -16,7 +16,7 @@ import { Link, useRouter } from 'expo-router';
 import Colors from "../../constants/Colors";
 import WeatherBox from "../../components/common/weatherBox";
 import Carousel from 'react-native-reanimated-carousel';
-import { useThemeColor } from '@/hooks/useThemeColor';
+import { LinearGradient } from "expo-linear-gradient";
 import Animated, { useAnimatedStyle, useSharedValue, withTiming, useAnimatedReaction } from 'react-native-reanimated';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -204,7 +204,7 @@ export default function Home() {
 
 										{/* Labels */}
 										<Text style={[styles.plantName, { color: theme.text }]}>{item.label}
-											{item.species && <Text style={styles.plantSpecies}>({item.species})</Text>}
+											{item.species && <Text style={[styles.plantSpecies, { color: theme.text }]}>({item.species})</Text>}
 										</Text>
 									</Pressable>
 								)}
@@ -222,13 +222,33 @@ export default function Home() {
 			
 			{/* Links */}
 			<View style={styles.linkList}>
-				<Link style={styles.newPlant} href="/(page)/(stackless)/plant-new">
-					<Text style={{ color: "#fff" }}>타임랩스를 경험해 보세요</Text>
+				{/* newPlant */}
+				<Link href="/(page)/(stackless)/plant-new" asChild>
+					<Pressable style={styles.cardBase}>
+						<LinearGradient
+							colors={["#F97794", "#623AA2"]}
+							start={{ x: 0, y: 0 }}
+							end={{ x: 1, y: 1 }}
+							style={StyleSheet.absoluteFillObject}
+						/>
+						<Text style={styles.cardTextLight}>타임랩스를 경험해 보세요</Text>
+					</Pressable>
 				</Link>
-				<Link style={styles.plantInfo} href="/(auth)/login">
-					<Text style={{ color: "#1a1a1a" }}>식물 정보방</Text>
+				
+				{/* plantInfo */}
+				<Link href="/(auth)/login" asChild>
+					<Pressable style={styles.cardBase}>
+						<LinearGradient
+							colors={["#FFF6B7", "#F6416C"]}
+							start={{ x: 0, y: 0 }}
+							end={{ x: 1, y: 1 }}
+							style={StyleSheet.absoluteFillObject}
+						/>
+						<Text style={styles.cardTextLight}>식물 정보방</Text>
+					</Pressable>
 				</Link>
 			</View>
+			
 		</View>
 	);
 }
@@ -290,7 +310,6 @@ const styles = StyleSheet.create({
 	},
 	plantSpecies: {
 		fontSize: 14,
-		color: "#eee",
 		marginTop: 4,
 	},
 
@@ -358,37 +377,22 @@ const styles = StyleSheet.create({
 
 	// ── Link cards
 	linkList: {
-		display: 'flex',
-		alignItems: 'center',
-		justifyContent: 'center',
-		flexDirection: 'row',
+		flexDirection: "row",
+		alignItems: "center",
+		justifyContent: "center",
 		gap: 8,
-		marginTop:24,
+		marginTop: 24,
 	},
-	newPlant: {
+	cardBase: {
 		flex: 1,
-		display: 'flex',
-		alignItems: 'center',
-		justifyContent: 'flex-end',
 		height: 160,
+		borderRadius: 16,
 		paddingHorizontal: 20,
 		paddingVertical: 16,
-		borderRadius: 16,
-		textAlign: 'right',
-		backgroundColor: '#00c73c',
-		fontSize: 17,
+		alignItems: "center",
+		justifyContent: "flex-end",
+		overflow: "hidden",
+		
 	},
-	plantInfo: {
-		flex: 1,
-		display: 'flex',
-		alignItems: 'center',
-		justifyContent: 'flex-end',
-		height: 160,
-		paddingHorizontal: 20,
-		paddingVertical: 16,
-		borderRadius: 16,
-		textAlign: 'right',
-		backgroundColor: '#ffc900',
-		fontSize: 17,
-	},
+	cardTextLight: { width:'100%', color: "#fff", fontSize: 17, fontWeight: "600", textAlign:'right' },
 });
