@@ -12,7 +12,6 @@ import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { useColorScheme } from "react-native";
 import Colors from "../../../constants/Colors";
-import useKeyboardPadding from "../../../hooks/useKeyboardPadding";
 
 // 공통 모달
 import ClassifierResultModal, { ClassifyResult } from "../../../components/common/ClassifierResultModal";

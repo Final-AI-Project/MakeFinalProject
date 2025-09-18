@@ -5,17 +5,15 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import React, { useMemo, useRef, useState, useEffect } from "react";
 import {
-	View, Text, StyleSheet, ScrollView,
+	View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform,
 	TextInput, Pressable, Image, Alert, ActivityIndicator, Animated, Easing,
-	PanResponder, Dimensions, Platform,
+	PanResponder, Dimensions, Keyboard,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { useColorScheme } from "react-native";
 import { useRouter } from "expo-router";
 import Colors from "../../constants/Colors";
 import { fetchSimpleWeather } from "../../components/common/weatherBox";
-import { startLoading } from "../../components/common/loading";
-import useKeyboardPadding from "../../hooks/useKeyboardPadding"; // ⬅️ 추가
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ② Helpers & Types
@@ -25,9 +23,6 @@ type Weather = "맑음" | "흐림" | "비" | "눈" | null;
 // expo-image-picker 신/구 버전 호환(enum 폴리필)
 const MEDIA = (ImagePicker as any).MediaType ?? (ImagePicker as any).MediaTypeOptions;
 
-// ❌ (버그) 컴포넌트 밖에서 useRouter() 호출 금지
-// const router = useRouter();
-
 const todayStr = () => {
 	const d = new Date();
 	const yyyy = d.getFullYear();
@@ -36,7 +31,7 @@ const todayStr = () => {
 	return `${yyyy}-${mm}-${dd}`;
 };
 
-// 한글 조사 자동
+// 한글 조사 자동(이/가, 을/를 등 지원 확장 가능)
 function withJosa(word: string, type: "이가" | "을를" = "이가") {
 	const code = word.charCodeAt(word.length - 1);
 	const HANGUL_BASE = 0xac00;
@@ -50,7 +45,7 @@ function withJosa(word: string, type: "이가" | "을를" = "이가") {
 	return `${word}${hasJong ? "을" : "를"}`;
 }
 
-/** 인라인 드롭다운 */
+/** 인라인 드롭다운(모달 없이) */
 function InlineSelect<T extends string>({
 	label, value, options, onChange, placeholder = "선택하세요", theme,
 }: {
@@ -101,6 +96,7 @@ function AnimatedChars({
 }) {
 	const chars = React.useMemo(() => [...(text ?? "")], [text]);
 
+	// 각 글자별 Animated.Value
 	const valuesRef = React.useRef(chars.map(() => new Animated.Value(0)));
 	if (valuesRef.current.length !== chars.length) {
 		valuesRef.current = chars.map(() => new Animated.Value(0));
@@ -137,111 +133,125 @@ function AnimatedChars({
 	);
 }
 
-/** 바텀시트 */
+/** 바텀시트 (딤 탭으로는 닫히지 않음 / 드래그 & 버튼만 닫힘 / 닫은 뒤 스크롤 잠김 방지) */
 function BottomSheet({
-	visible,
-	text,
-	onClose,
-	theme,
+    visible,
+    text,
+    title,
+    onClose,
+    theme,
 }: {
-	visible: boolean;
-	text: string;
-	onClose: () => void;
-	theme: typeof Colors.light;
+    visible: boolean;
+    text: string;
+    title: string;
+    onClose: () => void;
+    theme: typeof Colors.light;
 }) {
-	const screenH = Dimensions.get("window").height;
-	const translateY = useRef(new Animated.Value(screenH)).current;
-	const [interactive, setInteractive] = useState(false);
+    const screenH = Dimensions.get("window").height;
+    const translateY = useRef(new Animated.Value(screenH)).current;
+    const [interactive, setInteractive] = useState(false);
+    const [isOpen, setIsOpen] = useState(false); // _value 대신 내부 상태로 가드
+    const visibleRef = useRef(visible);
+    useEffect(() => { visibleRef.current = visible; }, [visible]);
 
-	const openSheet = () => {
-		setInteractive(true);
-		Animated.timing(translateY, {
-			toValue: 0,
-			duration: 260,
-			easing: Easing.out(Easing.cubic),
-			useNativeDriver: true,
-		}).start();
-	};
+    const openSheet = () => {
+        translateY.stopAnimation();      // ✅ 이전 애니메이션 중단
+        setInteractive(true);
+        setIsOpen(true);
+        Animated.timing(translateY, {
+            toValue: 0,
+            duration: 260,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: true,
+        }).start(({ finished }) => {
+            if (!finished) return;
+            // 열기 완료 후에도 최신 visible이 false면 즉시 닫기 일치화
+            if (!visibleRef.current) closeSheet();
+        });
+    };
 
-	const closeSheet = (after?: () => void) => {
-		Animated.timing(translateY, {
-			toValue: screenH,
-			duration: 200,
-			easing: Easing.in(Easing.cubic),
-			useNativeDriver: true,
-		}).start(() => {
-			setInteractive(false);
-			after?.();
-		});
-	};
+    const closeSheet = (after?: () => void) => {
+        translateY.stopAnimation();      // ✅ 이전 애니메이션 중단
+        Animated.timing(translateY, {
+            toValue: screenH,
+            duration: 200,
+            easing: Easing.in(Easing.cubic),
+            useNativeDriver: true,
+        }).start(({ finished }) => {
+            if (!finished) return;
+            setIsOpen(false);
+            // ❗ 최신 의도 상태를 보고 포인터 해제
+            setInteractive(visibleRef.current ? true : false);
+            after?.();
+        });
+    };
 
-	useEffect(() => {
-		if (visible) openSheet();
-		else closeSheet();
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [visible]);
+    useEffect(() => {
+        if (visible) openSheet();
+        else closeSheet();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [visible]);
 
-	const panResponder = useRef(
-		PanResponder.create({
-			onMoveShouldSetPanResponder: (_, g) => g.dy > 6,
-			onPanResponderMove: (_, g) => {
-				const dy = Math.max(0, g.dy);
-				translateY.setValue(dy);
-			},
-			onPanResponderRelease: (_, g) => {
-				const shouldClose = g.dy > 120 || g.vy > 0.8;
-				if (shouldClose) closeSheet(onClose);
-				else {
-					Animated.spring(translateY, {
-						toValue: 0,
-						useNativeDriver: true,
-						bounciness: 3,
-					}).start();
-				}
-			},
-		})
-	).current;
+    const panResponder = useRef(
+        PanResponder.create({
+            onMoveShouldSetPanResponder: (_, g) => g.dy > 6,
+            onPanResponderGrant: () => {
+                // ✅ 드래그 시작 시 포인터 보장
+                setInteractive(true);
+            },
+            onPanResponderMove: (_, g) => {
+                const dy = Math.max(0, g.dy);
+                translateY.setValue(dy);
+            },
+            onPanResponderRelease: (_, g) => {
+                const shouldClose = g.dy > 120 || g.vy > 0.8;
+                if (shouldClose) closeSheet(onClose);
+                else {
+                    Animated.spring(translateY, {
+                        toValue: 0,
+                        useNativeDriver: true,
+                        bounciness: 3,
+                    }).start();
+                }
+            },
+        })
+    ).current;
 
-	const dimOpacity = translateY.interpolate({
-		inputRange: [0, screenH],
-		outputRange: [1, 0],
-	});
+    // ✅ _value 의존 제거: 의도(visible)와 내부 상태(isOpen), 포인터(interactive)로 판단
+    if (!visible && !isOpen && !interactive) return null;
 
-	// @ts-ignore
-	if (!visible && translateY._value === screenH && !interactive) return null;
+    const dimOpacity = translateY.interpolate({
+        inputRange: [0, screenH],
+        outputRange: [1, 0],
+    });
 
-	return (
-		<View style={[StyleSheet.absoluteFill, { pointerEvents: interactive ? "auto" : "none" }]}>
-			<Animated.View
-				style={[
-					StyleSheet.absoluteFillObject,
-					{ backgroundColor: "rgba(0,0,0,0.5)", opacity: dimOpacity },
-				]}
-			/>
-			<Animated.View
-				style={[styles.sheetWrap, { transform: [{ translateY }] }]}
-				{...panResponder.panHandlers}
-			>
-				<View style={[styles.sheetHandle, { backgroundColor: theme.text === "#1a1a1a" ? "#d1d5db" : "#475569" }]} />
-				<Text style={[styles.sheetTitle, { color: theme.text }]}>AI 코멘트</Text>
-
-				<View style={styles.sheetBody}>
-					<AnimatedChars
-						text={text || "임시 응답 텍스트가 없습니다."}
-						delayStep={22}
-						duration={260}
-						style={[styles.sheetText, { color: theme.text }]}
-					/>
-				</View>
-
-				<View style={styles.sheetActions}>
-					<Pressable onPress={() => closeSheet(onClose)} style={[styles.sheetBtn]}>
-						<Text style={[styles.sheetBtnText, { color: theme.text }]}>오늘 즐거웠어 고마워👋</Text>
-					</Pressable>
-				</View>
-			</Animated.View>
-		</View>
-	);
+    return (
+        <View style={[StyleSheet.absoluteFill, { pointerEvents: interactive ? "auto" : "none" }]}>
+            <Animated.View
+                style={[
+                    StyleSheet.absoluteFillObject,
+                    { backgroundColor: "rgba(0,0,0,0.5)", opacity: dimOpacity },
+                ]}
+            />
+            <Animated.View
+                style={[styles.sheetWrap, { transform: [{ translateY }] }]}
+                {...panResponder.panHandlers}
+            >
+                <View style={[styles.sheetHandle, { backgroundColor: theme.text === "#1a1a1a" ? "#d1d5db" : "#475569" }]} />
+                <Text style={[styles.sheetTitle, { color: theme.text }]}>{title}</Text>
+                <View style={styles.sheetBody}>
+                    <AnimatedChars text={text || "임시 응답 텍스트가 없습니다."}
+                                   delayStep={22} duration={260}
+                                   style={[styles.sheetText, { color: theme.text }]} />
+                </View>
+                <View style={styles.sheetActions}>
+                    <Pressable onPress={() => closeSheet(onClose)} style={[styles.sheetBtn]}>
+                        <Text style={[styles.sheetBtnText, { color: theme.text }]}>닫기</Text>
+                    </Pressable>
+                </View>
+            </Animated.View>
+        </View>
+    );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -253,39 +263,28 @@ export default function Diary() {
 	const theme = Colors[scheme === "dark" ? "dark" : "light"];
 	const router = useRouter();
 
-	// 키보드/고정바
-	const { paddingBottom, keyboardVisible, rawKeyboardHeight } = useKeyboardPadding(45); // ⬅️ 동일 보정
-	const BASE_BAR_HEIGHT = 68;
-
-	// 스크롤 자동 센터링 준비
-	const scrollRef = useRef<ScrollView>(null);
-	const fieldY = useRef<Record<string, number>>({});
-	const onFieldLayout = (key: string, y: number) => { fieldY.current[key] = y; };
-	const scrollToField = (key: string, inputHeight = 56) => {
-		const y = fieldY.current[key] ?? 0;
-		const screenH = Dimensions.get("window").height;
-		const visibleH = screenH - (keyboardVisible ? rawKeyboardHeight : 0);
-		const targetY = Math.max(0, y - (visibleH - inputHeight) / 2);
-		scrollRef.current?.scrollTo({ y: targetY, animated: true });
-	};
-
 	// 폼 상태
 	const [photoUri, setPhotoUri] = useState<string | null>(null);
 	const [title, setTitle] = useState("");
 	const [selectedPlant, setSelectedPlant] = useState<string | null>(null);
 	const [date] = useState(todayStr());
-	const [weather, setWeather] = useState<Weather>(null);
+	const [weather, setWeather] = useState<Weather>(null); // 자동/readonly
 	const [body, setBody] = useState("");
 
 	// 기타 UI
 	const [busy, setBusy] = useState(false);
 	const [sheetVisible, setSheetVisible] = useState(false);
 
-	// AI 텍스트
+	// AI 텍스트 (단일 소스)
 	const [aiText, setAiText] = useState<string>("오늘은 통풍만 잘 시켜주세요. 물은 내일 추천! 🌤️");
+
+	// 등록 후에만 미리보기 표시
 	const [aiPreviewVisible, setAiPreviewVisible] = useState(false);
 
-	// 내 식물(별명) — TODO: 실제 리스트로 교체
+	// ✅ 등록 여부: 등록 1회 후 '수정' 모드로 전환
+	const [isSubmitted, setIsSubmitted] = useState(false);
+
+	// 내 식물(별명) — TODO: 실제 내 식물 리스트로 교체
 	const myPlants = useMemo(
 		() => [
 			{ label: "초록이 (몬스테라)", value: "초록이" },
@@ -294,29 +293,23 @@ export default function Diary() {
 		[]
 	);
 
-	// 날씨 자동 채움 + 로딩 페이지 연동
+	// 날씨 자동 채움 (WeatherBox 렌더링 없이)
 	useEffect(() => {
-		startLoading(router, {
-			task: async () => {
-				try {
-					const w = await fetchSimpleWeather(
-						"GTr1cI7Wi0FRbOTFBaUzUCzCDP4OnyyEmHnn11pxCUC5ehG5bQnbyztgeydnOWz1O04tjw1SE5RsX8RNo6XCgQ==",
-						{ lat: 37.4836, lon: 127.0326, label: "서울시 - 서초구" }
-					);
-					if (w) setWeather(prev => prev ?? w);
-				} catch (e) {
-					console.warn("[weather] fetch failed:", e);
-				}
-			},
-			to: "/(page)/diary",
-			replace: true,
-		});
-		// eslint-disable-next-line react-hooks/exhaustive-deps
+		(async () => {
+			try {
+				const w = await fetchSimpleWeather(
+					"GTr1cI7Wi0FRbOTFBaUzUCzCDP4OnyyEmHnn11pxCUC5ehG5bQnbyztgeydnOWz1O04tjw1SE5RsX8RNo6XCgQ==",
+					{ lat: 37.4836, lon: 127.0326, label: "서울시 - 서초구" }
+				);
+				if (w) setWeather(prev => prev ?? w);
+			} catch (e) {
+				console.warn("[weather] fetch failed:", e);
+			}
+		})();
 	}, []);
 
-	// 제출 버튼 활성 조건
+	// 제출 버튼 활성 조건 (모든 입력 완료 판정)
 	const canSubmit = Boolean(photoUri && title.trim() && selectedPlant && date && weather && body.trim());
-	const aiSectionLabel = selectedPlant ? `${withJosa(selectedPlant, "이가")} 하고픈 말` : "AI 응답(미리보기)";
 
 	// 사진 선택
 	const pickImage = async () => {
@@ -336,33 +329,66 @@ export default function Diary() {
 		}
 	};
 
-	// 등록
+	// 등록: 시트는 등록하면 열림
 	const handleSubmit = async () => {
 		if (!canSubmit) return;
+
 		// TODO: 서버 저장 & LLM 호출 후 setAiText(resp.message)
-		setAiPreviewVisible(true);
-		setSheetVisible(true);
+		setAiPreviewVisible(true);   // 등록 후에만 미리보기 표시
+		setSheetVisible(true);	   // 등록하면 바텀시트 열림
+		setIsSubmitted(true);		// 이후부터 '수정' 모드
 	};
 
+	// 수정: 오늘의 일기 업데이트 + LLM 재호출 + 알럿 + 시트 오픈
+	const handleUpdate = async () => {
+    if (!canSubmit) return;
+		try {
+			// 1) 서버에 업데이트
+			// await fetch("/api/diaries/today", {
+			//     method: "PATCH",
+			//     headers: { "Content-Type": "application/json" },
+			//     body: JSON.stringify({ photoUri, title, selectedPlant, date, weather, body }),
+			// });
+
+			// 2) LLM 호출로 코멘트 갱신 (예시)
+			// const llmResp = await fetch("/api/diaries/today/llm-comment", {
+			//     method: "POST",
+			//     headers: { "Content-Type": "application/json" },
+			//     body: JSON.stringify({ plant: selectedPlant, weather, body, date }),
+			// }).then(r => r.json());
+			// setAiText(llmResp.message ?? aiText);
+
+			// 데모 동작: 실제 LLM 연동 전까지 임시 문구
+			setAiText("업데이트 반영 완료! 오늘 컨디션 좋아요 🌿");
+
+			// 3) 미리보기/시트 표시
+			if (!aiPreviewVisible) setAiPreviewVisible(true);
+			setSheetVisible(true);
+
+		} catch (e) {
+			Alert.alert("수정 실패", "잠시 후 다시 시도해 주세요.");
+		}
+	};
+
+
+	// 버튼 라벨/핸들러 스위칭 (✔️ 누락으로 인한 '수정' 동작 불가 버그 수정)
+	const primaryLabel = isSubmitted ? "수정하기" : "등록하기";
+	const primaryOnPress = isSubmitted ? handleUpdate : handleSubmit;
+
+	// 바텀시트 타이틀: OOO의 하고픈 말
+	const sheetTitle = `${selectedPlant ?? "식물"}의 하고픈 말`;
+
 	return (
-		// ⬇️ KeyboardAvoidingView 제거, View로 교체
-		<View style={[styles.container, { backgroundColor: theme.bg }]}>
-			<ScrollView
-				ref={scrollRef}
-				style={{ flex: 1 }}
-				// ⬇️ 살짝 터치로 키보드가 닫히지 않게
-				keyboardDismissMode="none"
-				keyboardShouldPersistTaps="always"
-				// ⬇️ 콘텐츠가 버튼에 가리지 않도록: 고정바 + 키보드만큼 바닥 여백
-				contentContainerStyle={{ paddingBottom: BASE_BAR_HEIGHT + paddingBottom }}
-				scrollIndicatorInsets={{ bottom: BASE_BAR_HEIGHT }}
-			>
+		<KeyboardAvoidingView
+			style={[styles.container, { backgroundColor: theme.bg }]}
+			behavior={Platform.select({ ios: "padding", android: "height" })}
+		>
+			<ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive">
 				{/* 사진 등록 */}
 				<View style={styles.photoBox}>
 					<Pressable
 						onPress={pickImage}
 						disabled={busy}
-						onStartShouldSetResponder={() => false} // 스크롤 제스처 우선
 						style={[styles.photoPlaceholder, { borderColor: theme.border, backgroundColor: theme.graybg }]}
 					>
 						{photoUri ? (
@@ -390,20 +416,17 @@ export default function Diary() {
 				{/* 입력들 */}
 				<View style={styles.inputArea}>
 					{/* 제목 */}
-					<View
-						style={styles.field}
-						onLayout={(e) => onFieldLayout("title", e.nativeEvent.layout.y)}
-					/>
-					<Text style={[styles.sectionLabel, { color: theme.text }]}>제목</Text>
-					<TextInput
-						placeholder="제목을 입력하세요"
-						placeholderTextColor="#909090"
-						value={title}
-						onChangeText={setTitle}
-						onFocus={() => scrollToField("title")}
-						style={[styles.input, { color: theme.text, borderColor: theme.border }]}
-						returnKeyType="next"
-					/>
+					<View style={styles.field}>
+						<Text style={[styles.sectionLabel, { color: theme.text }]}>제목</Text>
+						<TextInput
+							placeholder="제목을 입력하세요"
+							placeholderTextColor="#909090"
+							value={title}
+							onChangeText={setTitle}
+							style={[styles.input, { color: theme.text, borderColor: theme.border }]}
+							returnKeyType="next"
+						/>
+					</View>
 
 					{/* 내 식물(별명) */}
 					<InlineSelect
@@ -416,10 +439,7 @@ export default function Diary() {
 					/>
 
 					{/* 날짜 (읽기전용) */}
-					<View
-						style={styles.field}
-						onLayout={(e) => onFieldLayout("date", e.nativeEvent.layout.y)}
-					>
+					<View style={styles.field}>
 						<Text style={[styles.sectionLabel, { color: theme.text }]}>날짜</Text>
 						<TextInput
 							value={date}
@@ -429,10 +449,7 @@ export default function Diary() {
 					</View>
 
 					{/* 날씨 (자동/읽기전용) */}
-					<View
-						style={styles.field}
-						onLayout={(e) => onFieldLayout("weather", e.nativeEvent.layout.y)}
-					>
+					<View style={styles.field}>
 						<Text style={[styles.sectionLabel, { color: theme.text }]}>날씨</Text>
 						<TextInput
 							value={weather ?? ""}
@@ -444,73 +461,64 @@ export default function Diary() {
 					</View>
 
 					{/* 일기 내용 */}
-					<View
-						style={styles.field}
-						onLayout={(e) => onFieldLayout("body", e.nativeEvent.layout.y)}
-					>
+					<View style={styles.field}>
 						<Text style={[styles.sectionLabel, { color: theme.text }]}>일기 내용</Text>
 						<TextInput
 							placeholder="오늘의 식물 이야기를 적어주세요…"
 							placeholderTextColor="#909090"
 							value={body}
 							onChangeText={setBody}
-							onFocus={() => scrollToField("body", 180)}
 							multiline
 							textAlignVertical="top"
 							style={[styles.input, { color: theme.text, borderColor: theme.border, minHeight: 180, lineHeight: 22 }]}
 						/>
 					</View>
 
-					{/* 🔹 AI 응답(미리보기) */}
+					{/* 🔹 AI 응답(미리보기): 등록 전엔 숨김, 등록 후에만 표시 */}
 					{aiPreviewVisible && (
-						<View
-							style={styles.field}
-							onLayout={(e) => onFieldLayout("ai", e.nativeEvent.layout.y)}
-						>
-							<Text style={[styles.sectionLabel, { color: theme.text }]}>{aiSectionLabel}</Text>
+						<View style={styles.field}>
+							<Text style={[styles.sectionLabel, { color: theme.text }]}>
+								{selectedPlant ? `${withJosa(selectedPlant, "이가")} 하고픈 말` : "AI 응답(미리보기)"}
+							</Text>
 							<View style={[styles.input, { borderColor: theme.border, paddingVertical: 14 }]}>
 								<AnimatedChars text={aiText} style={{ color: theme.text, fontSize: 15, lineHeight: 22 }} />
 							</View>
 						</View>
 					)}
+
+					{/* 하단 버튼 */}
+					<View style={[styles.bottomBar, { backgroundColor: theme.bg }]}>
+						<Pressable onPress={() => router.back()} style={[styles.cancelBtn, { borderColor: theme.border }]}>
+							<Text style={[styles.cancelText, { color: theme.text }]}>취소</Text>
+						</Pressable>
+						<Pressable
+							disabled={!canSubmit}
+							onPress={() => { Keyboard.dismiss(); primaryOnPress(); }}  // ← 수정: 먼저 키패드 닫기
+							style={[styles.submitBtn, { backgroundColor: !canSubmit ? theme.graybg : theme.primary }]}
+						>
+							<Text style={[styles.submitText, { color: "#fff" }]}>{primaryLabel}</Text>
+						</Pressable>
+					</View>
 				</View>
 			</ScrollView>
 
-			{/* 하단 고정 버튼 (absolute) */}
-			<View
-				style={[
-					styles.fixedBar,
-					{ backgroundColor: theme.bg, marginBottom: keyboardVisible ? paddingBottom : 0 },
-				]}
-			>
-				<Pressable onPress={() => router.back()} style={[styles.cancelBtn, { borderColor: theme.border }]}>
-					<Text style={[styles.cancelText, { color: theme.text }]}>취소</Text>
-				</Pressable>
-				<Pressable
-					disabled={!canSubmit}
-					onPress={handleSubmit}
-					style={[styles.submitBtn, { backgroundColor: !canSubmit ? theme.graybg : theme.primary }]}
-				>
-					<Text style={[styles.submitText, { color: "#fff" }]}>등록</Text>
-				</Pressable>
-			</View>
-
-			{/* 바텀시트 */}
+			{/* 바텀시트 (등록 시 자동 열림, 드래그/닫기버튼만 닫힘) */}
 			<BottomSheet
 				visible={sheetVisible}
 				text={aiText}
+				title={sheetTitle}
 				onClose={() => setSheetVisible(false)}
 				theme={theme}
 			/>
-		</View>
+		</KeyboardAvoidingView>
 	);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ④ Styles
+// ④ Styles (plant-new.tsx 톤과 동일 스케일)
 // ─────────────────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-	container: { flex: 1 },
+	container: { flex: 1, paddingBottom: 80 },
 
 	sectionLabel: { fontSize: 16, fontWeight: "700", marginBottom: 8 },
 	helper: { fontSize: 12, marginBottom: 8, opacity: 0.8 },
@@ -529,17 +537,7 @@ const styles = StyleSheet.create({
 	field: { marginTop: 24 },
 	input: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 12 },
 
-	// ✅ 고정 하단 버튼 바 (absolute)
-	fixedBar: {
-		position: "absolute",
-		left: 0,
-		right: 0,
-		bottom: 0,
-		flexDirection: "row",
-		gap: 8,
-		padding: 12,
-	},
-
+	bottomBar: { flexDirection: "row", gap: 8, marginTop: 24 },
 	cancelBtn: { flex: 1, borderWidth: 1, borderRadius: 12, alignItems: "center", justifyContent: "center", paddingVertical: 14 },
 	cancelText: { fontSize: 15, fontWeight: "600" },
 	submitBtn: { flex: 2, borderRadius: 12, alignItems: "center", justifyContent: "center", paddingVertical: 14 },
@@ -562,7 +560,7 @@ const styles = StyleSheet.create({
 		paddingTop: 10,
 		paddingHorizontal: 20,
 		paddingBottom: 20,
-		backgroundColor: "#fff",
+		backgroundColor: "#ffffff",
 	},
 	sheetHandle: {
 		alignSelf: "center",
