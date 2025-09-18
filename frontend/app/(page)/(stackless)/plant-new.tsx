@@ -11,7 +11,7 @@ import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { useColorScheme } from "react-native";
 import Colors from "../../../constants/Colors";
-import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withSequence, withTiming, Easing, withDelay, cancelAnimation } from "react-native-reanimated";
+import useKeyboardPadding from "../../../hooks/useKeyboardPadding";
 
 // 공통 모달
 import ClassifierResultModal, { ClassifyResult } from "../../../components/common/ClassifierResultModal";
@@ -58,6 +58,8 @@ export default function PlantNew() {
 	const [result, setResult] = useState<ClassifyResult | null>(null);
 
 	// 3-4) Validation & derived
+	const { paddingBottom, keyboardVisible } = useKeyboardPadding();
+
 	const isKnownSpecies = useMemo(
 		() => (species ? (SPECIES as readonly string[]).includes(species) : true),
 		[species]
@@ -147,11 +149,14 @@ export default function PlantNew() {
 
 	// 3-8) Render
 	return (
-		<KeyboardAvoidingView
+		<View
 			style={[styles.container, { backgroundColor: theme.bg }]}
-			behavior={Platform.select({ ios: "padding", android: "height" })}
 		>
-			<ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive" contentContainerStyle={{ paddingBottom: 120 }}>
+			<ScrollView
+				keyboardShouldPersistTaps="handled"
+				keyboardDismissMode="interactive"
+				contentContainerStyle={{ paddingBottom }}
+			>
 				{/* 사진 */}
 				<View style={styles.photoBox}>
 					<Pressable
@@ -236,7 +241,7 @@ export default function PlantNew() {
 			</ScrollView>
 
 			{/* 하단 고정 버튼 영역 */}
-			<View style={[styles.bottomBar, { backgroundColor: theme.bg }]}>
+			<View style={[styles.bottomBar, { backgroundColor: theme.bg, marginBottom: keyboardVisible ? paddingBottom : 0 }]}>
 				<Pressable onPress={() => router.replace("/(page)/home")} style={[styles.cancelBtn, { borderColor: theme.border }]}>
 					<Text style={[styles.cancelText, { color: theme.text }]}>취소</Text>
 				</Pressable>
@@ -258,7 +263,7 @@ export default function PlantNew() {
 				onClose={() => setResultVisible(false)}
 				onRetake={handlePickImage}
 			/>
-		</KeyboardAvoidingView>
+		</View>
 	);
 }
 
