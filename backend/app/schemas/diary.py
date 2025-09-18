@@ -57,6 +57,47 @@ class DiaryListOut(OrmBase):
     has_more: bool
     total_count: int
 
+# 일기 목록 페이지용 스키마
+class DiaryListItemResponse(OrmBase):
+    """일기 목록 아이템 응답 스키마"""
+    idx: int
+    user_title: str
+    user_content: str
+    plant_nickname: Optional[str] = None
+    plant_species: Optional[str] = None
+    plant_reply: Optional[str] = None
+    weather: Optional[str] = None
+    weather_icon: Optional[str] = None
+    img_url: Optional[str] = None
+    hashtag: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+class DiaryListResponse(OrmBase):
+    """일기 목록 응답 스키마"""
+    diaries: List[DiaryListItemResponse]
+    total_count: int
+    page: int
+    limit: int
+    has_more: bool
+
+class DiarySearchRequest(OrmBase):
+    """일기 검색 요청 스키마"""
+    query: Optional[str] = None
+    plant_nickname: Optional[str] = None
+    plant_species: Optional[str] = None
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    hashtag: Optional[str] = None
+
+class DiaryStatsResponse(OrmBase):
+    """일기 통계 응답 스키마"""
+    total_diaries: int
+    total_plants: int
+    recent_diary_count: int  # 최근 7일
+    most_active_plant: Optional[str] = None
+    average_diaries_per_plant: float
+
 # 일기 작성/수정용 스키마
 class DiaryWriteRequest(OrmBase):
     """일기 작성 요청"""

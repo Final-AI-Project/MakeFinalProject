@@ -329,6 +329,22 @@ const styles = StyleSheet.create({
     paddingBottom: 68,
   },
 
+  // ── Logout button
+  logoutContainer: {
+    alignItems: "flex-end",
+    marginBottom: 16,
+  },
+  logoutButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: "rgba(0,0,0,0.1)",
+  },
+  logoutText: {
+    fontSize: 14,
+    fontWeight: "500",
+  },
+
   // ── Carousel card & image
   plantCard: {
     flex: 1,

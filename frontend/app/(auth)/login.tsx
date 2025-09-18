@@ -142,15 +142,42 @@ export default function LoginScreen() {
 
       if (!res.ok) {
         let errorMessage = "로그인에 실패했습니다.";
+        let errorTitle = "로그인 실패";
+
         try {
           const errorData = await res.json();
-          if (errorData.message) {
+          console.log("Error response data:", errorData);
+
+          // 백엔드에서 보내는 구체적인 오류 메시지 처리
+          if (errorData.detail) {
+            errorMessage = errorData.detail;
+          } else if (errorData.message) {
             errorMessage = errorData.message;
           }
-        } catch {
-          // JSON 파싱 실패 시 기본 메시지 사용
+
+          // HTTP 상태 코드에 따른 제목 설정
+          if (res.status === 401) {
+            errorTitle = "인증 실패";
+            errorMessage = "아이디 또는 비밀번호가 올바르지 않습니다.";
+          } else if (res.status === 404) {
+            errorTitle = "서버 오류";
+            errorMessage = "로그인 서비스를 찾을 수 없습니다.";
+          } else if (res.status >= 500) {
+            errorTitle = "서버 오류";
+            errorMessage = "서버에 일시적인 문제가 발생했습니다.";
+          }
+        } catch (parseError) {
+          // JSON 파싱 실패 시 HTTP 상태 코드로 판단
+          if (res.status === 401) {
+            errorTitle = "인증 실패";
+            errorMessage = "아이디 또는 비밀번호가 올바르지 않습니다.";
+          } else if (res.status >= 500) {
+            errorTitle = "서버 오류";
+            errorMessage = "서버에 일시적인 문제가 발생했습니다.";
+          }
         }
-        throw new Error(errorMessage);
+
+        throw new Error(`${errorTitle}|${errorMessage}`);
       }
 
       // 백엔드 응답 구조에 맞게 토큰 처리
@@ -160,7 +187,7 @@ export default function LoginScreen() {
       console.log("Access token:", data.access_token);
 
       if (!data.access_token) {
-        throw new Error("No access token received from server");
+        throw new Error("서버 오류|서버에서 토큰을 받지 못했습니다.");
       }
 
       await setToken(data.access_token);
@@ -174,31 +201,61 @@ export default function LoginScreen() {
     } catch (err: any) {
       console.error("Login error:", err);
 
+      // 오류 메시지 파싱 (제목|내용 형식)
+      const errorParts = err?.message?.split("|") || [];
+      const errorTitle = errorParts[0] || "로그인 실패";
+      const errorMessage =
+        errorParts[1] || err?.message || "알 수 없는 오류가 발생했습니다.";
+
       // 서버 연결 실패인지 확인
       const isConnectionError =
-        err?.message?.includes("서버에 연결할 수 없습니다") ||
         err?.message?.includes("fetch") ||
         err?.message?.includes("Network") ||
-        err?.message?.includes("connection");
+        err?.message?.includes("connection") ||
+        err?.message?.includes("Failed to fetch") ||
+        err?.message?.includes("TypeError") ||
+        err?.name === "TypeError";
 
       if (isConnectionError) {
         Alert.alert(
-          "서버 연결 실패",
-          "서버에 연결할 수 없습니다.\n백엔드 서버가 실행 중인지 확인해주세요.",
-          [{ text: "확인" }]
+          "🔌 서버 연결 실패",
+          "백엔드 서버에 연결할 수 없습니다.\n\n• 백엔드 서버가 실행 중인지 확인해주세요\n• 네트워크 연결을 확인해주세요\n• 방화벽 설정을 확인해주세요",
+          [
+            { text: "다시 시도", style: "default" },
+            { text: "확인", style: "cancel" },
+          ]
         );
-      } else {
-        // 인증 실패 (아이디/비밀번호 오류)
-        const errorMessage = err?.message || "로그인에 실패했습니다.";
+      } else if (errorTitle === "인증 실패") {
+        // 아이디/비밀번호 오류
         Alert.alert(
-          "로그인 실패",
-          `${errorMessage}\n\n혹시 아직 회원가입을 하지 않으셨나요?`,
+          "🔐 인증 실패",
+          `${errorMessage}\n\n• 아이디와 비밀번호를 다시 확인해주세요\n• 대소문자를 구분하여 입력해주세요`,
           [
             { text: "다시 시도", style: "cancel" },
             {
               text: "회원가입",
               onPress: () => router.replace("/(auth)/signup" as any),
             },
+          ]
+        );
+      } else if (errorTitle === "서버 오류") {
+        // 서버 오류
+        Alert.alert(
+          "⚠️ 서버 오류",
+          `${errorMessage}\n\n잠시 후 다시 시도해주세요.`,
+          [
+            { text: "다시 시도", style: "default" },
+            { text: "확인", style: "cancel" },
+          ]
+        );
+      } else {
+        // 기타 오류
+        Alert.alert(
+          "❌ 로그인 실패",
+          `${errorMessage}\n\n문제가 지속되면 관리자에게 문의해주세요.`,
+          [
+            { text: "다시 시도", style: "default" },
+            { text: "확인", style: "cancel" },
           ]
         );
       }
@@ -347,85 +404,85 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-	characterImage: {
-		display:'flex',
-		justifyContent:'center',
-		alignItems: 'center',
-		alignSelf:'center',
-		overflow:'hidden',
-		borderRadius:'50%',
-		width:312,
-		height:312,
-		marginBottom:30,
-		borderWidth:5,
-		borderStyle:'solid',
-		borderColor:'#666',
-	},
-	characterDefault:{
-		position:'absolute',
-		top:'50%',
-		left:'50%',
-		transform:[{translateX:-200},{translateY:-200}],
-		width:400,
-		height:400,
-		marginTop:60,
-	},
-	characterNormalface:{
-		position:'absolute',
-		top:160,
-		left:'50%',
-		transform:[{translateX:-90}],
-		width:180,
-		zIndex:2,
-	},
-	characterInputface:{
-		position:'absolute',
-		top:180,
-		left:30,
-		transform:[{translateX:-95}],
-		width:180,
-		zIndex:2,
-	},
-	characterPwface:{ 
-		position:'absolute', 
-		top:100, 
-		width:230, 
-		height:180,
-		zIndex:2,
-	},
-	inputBox: {
-		marginBottom:16,
-	},
-	labelText: {
-		marginBottom:6,
-		fontSize:14
-	},
-	input: {
-		height:50,
-		borderWidth: 1,
-		borderRadius: 12,
-		paddingHorizontal: 14,
-		paddingVertical: 12,
-		fontSize: 16,
-	},
-	inputLight: {
-		borderColor: Colors.light.border,
-		backgroundColor: Colors.light.secondary,
-		color: Colors.light.text,
-	},
-	inputDark: {
-		borderColor: Colors.dark.border,
-		backgroundColor: Colors.dark.secondary,
-		color: Colors.dark.text,
-	},
-	btn: {
-		paddingVertical: 14,
-		borderRadius: 14,
-		alignItems: "center",
-	},
-	btnText: {
-		color: Colors.dark.text,
-		fontSize: 18,
-		fontWeight: "700",
-	},
+  characterImage: {
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    alignSelf: "center",
+    overflow: "hidden",
+    borderRadius: "50%",
+    width: 312,
+    height: 312,
+    marginBottom: 30,
+    borderWidth: 5,
+    borderStyle: "solid",
+    borderColor: "#666",
+  },
+  characterDefault: {
+    position: "absolute",
+    top: "50%",
+    left: "50%",
+    transform: [{ translateX: -200 }, { translateY: -200 }],
+    width: 400,
+    height: 400,
+    marginTop: 60,
+  },
+  characterNormalface: {
+    position: "absolute",
+    top: 160,
+    left: "50%",
+    transform: [{ translateX: -90 }],
+    width: 180,
+    zIndex: 2,
+  },
+  characterInputface: {
+    position: "absolute",
+    top: 180,
+    left: 30,
+    transform: [{ translateX: -95 }],
+    width: 180,
+    zIndex: 2,
+  },
+  characterPwface: {
+    position: "absolute",
+    top: 100,
+    width: 230,
+    height: 180,
+    zIndex: 2,
+  },
+  inputBox: {
+    marginBottom: 16,
+  },
+  labelText: {
+    marginBottom: 6,
+    fontSize: 14,
+  },
+  input: {
+    height: 50,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 16,
+  },
+  inputLight: {
+    borderColor: Colors.light.border,
+    backgroundColor: Colors.light.secondary,
+    color: Colors.light.text,
+  },
+  inputDark: {
+    borderColor: Colors.dark.border,
+    backgroundColor: Colors.dark.secondary,
+    color: Colors.dark.text,
+  },
+  btn: {
+    paddingVertical: 14,
+    borderRadius: 14,
+    alignItems: "center",
+  },
+  btnText: {
+    color: Colors.dark.text,
+    fontSize: 18,
+    fontWeight: "700",
+  },
 });

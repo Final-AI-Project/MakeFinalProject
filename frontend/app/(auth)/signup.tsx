@@ -68,20 +68,141 @@ export default function SignupScreen() {
         try {
             Keyboard.dismiss(); // 모든 인풋 포커스 해제 + 키보드 닫기
             setLoading(true);
+            
+            console.log("Sending signup request to:", `${API_BASE_URL}/auth/signup`);
+            console.log("Request data:", form);
+            
             const res = await fetch(`${API_BASE_URL}/auth/signup`, {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: { 
+                    "Content-Type": "application/json",
+                    Accept: "application/json"
+                },
                 body: JSON.stringify(form),
             });
+            
+            console.log("Response status:", res.status);
+            console.log("Response ok:", res.ok);
+            
             if (!res.ok) {
-                const text = await res.text().catch(() => "");
-                throw new Error(text || `Sign up failed (${res.status})`);
+                let errorMessage = "회원가입에 실패했습니다.";
+                let errorTitle = "회원가입 실패";
+                
+                try {
+                    const errorData = await res.json();
+                    console.log("Error response data:", errorData);
+                    
+                    // 백엔드에서 보내는 구체적인 오류 메시지 처리
+                    if (errorData.detail) {
+                        errorMessage = errorData.detail;
+                    } else if (errorData.message) {
+                        errorMessage = errorData.message;
+                    }
+                    
+                    // HTTP 상태 코드에 따른 제목 설정
+                    if (res.status === 400) {
+                        errorTitle = "입력 오류";
+                        if (errorMessage.includes("이미 존재")) {
+                            errorMessage = "이미 사용 중인 아이디 또는 이메일입니다.";
+                        }
+                    } else if (res.status === 409) {
+                        errorTitle = "중복 오류";
+                        errorMessage = "이미 사용 중인 아이디 또는 이메일입니다.";
+                    } else if (res.status >= 500) {
+                        errorTitle = "서버 오류";
+                        errorMessage = "서버에 일시적인 문제가 발생했습니다.";
+                    }
+                } catch (parseError) {
+                    // JSON 파싱 실패 시 HTTP 상태 코드로 판단
+                    if (res.status === 400) {
+                        errorTitle = "입력 오류";
+                        errorMessage = "입력한 정보를 다시 확인해주세요.";
+                    } else if (res.status === 409) {
+                        errorTitle = "중복 오류";
+                        errorMessage = "이미 사용 중인 아이디 또는 이메일입니다.";
+                    } else if (res.status >= 500) {
+                        errorTitle = "서버 오류";
+                        errorMessage = "서버에 일시적인 문제가 발생했습니다.";
+                    }
+                }
+                
+                throw new Error(`${errorTitle}|${errorMessage}`);
             }
-            Alert.alert("회원가입", "회원가입이 완료되었습니다. 로그인 화면으로 이동합니다.", [
-                { text: "확인", onPress: () => router.replace("/(auth)/login") },
-            ]);
+            
+            // 회원가입 성공
+            const data = await res.json();
+            console.log("Signup success:", data);
+            
+            Alert.alert(
+                "🎉 회원가입 완료", 
+                "회원가입이 성공적으로 완료되었습니다!\n로그인 화면으로 이동합니다.", 
+                [
+                    { text: "확인", onPress: () => router.replace("/(auth)/login") }
+                ]
+            );
         } catch (err: any) {
-            Alert.alert("회원가입 실패", err?.message ?? "잠시 후 다시 시도해주세요.");
+            console.error("Signup error:", err);
+
+            // 오류 메시지 파싱 (제목|내용 형식)
+            const errorParts = err?.message?.split('|') || [];
+            const errorTitle = errorParts[0] || "회원가입 실패";
+            const errorMessage = errorParts[1] || err?.message || "알 수 없는 오류가 발생했습니다.";
+
+            // 서버 연결 실패인지 확인
+            const isConnectionError =
+                err?.message?.includes("fetch") ||
+                err?.message?.includes("Network") ||
+                err?.message?.includes("connection") ||
+                err?.message?.includes("Failed to fetch") ||
+                err?.message?.includes("TypeError") ||
+                err?.name === "TypeError";
+
+            if (isConnectionError) {
+                Alert.alert(
+                    "🔌 서버 연결 실패",
+                    "백엔드 서버에 연결할 수 없습니다.\n\n• 백엔드 서버가 실행 중인지 확인해주세요\n• 네트워크 연결을 확인해주세요",
+                    [
+                        { text: "다시 시도", style: "default" },
+                        { text: "확인", style: "cancel" }
+                    ]
+                );
+            } else if (errorTitle === "중복 오류") {
+                Alert.alert(
+                    "⚠️ 중복 오류",
+                    `${errorMessage}\n\n• 다른 아이디를 사용해주세요\n• 다른 이메일을 사용해주세요`,
+                    [
+                        { text: "다시 시도", style: "default" },
+                        { text: "확인", style: "cancel" }
+                    ]
+                );
+            } else if (errorTitle === "입력 오류") {
+                Alert.alert(
+                    "📝 입력 오류",
+                    `${errorMessage}\n\n• 모든 필드를 올바르게 입력해주세요\n• 이메일 형식을 확인해주세요`,
+                    [
+                        { text: "다시 시도", style: "default" },
+                        { text: "확인", style: "cancel" }
+                    ]
+                );
+            } else if (errorTitle === "서버 오류") {
+                Alert.alert(
+                    "⚠️ 서버 오류",
+                    `${errorMessage}\n\n잠시 후 다시 시도해주세요.`,
+                    [
+                        { text: "다시 시도", style: "default" },
+                        { text: "확인", style: "cancel" }
+                    ]
+                );
+            } else {
+                Alert.alert(
+                    "❌ 회원가입 실패",
+                    `${errorMessage}\n\n문제가 지속되면 관리자에게 문의해주세요.`,
+                    [
+                        { text: "다시 시도", style: "default" },
+                        { text: "확인", style: "cancel" }
+                    ]
+                );
+            }
         } finally {
             setLoading(false);
         }

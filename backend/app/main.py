@@ -21,6 +21,10 @@ from routers.home import plants_router as home_plants_router
 from routers.plant_detail import detail_router, diary_router, pest_router, watering_router, images_router
 from routers.auth import router as auth_router
 from routers.diary.write import router as diary_write_router
+from routers.medical import diagnoses_router as medical_router
+from routers.info_room import router as info_room_router
+from routers.diary_list import router as diary_list_router
+from routers.plant_registration import router as plant_registration_router
 from utils.errors import register_error_handlers
 
 # import db.models  # 임시 주석처리 
@@ -42,6 +46,10 @@ app.include_router(watering_router)  # /plant-detail/{plant_idx}/watering-record
 app.include_router(images_router)  # /plant-detail/{plant_idx}/upload-image
 app.include_router(auth_router)  # auth는 prefix 없이 직접 등록
 app.include_router(diary_write_router)  # 일기 작성/수정 라우터
+app.include_router(medical_router)  # /medical/diagnoses - 병충해 진단 기록
+app.include_router(info_room_router)  # /info-room - 정보방 페이지
+app.include_router(diary_list_router)  # /diary-list - 일기 목록 페이지
+app.include_router(plant_registration_router)  # /plants - 식물 등록 페이지
 
 # CORS (모바일/프론트 개발 편의) - 모든 오리진 허용
 app.add_middleware(
