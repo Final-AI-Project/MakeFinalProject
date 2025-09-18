@@ -1,10 +1,12 @@
 from __future__ import annotations
 
-import os
 from datetime import datetime, timezone
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from contextlib import asynccontextmanager
+import asyncio
+
 from core.config import settings
 from core.database import get_db_connection
 
@@ -16,7 +18,7 @@ except Exception:  # pragma: no cover
 
 # 서브 앱 라우터 임포트
 from routers.home import plants_router as home_plants_router
-from routers.plant_detail import detail_router, diary_router, pest_router, watering_router, images_router
+from routers.plantdetail import detail_router, diary_router, pest_router, watering_router, images_router
 from routers.auth import router as auth_router
 from routers.plants import router as plants_router
 from routers.images import router as general_images_router
@@ -92,3 +94,4 @@ def version():
 
 
 # uvicorn backend.app.main:app --reload
+#  --port 8000 --workers 1
