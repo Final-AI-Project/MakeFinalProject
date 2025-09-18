@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
+from typing import List
 from pathlib import Path
 import os
 
@@ -64,9 +65,22 @@ class Settings(BaseSettings):
     MODEL_SERVER_URL: str = Field(default='http://127.0.0.1:5000', validation_alias='MODEL_SERVER_URL')
     MODEL_SERVER_TIMEOUT: int = Field(default=30, validation_alias='MODEL_SERVER_TIMEOUT')
 
+    # MQTT Connect
+    MQTT_HOST: str = Field(default="", validation_alias='MQTT_HOST')
+    MQTT_PORT: int = 8883
+    MQTT_USER: str = Field(default="", validation_alias="MQTT_USER")
+    MQTT_PASS: str = Field(default="", validation_alias="MQTT_PASS")
+    MQTT_TOPICS: str = Field(default="", validation_alias="MQTT_TOPICS")
+    MQTT_CA_PATH: str = "certs/emqx-ca.pem"
+   
+
     @property
     def ROOT_DIR(self) -> Path:
         return Path(__file__).resolve().parents[2]
+    
+    @property
+    def mqtt_topics_list(self) -> List[str]:
+        return [t.strip() for t in self.MQTT_TOPICS.split(",") if t.strip()]
 
 
 @lru_cache
