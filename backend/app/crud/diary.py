@@ -21,17 +21,20 @@ async def create(
     user_content: str,
     img_url: Optional[str] = None,
     hashtag: Optional[str] = None,
-    plant_content: Optional[str] = None,
+    plant_nickname: Optional[str] = None,
+    plant_species: Optional[str] = None,
+    plant_reply: Optional[str] = None,
     weather: Optional[str] = None,
+    weather_icon: Optional[str] = None,
 ) -> Diary:
     """새 일기 생성"""
     async with db.cursor(aiomysql.DictCursor) as cursor:
         await cursor.execute(
             """
-            INSERT INTO diary (user_id, user_title, img_url, user_content, hashtag, plant_content, weather, created_at)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())
+            INSERT INTO diary (user_id, user_title, img_url, user_content, hashtag, plant_nickname, plant_species, plant_reply, weather, weather_icon, created_at, updated_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
             """,
-            (user_id, user_title, img_url, user_content, hashtag, plant_content, weather)
+            (user_id, user_title, img_url, user_content, hashtag, plant_nickname, plant_species, plant_reply, weather, weather_icon)
         )
         diary_id = cursor.lastrowid
         
@@ -50,12 +53,18 @@ async def patch(
     if not fields:
         return await get_by_idx(db, idx)
     
+    # updated_at 필드 자동 추가
+    fields['updated_at'] = 'NOW()'
+    
     # 동적으로 UPDATE 쿼리 생성
     set_clauses = []
     values = []
     for key, value in fields.items():
-        set_clauses.append(f"{key} = %s")
-        values.append(value)
+        if key == 'updated_at':
+            set_clauses.append(f"{key} = {value}")
+        else:
+            set_clauses.append(f"{key} = %s")
+            values.append(value)
     
     values.append(idx)
     query = f"UPDATE diary SET {', '.join(set_clauses)} WHERE idx = %s"

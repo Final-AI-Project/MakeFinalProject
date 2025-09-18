@@ -112,3 +112,25 @@ async def delete_image(plant_id: str, image_id: str) -> bool:
     # 메타 제거
     _images.pop(image_id, None)
     return True
+
+
+async def save_uploaded_image(upload: UploadFile, folder: str = "diaries") -> str:
+    """
+    업로드된 이미지를 저장하고 URL을 반환
+    일기용 간단한 이미지 저장 함수
+    """
+    uid = new_uuid()
+    now = datetime.now(timezone.utc)
+    ext = safe_ext(upload.filename or "")
+    if ext == ".jpeg":
+        ext = ".jpg"
+    
+    # 폴더별 경로 생성
+    rel_path = f"static/images/{folder}/{uid}{ext}"
+    ensure_dirs(rel_path)
+    
+    max_bytes = 5 * 1024 * 1024  # 5MB 제한
+    await upload.seek(0)
+    save_file(upload.file, rel_path, max_bytes=max_bytes)
+    
+    return build_url(rel_path)
