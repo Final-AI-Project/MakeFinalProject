@@ -1,7 +1,7 @@
 import aiomysql
 from typing import List, Optional, Dict, Any
 from datetime import datetime, date
-from core.database import get_db_connection
+from db.pool import get_db_connection
 from schemas.plant_registration import (
     PlantRegistrationRequest,
     PlantRegistrationResponse,

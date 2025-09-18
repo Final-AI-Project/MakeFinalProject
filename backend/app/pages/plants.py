@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from typing import List
 from schemas.dashboard import DashboardResponse, PlantStatusResponse
-from crud.dashboard import get_user_plants_with_status, get_plant_humidity_history, get_plant_diary_count
+from repositories.dashboard import get_user_plants_with_status, get_plant_humidity_history, get_plant_diary_count
 
 router = APIRouter(prefix="/home", tags=["home"])
 

@@ -8,8 +8,8 @@ import os
 from pydantic import Field, BaseModel, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-APP_DIR = Path(__file__).resolve().parents[1]
-DEFAULT_ENV_FILE = APP_DIR / '.env'
+APP_DIR = Path(__file__).resolve().parents[1]  # app 폴더
+DEFAULT_ENV_FILE = APP_DIR / '.env'  # app/.env
 
 ENV_FILE = os.getenv('PLAND_ENV_FILE', str(DEFAULT_ENV_FILE))
 
@@ -89,4 +89,4 @@ def get_settings() -> "Settings":
     return Settings()
 
 settings = Settings()
-print(f"[DB] host = '{settings.DB_HOST.encode()}")
+print(f"[DB] host = '{settings.DB_HOST}'")

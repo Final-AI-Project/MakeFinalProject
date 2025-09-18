@@ -6,7 +6,7 @@ import aiomysql
 
 from models.user import User
 from schemas.user import UserCreate
-from crud import user as users_crud
+from repositories import user as users_crud
 
 from utils.errors import http_error
 from utils.security import (

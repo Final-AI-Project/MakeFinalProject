@@ -10,7 +10,7 @@ from schemas.medical import (
     MedicalDiagnosisUpdate,
     MedicalStatsResponse
 )
-from crud.medical import (
+from repositories.medical import (
     get_user_medical_diagnoses,
     get_medical_diagnosis_by_id,
     create_medical_diagnosis,
@@ -19,7 +19,7 @@ from crud.medical import (
     get_medical_stats,
     get_related_diagnoses
 )
-from core.database import get_db_connection
+from db.pool import get_db_connection
 from utils.security import get_current_user
 from services.image_service import save_uploaded_image
 

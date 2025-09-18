@@ -11,7 +11,7 @@ import paho.mqtt.client as mqtt
 
 # 프로젝트 경로에 맞게 import 경로 조정:
 from core.config import settings                  # <-- app.core.config 라면 바꿔주세요
-from core.database import get_db_connection       # 풀은 여기서 lazy-init/사용
+from db.pool import get_db_connection       # 풀은 여기서 lazy-init/사용
 
 class MQTTService:
     """

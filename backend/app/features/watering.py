@@ -6,7 +6,7 @@ from schemas.plant_detail import (
     WateringSettingsRequest,
     WateringSettingsResponse
 )
-from crud.plant_detail import (
+from repositories.plant_detail import (
     check_humidity_increase_and_record_watering,
     get_watering_records,
     record_manual_watering,

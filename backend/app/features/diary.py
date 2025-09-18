@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from typing import List
 from schemas.plant_detail import PlantDiaryResponse
-from crud.plant_detail import get_plant_diaries, get_plant_diary_count, get_plant_recent_diary_summary
+from repositories.plant_detail import get_plant_diaries, get_plant_diary_count, get_plant_recent_diary_summary
 
 router = APIRouter(prefix="/plant-detail", tags=["plant-detail-diary"])
 

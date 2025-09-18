@@ -1,7 +1,7 @@
 import aiomysql
 from typing import List, Optional
 from datetime import datetime
-from core.database import get_db_connection
+from db.pool import get_db_connection
 from schemas.dashboard import PlantStatusResponse, DashboardResponse
 
 async def get_user_plants_with_status(user_id: str) -> DashboardResponse:

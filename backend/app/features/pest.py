@@ -7,7 +7,7 @@ from schemas.plant_detail import (
     PlantPestRecordRequest,
     PlantPestRecordAddResponse
 )
-from crud.plant_detail import (
+from repositories.plant_detail import (
     get_plant_pest_records, 
     get_plant_humidity_history,
     analyze_plant_health,

@@ -12,11 +12,11 @@ async def init_pool():
     global _pool
     if _pool is None:
         _pool = await aiomysql.create_pool(
-            host=settings.DB_HOST,
+            host=str(settings.DB_HOST),
             port=settings.DB_PORT,
-            user=settings.DB_USER,
-            password=settings.DB_PASSWORD,
-            db=settings.DB_NAME,
+            user=str(settings.DB_USER),
+            password=str(settings.DB_PASSWORD),
+            db=str(settings.DB_NAME),
             charset='utf8mb4',
             autocommit=True,
             minsize=1,
@@ -28,6 +28,11 @@ async def get_pool() -> aiomysql.Pool:
     if _pool is None:
         await init_pool()
     return _pool
+
+async def get_db_connection():
+    """데이터베이스 연결 반환"""
+    pool = await get_pool()
+    return await pool.acquire()
 
 async def close_pool():
     """연결 풀 종료"""

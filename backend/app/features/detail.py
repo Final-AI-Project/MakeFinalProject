@@ -7,7 +7,7 @@ from schemas.plant_detail import (
     PlantDetailSummaryResponse,
     PlantSpeciesInfoResponse
 )
-from crud.plant_detail import (
+from repositories.plant_detail import (
     get_plant_detail, 
     update_plant_info, 
     delete_plant,

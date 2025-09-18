@@ -2,7 +2,7 @@
 라우터 통합 진입점
 """
 from fastapi import APIRouter
-from pages.home import router as home_router
+from pages.plants import router as home_router
 from pages.diary_list import router as diary_list_router
 from pages.info_room import router as info_room_router
 from features.auth import router as auth_router
@@ -10,7 +10,7 @@ from features.plants import router as plants_router
 from features.diary import router as diary_router
 from features.medical import router as medical_router
 from features.disease_diagnosis import router as disease_diagnosis_router
-from features.plant_detail import detail_router, diary_router as plant_diary_router, pest_router, watering_router, images_router
+from features import detail_router, diary_router as plant_diary_router, pest_router, watering_router, images_router
 
 router = APIRouter()
 

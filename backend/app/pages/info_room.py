@@ -7,7 +7,7 @@ from schemas.info_room import (
     PestWikiDetailResponse,
     InfoRoomStatsResponse
 )
-from crud.info_room import (
+from repositories.info_room import (
     get_plant_wiki_list,
     get_plant_wiki_detail,
     get_pest_wiki_list,

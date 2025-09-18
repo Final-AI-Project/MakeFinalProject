@@ -12,7 +12,7 @@ from schemas.plant_registration import (
     SpeciesClassificationRequest,
     SpeciesClassificationResponse
 )
-from crud.plant_registration import (
+from repositories.plant_registration import (
     create_plant,
     get_user_plants,
     get_plant_by_id,
@@ -21,14 +21,14 @@ from crud.plant_registration import (
     get_plant_stats,
     search_plants
 )
-from ml.species_classification import (
+from clients.species_classification import (
     classify_plant_species,
     get_species_korean_name,
     get_species_info
 )
 from services.image_service import save_uploaded_image
 from utils.security import get_current_user
-from core.database import get_db
+from db.pool import get_db_connection
 
 router = APIRouter(prefix="/plants", tags=["plant-registration"])
 

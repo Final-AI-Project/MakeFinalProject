@@ -6,7 +6,7 @@ from schemas.diary import (
     DiaryStatsResponse,
     DiaryListItemResponse
 )
-from crud.diary_list import (
+from repositories.diary_list import (
     get_user_diary_list,
     search_user_diaries,
     get_diary_stats,
