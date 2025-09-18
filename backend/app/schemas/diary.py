@@ -3,7 +3,12 @@ from datetime import datetime
 from pydantic import Field
 from typing import List, Optional
 from .common import OrmBase
-from .img_address import ImgAddressOut
+
+# 간단한 이미지 주소 스키마 (img_address.py가 삭제되어 직접 정의)
+class ImgAddressOut(OrmBase):
+    idx: int
+    img_url: str
+    created_at: datetime
 
 class DiaryCreate(OrmBase):
     user_id: str = Field(min_length=1, max_length=100)

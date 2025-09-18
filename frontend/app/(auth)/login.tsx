@@ -141,9 +141,16 @@ export default function LoginScreen() {
       console.log("Response ok:", res.ok);
 
       if (!res.ok) {
-        const text = await res.text().catch(() => "");
-        console.log("Error response text:", text);
-        throw new Error(text || `Login failed (${res.status})`);
+        let errorMessage = "로그인에 실패했습니다.";
+        try {
+          const errorData = await res.json();
+          if (errorData.message) {
+            errorMessage = errorData.message;
+          }
+        } catch {
+          // JSON 파싱 실패 시 기본 메시지 사용
+        }
+        throw new Error(errorMessage);
       }
 
       // 백엔드 응답 구조에 맞게 토큰 처리
@@ -182,9 +189,10 @@ export default function LoginScreen() {
         );
       } else {
         // 인증 실패 (아이디/비밀번호 오류)
+        const errorMessage = err?.message || "로그인에 실패했습니다.";
         Alert.alert(
           "로그인 실패",
-          "아이디 또는 비밀번호가 올바르지 않습니다.\n\n혹시 아직 회원가입을 하지 않으셨나요?",
+          `${errorMessage}\n\n혹시 아직 회원가입을 하지 않으셨나요?`,
           [
             { text: "다시 시도", style: "cancel" },
             {
