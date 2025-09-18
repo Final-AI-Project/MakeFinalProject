@@ -58,7 +58,7 @@ export default function PlantNew() {
 	const [result, setResult] = useState<ClassifyResult | null>(null);
 
 	// 3-4) Validation & derived
-	const { paddingBottom, keyboardVisible } = useKeyboardPadding();
+	const { paddingBottom, keyboardVisible } = useKeyboardPadding(45); // <- 키패드 덜 올라가서 수동으로 키운것
 
 	const isKnownSpecies = useMemo(
 		() => (species ? (SPECIES as readonly string[]).includes(species) : true),
