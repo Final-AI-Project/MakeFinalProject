@@ -55,20 +55,32 @@ def plant_talk(species: str, user_text: str, moisture: Optional[float] = None) -
 
 
 def talk_for_db(
+    user_id: str,
     plant_id: int,
     plant_name: str,
     species: str,
     user_content: str,
+    user_title: str,  # 사용자가 입력한 제목 (필수)
     moisture: Optional[float] = None,
+    hashtag: Optional[str] = None,
+    weather: Optional[str] = None,
 ):
     """
     DB 저장용 필드만 반환하는 헬퍼.
+    ERD의 diary 테이블 구조에 맞춰 데이터를 반환합니다.
     """
     result = plant_talk(species, user_content, moisture)
+    
     return {
+        "user_id": user_id,
+        "user_title": user_title,  # 사용자가 입력한 제목 그대로 사용
+        "user_content": user_content,
+        "hashtag": hashtag or "",
+        "plant_content": result.reply,
+        "weather": weather or "",
+        "mode": result.mode,
+        "species": result.species,
+        "state": result.state,
         "plant_id": plant_id,
         "plant_name": plant_name,
-        "species": result.species,
-        "user_content": user_content,
-        "plant_content": result.reply,
     }

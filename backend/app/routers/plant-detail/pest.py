@@ -3,12 +3,16 @@ from typing import List
 from ...schemas.plant_detail import (
     PlantPestRecordResponse, 
     HealthStatusResponse, 
-    HealthAnalysisRequest
+    HealthAnalysisRequest,
+    PlantPestRecordRequest,
+    PlantPestRecordAddResponse
 )
 from ...crud.plant_detail import (
     get_plant_pest_records, 
     get_plant_humidity_history,
-    analyze_plant_health
+    analyze_plant_health,
+    get_plant_pest_records_by_user_plant,
+    add_plant_pest_record
 )
 
 router = APIRouter(prefix="/plant-detail", tags=["plant-detail-pest"])
@@ -151,4 +155,50 @@ async def get_plant_health_summary(plant_idx: int, user_id: str):
         raise HTTPException(
             status_code=500,
             detail=f"건강상태 요약 정보 조회 중 오류가 발생했습니다: {str(e)}"
+        )
+
+@router.get("/{plant_idx}/pest-records/user-plant", response_model=List[PlantPestRecordResponse])
+async def get_user_plant_pest_records(plant_idx: int, user_id: str):
+    """
+    특정 유저의 특정 식물에 대한 병충해 기록을 조회합니다.
+    유저 ID와 식물 ID로 검색하여 해당 식물이 가졌었던 병충해 기록을 반환합니다.
+    """
+    try:
+        pest_records = await get_plant_pest_records_by_user_plant(plant_idx, user_id)
+        return pest_records
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"병충해 기록 조회 중 오류가 발생했습니다: {str(e)}"
+        )
+
+@router.post("/{plant_idx}/pest-records", response_model=PlantPestRecordAddResponse)
+async def add_plant_pest_record_endpoint(plant_idx: int, user_id: str, pest_request: PlantPestRecordRequest):
+    """
+    식물에 병충해 기록을 추가합니다.
+    """
+    try:
+        # 요청의 plant_idx와 user_id가 일치하는지 확인
+        if pest_request.plant_idx != plant_idx or pest_request.user_id != user_id:
+            raise HTTPException(status_code=400, detail="요청 정보가 일치하지 않습니다.")
+        
+        # 날짜 형식 검증 (YYYY-MM-DD)
+        if pest_request.pest_date:
+            try:
+                from datetime import datetime
+                datetime.strptime(pest_request.pest_date, '%Y-%m-%d')
+            except ValueError:
+                raise HTTPException(status_code=400, detail="날짜 형식이 올바르지 않습니다. YYYY-MM-DD 형식을 사용해주세요.")
+        
+        result = await add_plant_pest_record(plant_idx, user_id, pest_request.pest_id, pest_request.pest_date)
+        return PlantPestRecordAddResponse(**result)
+        
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"병충해 기록 추가 중 오류가 발생했습니다: {str(e)}"
         )

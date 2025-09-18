@@ -4,13 +4,15 @@ from ...schemas.plant_detail import (
     PlantDetailResponse, 
     PlantUpdateRequest, 
     PlantDeleteRequest,
-    PlantDetailSummaryResponse
+    PlantDetailSummaryResponse,
+    PlantSpeciesInfoResponse
 )
 from ...crud.plant_detail import (
     get_plant_detail, 
     update_plant_info, 
     delete_plant,
-    get_plant_detail_summary
+    get_plant_detail_summary,
+    get_plant_species_info
 )
 
 router = APIRouter(prefix="/plant-detail", tags=["plant-detail"])
@@ -123,3 +125,20 @@ async def plant_detail_health_check(plant_idx: int, user_id: str):
         "user_id": user_id,
         "version": "1.0.0"
     }
+
+@router.get("/{plant_idx}/species-info", response_model=PlantSpeciesInfoResponse)
+async def get_plant_species_info_endpoint(plant_idx: int, user_id: str):
+    """
+    식물의 품종 정보를 plant_wiki에서 조회합니다.
+    DB 연동으로 해당 품종의 상세 정보를 제공합니다.
+    """
+    try:
+        species_info = await get_plant_species_info(plant_idx, user_id)
+        return species_info
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"품종 정보 조회 중 오류가 발생했습니다: {str(e)}"
+        )

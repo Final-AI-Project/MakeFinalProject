@@ -2,12 +2,16 @@ from fastapi import APIRouter, HTTPException
 from typing import List
 from ...schemas.plant_detail import (
     WateringRecordResponse, 
-    WateringRecordRequest
+    WateringRecordRequest,
+    WateringSettingsRequest,
+    WateringSettingsResponse
 )
 from ...crud.plant_detail import (
     check_humidity_increase_and_record_watering,
     get_watering_records,
-    record_manual_watering
+    record_manual_watering,
+    update_watering_settings,
+    get_watering_settings
 )
 
 router = APIRouter(prefix="/plant-detail", tags=["plant-detail-watering"])
@@ -136,4 +140,48 @@ async def get_watering_status(plant_idx: int, user_id: str):
         raise HTTPException(
             status_code=500,
             detail=f"물주기 상태 확인 중 오류가 발생했습니다: {str(e)}"
+        )
+
+@router.get("/{plant_idx}/watering-settings", response_model=WateringSettingsResponse)
+async def get_plant_watering_settings(plant_idx: int, user_id: str):
+    """
+    식물의 현재 물주기 설정을 조회합니다.
+    습도 증가율 임계값을 확인할 수 있습니다.
+    """
+    try:
+        settings = await get_watering_settings(plant_idx, user_id)
+        return settings
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"물주기 설정 조회 중 오류가 발생했습니다: {str(e)}"
+        )
+
+@router.put("/{plant_idx}/watering-settings", response_model=WateringSettingsResponse)
+async def update_plant_watering_settings(plant_idx: int, user_id: str, settings_request: WateringSettingsRequest):
+    """
+    식물의 물주기 설정을 업데이트합니다.
+    습도 증가율 임계값을 설정할 수 있습니다.
+    """
+    try:
+        # 요청의 plant_idx와 user_id가 일치하는지 확인
+        if settings_request.plant_idx != plant_idx or settings_request.user_id != user_id:
+            raise HTTPException(status_code=400, detail="요청 정보가 일치하지 않습니다.")
+        
+        # 임계값 범위 검증 (5-20% 사이)
+        if not (5 <= settings_request.humidity_threshold <= 20):
+            raise HTTPException(status_code=400, detail="습도 증가율 임계값은 5%에서 20% 사이여야 합니다.")
+        
+        settings = await update_watering_settings(plant_idx, user_id, settings_request)
+        return settings
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"물주기 설정 업데이트 중 오류가 발생했습니다: {str(e)}"
         )
