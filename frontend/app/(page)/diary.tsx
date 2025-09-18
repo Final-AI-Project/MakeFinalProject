@@ -14,6 +14,7 @@ import { useColorScheme } from "react-native";
 import { useRouter } from "expo-router";
 import Colors from "../../constants/Colors";
 import { fetchSimpleWeather } from "../../components/common/weatherBox";
+import { startLoading } from "../../components/common/loading";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ② Helpers & Types
@@ -22,6 +23,8 @@ type Weather = "맑음" | "흐림" | "비" | "눈" | null;
 
 // expo-image-picker 신/구 버전 호환(enum 폴리필)
 const MEDIA = (ImagePicker as any).MediaType ?? (ImagePicker as any).MediaTypeOptions;
+
+const router = useRouter();
 
 const todayStr = () => {
 	const d = new Date();
@@ -238,7 +241,7 @@ function BottomSheet({
 
 				<View style={styles.sheetActions}>
 					<Pressable onPress={() => closeSheet(onClose)} style={[styles.sheetBtn]}>
-						<Text style={[styles.sheetBtnText, { color: theme.text }]}>닫기</Text>
+						<Text style={[styles.sheetBtnText, { color: theme.text }]}>오늘 즐거웠어 고마워👋</Text>
 					</Pressable>
 				</View>
 			</Animated.View>
@@ -282,15 +285,25 @@ export default function Diary() {
 		[]
 	);
 
-	// 날씨 자동 채움 (WeatherBox 렌더링 없이)
+	// 날씨 자동 채움 + 로딩 페이지 연동
 	useEffect(() => {
-		(async () => {
-			const w = await fetchSimpleWeather(
-				"GTr1cI7Wi0FRbOTFBaUzUCzCDP4OnyyEmHnn11pxCUC5ehG5bQnbyztgeydnOWz1O04tjw1SE5RsX8RNo6XCgQ==",
-				{ lat: 37.4836, lon: 127.0326, label: "서울시 - 서초구" }
-			);
-			if (w) setWeather(prev => prev ?? w);
-		})();
+		startLoading(router, {
+			task: async () => {
+				try {
+					const w = await fetchSimpleWeather(
+						"GTr1cI7Wi0FRbOTFBaUzUCzCDP4OnyyEmHnn11pxCUC5ehG5bQnbyztgeydnOWz1O04tjw1SE5RsX8RNo6XCgQ==",
+						{ lat: 37.4836, lon: 127.0326, label: "서울시 - 서초구" }
+					);
+					if (w) setWeather(prev => prev ?? w);
+				} catch (e) {
+					console.warn("[weather] fetch failed:", e);
+				}
+			},
+			to: "/(page)/diary",
+			replace: true,
+		});
+		// 의존성 없음: 최초 1회
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
 	// 제출 버튼 활성 조건 (모든 입력 완료 판정)
