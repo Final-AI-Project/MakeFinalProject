@@ -228,6 +228,13 @@ backend/
 - `GET /medical/stats` - 병충해 진단 통계
 - `GET /medical/diagnoses/plant/{plant_id}` - 특정 식물의 진단 기록
 
+### 🔬 **병충해 진단 페이지** (NEW!)
+
+- `POST /disease-diagnosis/diagnose` - 이미지 업로드하여 병충해 진단 (상위 3개 결과)
+- `GET /disease-diagnosis/my-plants` - 사용자 식물 목록 조회 (진단용)
+- `POST /disease-diagnosis/save` - 병충해 진단 결과 저장 (내 식물 선택 시)
+- `GET /disease-diagnosis/recent-diagnoses` - 최근 진단 기록 조회
+
 ### 💧 **물주기 관리**
 
 - `GET /plant-detail/{plant_idx}/watering-records` - 물주기 기록 조회
