@@ -35,3 +35,9 @@ class DiaryOut(OrmBase):
 
     # 관계 포함
     images: List[ImgAddressOut] = []
+
+class DiaryListOut(OrmBase):
+    items: List[DiaryOut]
+    next_cursor: str | None
+    has_more: bool
+    total_count: int

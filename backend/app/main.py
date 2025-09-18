@@ -1,9 +1,12 @@
 from __future__ import annotations
 
-import os
 from datetime import datetime, timezone
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from contextlib import asynccontextmanager
+import asyncio
+
 from core.config import settings
 from core.database import get_db_connection
 
@@ -14,11 +17,16 @@ except Exception:  # pragma: no cover
 
 
 # 서브 앱 라우터 임포트
-from routers.dashboard import router as dashboard_router
+from routers.home import plants_router as home_plants_router
+from routers.plantdetail import detail_router, diary_router, pest_router, watering_router, images_router
 from routers.auth import router as auth_router
 from routers.plants import router as plants_router
-from routers.images import router as images_router
+from routers.images import router as general_images_router
 from routers.ai import router as ai_router
+from routers.plant_info import router as plant_info_router
+from routers.diary_list import router as diary_list_router
+from routers.plant_registration import router as plant_registration_router
+from routers.plant_chat import router as plant_chat_router
 from utils.errors import register_error_handlers
 
 # import db.models  # 임시 주석처리 
@@ -28,12 +36,24 @@ app = FastAPI(title="Pland API", version="0.1.0")
 
 register_error_handlers(app) # 에러 핸들러 등록
 
-# 라우터 등록 (확인용)
-app.include_router(images_router, prefix="/api/v1")
-app.include_router(dashboard_router, prefix="/api/v1") 
+# Static 파일 서빙 설정
+app.mount("/static", StaticFiles(directory="../static"), name="static")
+
+# 라우터 등록
+app.include_router(home_plants_router)  # /home/plants/{user_id}
+app.include_router(detail_router)  # /plant-detail/{plant_idx}
+app.include_router(diary_router)  # /plant-detail/{plant_idx}/diaries
+app.include_router(pest_router)  # /plant-detail/{plant_idx}/pest-records
+app.include_router(watering_router)  # /plant-detail/{plant_idx}/watering-records
+app.include_router(images_router)  # /plant-detail/{plant_idx}/upload-image
+app.include_router(general_images_router, prefix="/images")
 app.include_router(auth_router)  # auth는 prefix 없이 직접 등록
-app.include_router(plants_router, prefix="/api/v1")
-app.include_router(ai_router, prefix="/api/v1")  # AI 기능 라우터
+app.include_router(plants_router, prefix="/plants")
+app.include_router(ai_router, prefix="/ai")  # AI 기능 라우터
+app.include_router(plant_info_router)  # 식물 정보 라우터
+app.include_router(diary_list_router)  # 일기 목록 라우터
+app.include_router(plant_registration_router)  # 식물 등록 라우터
+app.include_router(plant_chat_router)  # 식물 대화 라우터
 
 # CORS (모바일/프론트 개발 편의) - 모든 오리진 허용
 app.add_middleware(
@@ -74,3 +94,4 @@ def version():
 
 
 # uvicorn backend.app.main:app --reload
+#  --port 8000 --workers 1

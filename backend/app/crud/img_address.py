@@ -29,15 +29,16 @@ async def create(
     *,
     diary_id: int,
     img_url: str,
+    status: int | None = None,
 ) -> ImgAddress:
     """새 이미지 주소 생성"""
     async with db.cursor(aiomysql.DictCursor) as cursor:
         await cursor.execute(
             """
-            INSERT INTO img_address (diary_id, img_url)
-            VALUES (%s, %s)
+            INSERT INTO img_address (diary_id, img_url, status)
+            VALUES (%s, %s, %s)
             """,
-            (diary_id, img_url)
+            (diary_id, img_url, status)
         )
         img_id = cursor.lastrowid
         

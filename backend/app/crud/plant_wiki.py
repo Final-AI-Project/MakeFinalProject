@@ -103,3 +103,47 @@ async def list_by_cursor(
         
         results = await cursor.fetchall()
         return [PlantWiki.from_dict(row) for row in results]
+
+
+async def search_by_species(
+    db,
+    *,
+    search_term: str,
+    limit: int,
+    last_idx: int | None,
+) -> List[PlantWiki]:
+    """식물 종류로 검색 (커서 기반)"""
+    async with db.cursor(aiomysql.DictCursor) as cursor:
+        search_pattern = f"%{search_term}%"
+        
+        if last_idx is not None:
+            await cursor.execute(
+                "SELECT * FROM plant_wiki WHERE species LIKE %s AND idx < %s ORDER BY idx DESC LIMIT %s",
+                (search_pattern, last_idx, limit + 1)
+            )
+        else:
+            await cursor.execute(
+                "SELECT * FROM plant_wiki WHERE species LIKE %s ORDER BY idx DESC LIMIT %s",
+                (search_pattern, limit + 1)
+            )
+        
+        results = await cursor.fetchall()
+        return [PlantWiki.from_dict(row) for row in results]
+
+
+async def get_by_category(
+    db,
+    *,
+    category: str,
+    limit: int,
+) -> List[PlantWiki]:
+    """특정 카테고리 정보가 있는 식물들 조회"""
+    async with db.cursor(aiomysql.DictCursor) as cursor:
+        # 해당 카테고리 필드가 NULL이 아닌 식물들만 조회
+        await cursor.execute(
+            f"SELECT * FROM plant_wiki WHERE {category} IS NOT NULL ORDER BY idx DESC LIMIT %s",
+            (limit,)
+        )
+        
+        results = await cursor.fetchall()
+        return [PlantWiki.from_dict(row) for row in results]

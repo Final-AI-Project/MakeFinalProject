@@ -1,3 +1,5 @@
+<<<<<<< HEAD
+=======
 # 환경 변수 파일
 .env
 .env.local
@@ -6,6 +8,7 @@
 .env.production.local
 .dotenv
 
+>>>>>>> origin/jihwan-front
 # Python 관련
 __pycache__/
 *.py[cod]
