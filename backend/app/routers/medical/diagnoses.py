@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi import APIRouter, HTTPException, Depends, Query, UploadFile, File, Form
 from typing import List, Optional
 from datetime import datetime
 import aiomysql
@@ -21,6 +21,7 @@ from crud.medical import (
 )
 from core.database import get_db_connection
 from utils.security import get_current_user
+from services.image_service import save_uploaded_image
 
 router = APIRouter(prefix="/medical", tags=["medical"])
 
@@ -35,7 +36,8 @@ def _to_list_response(diagnosis) -> MedicalDiagnosisListResponse:
         plant_name=diagnosis.plant_name,
         pest_name=diagnosis.pest_name,
         cause=diagnosis.cause,
-        cure=diagnosis.cure
+        cure=diagnosis.cure,
+        diagnosis_image_url=diagnosis.diagnosis_image_url
     )
 
 
@@ -52,6 +54,7 @@ def _to_detail_response(diagnosis, related_diagnoses: List = None) -> MedicalDia
         cause=diagnosis.cause,
         cure=diagnosis.cure,
         meet_day=diagnosis.meet_day,
+        diagnosis_image_url=diagnosis.diagnosis_image_url,
         related_diagnoses=[_to_list_response(rel) for rel in related_diagnoses] if related_diagnoses else None
     )
 
@@ -159,7 +162,70 @@ async def create_medical_diagnosis_record(
             db=db,
             plant_id=diagnosis_data.plant_id,
             pest_id=diagnosis_data.pest_id,
-            pest_date=diagnosis_data.pest_date
+            pest_date=diagnosis_data.pest_date,
+            diagnosis_image_url=diagnosis_data.diagnosis_image_url
+        )
+        
+        return _to_detail_response(diagnosis)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"병충해 진단 기록 생성 중 오류가 발생했습니다: {str(e)}"
+        )
+
+
+@router.post("/diagnoses/with-image", response_model=MedicalDiagnosisDetailResponse, status_code=201)
+async def create_medical_diagnosis_with_image(
+    plant_id: int = Form(...),
+    pest_id: int = Form(...),
+    pest_date: str = Form(...),
+    image: UploadFile = File(...),
+    user: dict = Depends(get_current_user),
+    db: tuple = Depends(get_db_connection)
+):
+    """
+    이미지와 함께 새로운 병충해 진단 기록을 생성합니다.
+    
+    - **plant_id**: 식물 ID
+    - **pest_id**: 병충해 ID
+    - **pest_date**: 진단 날짜 (YYYY-MM-DD 형식)
+    - **image**: 진단 시 찍은 사진
+    """
+    try:
+        # 날짜 파싱
+        from datetime import datetime
+        try:
+            parsed_date = datetime.strptime(pest_date, "%Y-%m-%d").date()
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail="날짜 형식이 올바르지 않습니다. YYYY-MM-DD 형식을 사용해주세요."
+            )
+        
+        # 사용자의 식물인지 확인
+        async with db.cursor(aiomysql.DictCursor) as cursor:
+            await cursor.execute(
+                "SELECT plant_id FROM user_plant WHERE plant_id = %s AND user_id = %s",
+                (plant_id, user["user_id"])
+            )
+            if not await cursor.fetchone():
+                raise HTTPException(
+                    status_code=403,
+                    detail="해당 식물에 대한 권한이 없습니다."
+                )
+        
+        # 이미지 저장
+        img_url = await save_uploaded_image(image, "medical")
+        
+        # 진단 기록 생성
+        diagnosis = await create_medical_diagnosis(
+            db=db,
+            plant_id=plant_id,
+            pest_id=pest_id,
+            pest_date=parsed_date,
+            diagnosis_image_url=img_url
         )
         
         return _to_detail_response(diagnosis)
@@ -191,7 +257,8 @@ async def update_medical_diagnosis_record(
             diagnosis_id=diagnosis_id,
             user_id=user["user_id"],
             pest_id=update_data.pest_id,
-            pest_date=update_data.pest_date
+            pest_date=update_data.pest_date,
+            diagnosis_image_url=update_data.diagnosis_image_url
         )
         
         if not updated_diagnosis:

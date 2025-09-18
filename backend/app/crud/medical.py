@@ -24,7 +24,8 @@ async def get_user_medical_diagnoses(
                 pw.cause,
                 pw.cure,
                 up.species as plant_species,
-                up.meet_day
+                up.meet_day,
+                upp.diagnosis_image_url
             FROM user_plant_pest upp
             JOIN user_plant up ON upp.plant_id = up.plant_id
             JOIN pest_wiki pw ON upp.pest_id = pw.pest_id
@@ -57,7 +58,8 @@ async def get_medical_diagnosis_by_id(
                 pw.cause,
                 pw.cure,
                 up.species as plant_species,
-                up.meet_day
+                up.meet_day,
+                upp.diagnosis_image_url
             FROM user_plant_pest upp
             JOIN user_plant up ON upp.plant_id = up.plant_id
             JOIN pest_wiki pw ON upp.pest_id = pw.pest_id
@@ -75,15 +77,16 @@ async def create_medical_diagnosis(
     plant_id: int,
     pest_id: int,
     pest_date: date,
+    diagnosis_image_url: Optional[str] = None,
 ) -> MedicalDiagnosis:
     """새로운 병충해 진단 기록을 생성합니다."""
     async with db.cursor(aiomysql.DictCursor) as cursor:
         await cursor.execute(
             """
-            INSERT INTO user_plant_pest (plant_id, pest_id, pest_date)
-            VALUES (%s, %s, %s)
+            INSERT INTO user_plant_pest (plant_id, pest_id, pest_date, diagnosis_image_url)
+            VALUES (%s, %s, %s, %s)
             """,
-            (plant_id, pest_id, pest_date)
+            (plant_id, pest_id, pest_date, diagnosis_image_url)
         )
         diagnosis_id = cursor.lastrowid
         
@@ -100,7 +103,8 @@ async def create_medical_diagnosis(
                 pw.cause,
                 pw.cure,
                 up.species as plant_species,
-                up.meet_day
+                up.meet_day,
+                upp.diagnosis_image_url
             FROM user_plant_pest upp
             JOIN user_plant up ON upp.plant_id = up.plant_id
             JOIN pest_wiki pw ON upp.pest_id = pw.pest_id
@@ -119,6 +123,7 @@ async def update_medical_diagnosis(
     *,
     pest_id: Optional[int] = None,
     pest_date: Optional[date] = None,
+    diagnosis_image_url: Optional[str] = None,
 ) -> Optional[MedicalDiagnosis]:
     """병충해 진단 기록을 수정합니다."""
     # 업데이트할 필드들 동적 생성
@@ -131,6 +136,9 @@ async def update_medical_diagnosis(
     if pest_date is not None:
         update_fields.append("pest_date = %s")
         update_values.append(pest_date)
+    if diagnosis_image_url is not None:
+        update_fields.append("diagnosis_image_url = %s")
+        update_values.append(diagnosis_image_url)
     
     if not update_fields:
         return None

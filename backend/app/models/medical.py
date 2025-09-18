@@ -16,6 +16,7 @@ class MedicalDiagnosis:
     cure: Optional[str] = None
     plant_species: Optional[str] = None
     meet_day: Optional[datetime] = None
+    diagnosis_image_url: Optional[str] = None
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "MedicalDiagnosis":
@@ -31,4 +32,5 @@ class MedicalDiagnosis:
             cure=data.get("cure"),
             plant_species=data.get("plant_species"),
             meet_day=data.get("meet_day"),
+            diagnosis_image_url=data.get("diagnosis_image_url"),
         )

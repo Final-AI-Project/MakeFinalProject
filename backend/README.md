@@ -217,6 +217,17 @@ backend/
 - `POST /ai/watering-prediction` - 물주기 예측
 - `POST /plant-chat` - 식물과 대화 (LLM)
 
+### 🏥 **병충해 진단 관리** (NEW!)
+
+- `GET /medical/diagnoses` - 병충해 진단 목록 조회 (이미지 포함)
+- `GET /medical/diagnoses/{diagnosis_id}` - 병충해 진단 상세 정보
+- `POST /medical/diagnoses` - 병충해 진단 기록 생성
+- `POST /medical/diagnoses/with-image` - 이미지와 함께 병충해 진단 기록 생성
+- `PUT /medical/diagnoses/{diagnosis_id}` - 병충해 진단 기록 수정
+- `DELETE /medical/diagnoses/{diagnosis_id}` - 병충해 진단 기록 삭제
+- `GET /medical/stats` - 병충해 진단 통계
+- `GET /medical/diagnoses/plant/{plant_id}` - 특정 식물의 진단 기록
+
 ### 💧 **물주기 관리**
 
 - `GET /plant-detail/{plant_idx}/watering-records` - 물주기 기록 조회
