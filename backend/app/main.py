@@ -18,7 +18,7 @@ except Exception:  # pragma: no cover
 
 # 서브 앱 라우터 임포트
 from routers.home import plants_router as home_plants_router
-from routers.plantdetail import detail_router, diary_router, pest_router, watering_router, images_router
+from routers.plant_detail import detail_router, diary_router, pest_router, watering_router, images_router
 from routers.auth import router as auth_router
 from routers.diary.write import router as diary_write_router
 from utils.errors import register_error_handlers
