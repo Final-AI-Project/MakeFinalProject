@@ -2,7 +2,8 @@
 import React, { useRef, useState } from "react";
 import { View, Text, StyleSheet, Image, Pressable, Animated, Easing, useColorScheme } from "react-native";
 import Colors from "../../constants/Colors";
-import arrowDown from "../../assets/images/arrow_down.png";
+import arrowDownW from "../../assets/images/w_arrow_down.png";
+import arrowDownD from "../../assets/images/d_arrow_down.png";
 
 // ── 로컬 전용 아코디언 (이 페이지에서만 사용)
 function DiseaseAccordionCardLocal({ photoUri, nickname, diagnosedAt, diseaseName, children }: {
@@ -59,7 +60,7 @@ function DiseaseAccordionCardLocal({ photoUri, nickname, diagnosedAt, diseaseNam
 
 			<Pressable onPress={toggle} style={styles.arrow}>
 				<Animated.View style={{ transform: [{ rotate: arrowRotate }] }}>
-					<Image source={arrowDown} style={styles.arrowImg}/>
+					<Image source={scheme === "dark" ? arrowDownD : arrowDownW} style={styles.arrowImg}/>
 				</Animated.View>
 			</Pressable>
 

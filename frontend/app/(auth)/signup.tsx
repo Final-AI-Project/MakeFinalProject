@@ -187,6 +187,7 @@ const styles = StyleSheet.create({
         opacity: 0.9,
     },
     input: {
+		height:50,
         borderWidth: 1,
         borderRadius: 12,
         paddingHorizontal: 14,

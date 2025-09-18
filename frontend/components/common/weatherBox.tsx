@@ -76,7 +76,7 @@ function getNearestBase() {
 
 function getDayNight(fcstTimeHHmm: string): Period {
 	const h = parseInt(fcstTimeHHmm.slice(0,2), 10);
-	return (h >= 6 && h < 18) ? "day" : "night";
+	return (h >= 6 && h < 19) ? "day" : "night";
 }
 
 function mapStateFromCodes(pty?: string, sky?: string): { label: string; stateClass: StateClass } {

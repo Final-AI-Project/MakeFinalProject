@@ -2,11 +2,11 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // ① Imports
 // ─────────────────────────────────────────────────────────────────────────────
-import React, { useMemo, useState, useRef } from "react";
+import React, { useMemo, useState, useRef, useEffect } from "react";
 import {
 	View, Text, StyleSheet, ScrollView,
 	TextInput, Pressable, Image, Alert, ActivityIndicator,
-	Platform, Dimensions
+	Platform, Dimensions, KeyboardAvoidingView, Keyboard, StatusBar,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
@@ -16,13 +16,10 @@ import Colors from "../../../constants/Colors";
 // 공통 모달
 import ClassifierResultModal, { ClassifyResult } from "../../../components/common/ClassifierResultModal";
 
-// ─────────────────────────────────────────────────────────────────────────────
-// ② Types & Constants
-// ─────────────────────────────────────────────────────────────────────────────
 type IndoorOutdoor = "indoor" | "outdoor" | null;
 
 const SPECIES = [
-	"몬스테라","스투키","금전수","선인수","호접란","테이블야자",
+	"몬스테라","스투키","금전수","선인장","호접란","테이블야자",
 	"홍콩야자","스파티필럼","관음죽","벵갈고무나무","올리브나무","디펜바키아","보스턴고사리",
 ] as const;
 
@@ -41,52 +38,45 @@ function mockClassify(_uri: string): ClassifyResult {
 // ③ Component
 // ─────────────────────────────────────────────────────────────────────────────
 export default function PlantNew() {
-	// 3-1) Router & Theme
+	// Theme & Router
 	const router = useRouter();
 	const scheme = useColorScheme();
 	const theme = Colors[scheme === "dark" ? "dark" : "light"];
 
-	// 3-2) Form states
+	// 상단 오프셋 (SafeAreaProvider 없이)
+	const topOffset = Platform.OS === "android" ? (StatusBar.currentHeight ?? 0) : 0;
+
+	// Form states
 	const [imageUri, setImageUri] = useState<string | null>(null);
 	const [species, setSpecies] = useState<string>("");
 	const [nickname, setNickname] = useState<string>("");
 	const [startedAt, setStartedAt] = useState<string>("");
 
-	// 3-3) UI states
+	// UI states
 	const [busy, setBusy] = useState(false);
 	const [resultVisible, setResultVisible] = useState(false);
 	const [result, setResult] = useState<ClassifyResult | null>(null);
 
-	// 3-4) Keyboard/Bottom bar
-	const { paddingBottom, keyboardVisible, rawKeyboardHeight } = useKeyboardPadding(45); // 보정 +45 유지
-	const BASE_BAR_HEIGHT = 85;
-
-	// 3-5) Auto-center scroll 준비
+	// Scroll helpers
 	const scrollRef = useRef<ScrollView>(null);
 	const fieldY = useRef<Record<string, number>>({});
-	function onFieldLayout(key: string, y: number) {
-		fieldY.current[key] = y;
-	}
+	function onFieldLayout(key: string, y: number) { fieldY.current[key] = y; }
 	function scrollToField(key: string, inputHeight = 56) {
 		const y = fieldY.current[key] ?? 0;
 		const screenH = Dimensions.get("window").height;
-		const visibleH = screenH - (keyboardVisible ? rawKeyboardHeight : 0);
-		const targetY = Math.max(0, y - (visibleH - inputHeight) / 2);
+		const targetY = Math.max(0, y - screenH / 3 + inputHeight / 2);
 		scrollRef.current?.scrollTo({ y: targetY, animated: true });
 	}
 
-	// 3-6) Derived/Validation
+	// Validation
 	const isKnownSpecies = useMemo(
 		() => (species ? (SPECIES as readonly string[]).includes(species) : true),
 		[species]
 	);
 	const isAllFilled = Boolean(imageUri && species.trim() && nickname.trim() && startedAt.trim());
-	const isDateLike = useMemo(() => {
-		if (!startedAt) return true;
-		return /^\d{4}-\d{2}-\d{2}$/.test(startedAt);
-	}, [startedAt]);
+	const isDateLike = useMemo(() => !startedAt || /^\d{4}-\d{2}-\d{2}$/.test(startedAt), [startedAt]);
 
-	// 3-7) Helpers
+	// Utils
 	function formatDateInput(text: string): string {
 		const digits = text.replace(/\D/g, "").slice(0, 8);
 		if (digits.length <= 4) return digits;
@@ -94,25 +84,18 @@ export default function PlantNew() {
 		return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6, 8)}`;
 	}
 
-	// 3-8) Image pick handlers
+	// Image pick
 	function handlePickImage() {
-		if (Platform.OS === "web") {
-			pickFromLibrary();
-			return;
-		}
+		if (Platform.OS === "web") return void pickFromLibrary();
 		Alert.alert("사진 등록", "사진을 불러올 방법을 선택하세요.", [
 			{ text: "사진 찍기", onPress: takePhoto },
 			{ text: "앨범 선택", onPress: pickFromLibrary },
 			{ text: "취소", style: "cancel" },
 		]);
 	}
-
 	async function pickFromLibrary() {
 		const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-		if (status !== "granted") {
-			Alert.alert("권한 필요", "앨범 접근 권한을 허용해주세요.");
-			return;
-		}
+		if (status !== "granted") return Alert.alert("권한 필요", "앨범 접근 권한을 허용해주세요.");
 		setBusy(true);
 		try {
 			const res = await ImagePicker.launchImageLibraryAsync({
@@ -124,64 +107,51 @@ export default function PlantNew() {
 				setResult(r);
 				setTimeout(() => setResultVisible(true), 80);
 			}
-		} finally {
-			setBusy(false);
-		}
+		} finally { setBusy(false); }
 	}
-
 	async function takePhoto() {
 		const { status } = await ImagePicker.requestCameraPermissionsAsync();
-		if (status !== "granted") {
-			Alert.alert("권한 필요", "카메라 권한을 허용해주세요.");
-			return;
-		}
+		if (status !== "granted") return Alert.alert("권한 필요", "카메라 권한을 허용해주세요.");
 		setBusy(true);
 		try {
-			const res = await ImagePicker.launchCameraAsync({
-				allowsEditing: true, quality: 0.9, aspect: [1, 1],
-			});
+			const res = await ImagePicker.launchCameraAsync({ allowsEditing: true, quality: 0.9, aspect: [1, 1] });
 			if (!res.canceled && res.assets?.[0]?.uri) {
 				setImageUri(res.assets[0].uri);
 				const r = mockClassify(res.assets[0].uri);
 				setResult(r);
 				setTimeout(() => setResultVisible(true), 80);
 			}
-		} finally {
-			setBusy(false);
-		}
+		} finally { setBusy(false); }
 	}
 
-	// 3-9) Submit
+	// Submit
 	function handleSubmit() {
 		if (!isAllFilled) return;
-		if (!isDateLike) {
-			Alert.alert("날짜 형식 확인", "날짜는 YYYY-MM-DD 형식으로 입력해주세요.");
-			return;
-		}
+		if (!isDateLike) return Alert.alert("날짜 형식 확인", "날짜는 YYYY-MM-DD 형식으로 입력해주세요.");
+		Keyboard.dismiss();
 		Alert.alert("등록 완료", "새 식물이 등록되었습니다! (로컬 처리 가정)", [
 			{ text: "확인", onPress: () => router.replace("/(page)/home") },
 		]);
 	}
 
-	// 3-10) Render
+	// Render
 	return (
-		<View style={[styles.container, { backgroundColor: theme.bg }]}>
+		<KeyboardAvoidingView
+			style={{ flex: 1, backgroundColor: theme.bg }}
+			behavior={Platform.select({ ios: "padding", android: "height" })}  // ← 동일화
+			keyboardVerticalOffset={topOffset}
+		>
 			<ScrollView
 				ref={scrollRef}
-				style={{ flex: 1 }}
-				// 살짝 터치로 키보드가 바로 닫히지 않게
-				keyboardDismissMode="none"
-				keyboardShouldPersistTaps="always"
-				// 스크롤이 버튼에 가리지 않도록: 고정바 + 키보드 높이만큼 여백
-				contentContainerStyle={{ paddingBottom: BASE_BAR_HEIGHT + paddingBottom }}
-				scrollIndicatorInsets={{ bottom: BASE_BAR_HEIGHT }}
+				keyboardDismissMode={Platform.select({ ios: "interactive", android: "none" })} // ← 스치면 내려가지 않게
+				keyboardShouldPersistTaps="handled" // ← 인풋 터치 유지
 			>
 				{/* 사진 */}
 				<View style={styles.photoBox}>
 					<Pressable
 						onPress={handlePickImage}
 						disabled={busy}
-						onStartShouldSetResponder={() => false} // 스크롤 제스처 우선
+						onStartShouldSetResponder={() => false}
 						style={[styles.photoPlaceholder, { borderColor: theme.border, backgroundColor: theme.graybg }]}
 					>
 						{imageUri ? (
@@ -199,7 +169,6 @@ export default function PlantNew() {
 						)}
 					</Pressable>
 
-					{/* 1단계 로딩 오버레이 */}
 					{busy && (
 						<View style={styles.busyOverlay}>
 							<ActivityIndicator size="large" />
@@ -210,10 +179,7 @@ export default function PlantNew() {
 				{/* 입력들 */}
 				<View style={styles.inputArea}>
 					{/* 품종 분류 */}
-					<View
-						style={styles.field}
-						onLayout={(e) => onFieldLayout("species", e.nativeEvent.layout.y)}
-					>
+					<View style={styles.field} onLayout={(e) => onFieldLayout("species", e.nativeEvent.layout.y)}>
 						<Text style={[styles.sectionLabel, { color: theme.text }]}>품종 분류</Text>
 						<TextInput
 							placeholder="직접입력 (예: 몬스테라)"
@@ -234,10 +200,7 @@ export default function PlantNew() {
 					</View>
 
 					{/* 별명 */}
-					<View
-						style={styles.field}
-						onLayout={(e) => onFieldLayout("nickname", e.nativeEvent.layout.y)}
-					>
+					<View style={styles.field} onLayout={(e) => onFieldLayout("nickname", e.nativeEvent.layout.y)}>
 						<Text style={[styles.sectionLabel, { color: theme.text }]}>내 식물 별명</Text>
 						<TextInput
 							placeholder="예: 몬몬이"
@@ -250,10 +213,7 @@ export default function PlantNew() {
 					</View>
 
 					{/* 키우기 시작한 날 */}
-					<View
-						style={styles.field}
-						onLayout={(e) => onFieldLayout("startedAt", e.nativeEvent.layout.y)}
-					>
+					<View style={styles.field} onLayout={(e) => onFieldLayout("startedAt", e.nativeEvent.layout.y)}>
 						<Text style={[styles.sectionLabel, { color: theme.text }]}>키우기 시작한 날</Text>
 						<TextInput
 							placeholder="YYYY-MM-DD"
@@ -269,28 +229,25 @@ export default function PlantNew() {
 							<Text style={styles.warn}>YYYY-MM-DD 형식으로 입력해주세요.</Text>
 						)}
 					</View>
+				
+					{/* 하단 고정 버튼 (키보드 높이만큼 자동 상승) */}
+					<View style={ styles.bottomBar }>
+						<Pressable
+							onPress={() => { Keyboard.dismiss(); router.replace("/(page)/home"); }}
+							style={[styles.cancelBtn, { borderColor: theme.border }]}
+						>
+							<Text style={[styles.cancelText, { color: theme.text }]}>취소</Text>
+						</Pressable>
+						<Pressable
+							disabled={!isAllFilled || !isDateLike}
+							onPress={handleSubmit}
+							style={[styles.submitBtn, { backgroundColor: !isAllFilled || !isDateLike ? theme.graybg : theme.primary }]}
+						>
+							<Text style={[styles.submitText, { color: "#fff" }]}>등록하기</Text>
+						</Pressable>
+					</View>
 				</View>
 			</ScrollView>
-
-			{/* 하단 고정 버튼 영역 */}
-			<View
-				style={[
-					styles.bottomBar,
-					{ backgroundColor: theme.bg, marginBottom: keyboardVisible ? paddingBottom : 0 },
-				]}
-			>
-				<Pressable onPress={() => router.replace("/(page)/home")} style={[styles.cancelBtn, { borderColor: theme.border }]}>
-					<Text style={[styles.cancelText, { color: theme.text }]}>취소</Text>
-				</Pressable>
-
-				<Pressable
-					disabled={!isAllFilled || !isDateLike}
-					onPress={handleSubmit}
-					style={[styles.submitBtn, { backgroundColor: !isAllFilled || !isDateLike ? theme.graybg : theme.primary }]}
-				>
-					<Text style={[styles.submitText, { color: '#fff' }]}>등록하기</Text>
-				</Pressable>
-			</View>
 
 			{/* 공통 Result Modal */}
 			<ClassifierResultModal
@@ -300,7 +257,7 @@ export default function PlantNew() {
 				onClose={() => setResultVisible(false)}
 				onRetake={handlePickImage}
 			/>
-		</View>
+		</KeyboardAvoidingView>
 	);
 }
 
@@ -317,31 +274,19 @@ const styles = StyleSheet.create({
 	photo: { position: "absolute", left: 0, top: 0, width: "100%", height: 260, resizeMode: "cover" },
 	photoPlaceholder: { width: "100%", height: 260, alignItems: "center", justifyContent: "center" },
 
-	// 1단계 로딩 오버레이
 	busyOverlay: {
-		position: "absolute",
-		left: 0, right: 0, top: 0, bottom: 0,
-		alignItems: "center",
-		justifyContent: "center",
-		backgroundColor: "rgba(0,0,0,0.08)",
-		borderRadius: 12,
+		position: "absolute", left: 0, right: 0, top: 0, bottom: 0,
+		alignItems: "center", justifyContent: "center",
+		backgroundColor: "rgba(0,0,0,0.08)", borderRadius: 12,
 	},
 
 	inputArea: { paddingHorizontal: 24 },
 	field: { marginTop: 24 },
-	input: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 12 },
+	input: { height:50, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 12 },
 	notice: { fontSize: 12, marginTop: 6 },
 	warn: { fontSize: 12, marginTop: 6, color: "#d93025" },
+	bottomBar: { flexDirection: "row", gap: 8, alignItems: "center", marginTop:40,},
 
-	bottomBar: {
-		position: "absolute",
-		left: 0,
-		right: 0,
-		bottom: 0,
-		flexDirection: "row",
-		gap: 8,
-		padding: 12,
-	},
 	cancelBtn: { flex: 1, borderWidth: 1, borderRadius: 12, alignItems: "center", justifyContent: "center", paddingVertical: 14 },
 	cancelText: { fontSize: 15, fontWeight: "600" },
 	submitBtn: { flex: 2, borderRadius: 12, alignItems: "center", justifyContent: "center", paddingVertical: 14 },

@@ -314,7 +314,7 @@ const styles = StyleSheet.create({
 	kvVal: { fontSize: 14, fontWeight: "500" },
 
 	// Inputs & small controls
-	input: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10 },
+	input: { height:50, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10 },
 	inputSmall: { width: 80 },
 	unit: { fontSize: 14 },
 
