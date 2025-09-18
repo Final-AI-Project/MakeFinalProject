@@ -26,15 +26,19 @@ create table user_plant (
 -- meet_day : 만난 날
 
 create table diary (
-	diary_id int auto_increment primary key,
+	idx int auto_increment primary key,
     user_id varchar(100) not null,
     user_title varchar(500) not null,
     img_url varchar(300),
     user_content text,
     hashtag varchar(1000),
-    plant_content text,
-    weather varchar(10),
+    plant_nickname varchar(100),
+    plant_species varchar(100),
+    plant_reply text,
+    weather varchar(50),
+    weather_icon varchar(300),
     created_at datetime,
+    updated_at datetime,
     
     foreign key (user_id) references users(user_id) on delete cascade on update cascade
 );
@@ -42,9 +46,13 @@ create table diary (
 -- user_title : 사용자가 직접 작성하는 일기 제목
 -- user_content : 일기 내용
 -- hashtag : 해시태그
--- plant_content : LLM이 작성하는 일기 내용
+-- plant_nickname : 식물별명
+-- plant_species : 식물종류
+-- plant_reply : LLM이 작성하는 식물의 답변
 -- weather : 작성일 기준 날씨
--- date : 작성일
+-- weather_icon : 날씨 아이콘 URL
+-- created_at : 작성일
+-- updated_at : 수정일
 
 create table pest_wiki (
 	idx int auto_increment primary key,

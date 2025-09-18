@@ -1,8 +1,8 @@
 import aiomysql
 from typing import List, Optional
 from datetime import datetime
-from ..core.database import get_db_connection
-from ..schemas.plant_detail import (
+from core.database import get_db_connection
+from schemas.plant_detail import (
     PlantDetailResponse, 
     PlantDiaryResponse, 
     PlantPestRecordResponse,

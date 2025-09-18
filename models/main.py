@@ -338,21 +338,36 @@ async def classify_disease(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"병충해/질병 분류 중 오류가 발생했습니다: {str(e)}")
 
-# -------------------------- LLM 처리 API (비활성화됨)
+# -------------------------- LLM 처리 API
+from llm.src.orchestrator import plant_talk
+
 @app.post("/llm")
 async def process_with_llm(
-    text: str
+    species: str,
+    user_text: str,
+    moisture: float = None
 ):
     """
-    LLM을 사용한 텍스트 처리 (식물 관련 질문 답변)
-    (현재 비활성화됨)
+    LLM을 사용한 식물 대화 처리
     """
-    return JSONResponse(content={
-        'success': False,
-        'message': 'LLM 기능이 현재 비활성화되어 있습니다.',
-        'error': 'llm_disabled',
-        'note': 'LLM 모델 구현 후 재활성화 예정입니다.'
-    })
+    try:
+        result = plant_talk(species, user_text, moisture)
+        
+        return JSONResponse(content={
+            'success': True,
+            'message': 'LLM 처리 완료',
+            'mode': result.mode,
+            'species': result.species,
+            'state': result.state,
+            'reply': result.reply
+        })
+        
+    except Exception as e:
+        return JSONResponse(content={
+            'success': False,
+            'message': f'LLM 처리 중 오류가 발생했습니다: {str(e)}',
+            'error': 'llm_processing_error'
+        })
 
 # -------------------------- 헬스 체크 API
 @app.get("/")

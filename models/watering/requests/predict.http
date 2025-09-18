@@ -1,0 +1,22 @@
+POST http://localhost:8000/predict/1
+Content-Type: application/json
+
+{
+  "history": [
+    { "ts": 1726602000000, "soil_moist_pct": 32.0 },
+    { "ts": 1726605600000, "soil_moist_pct": 31.6 },
+    { "ts": 1726609200000, "soil_moist_pct": 31.1 },
+    { "ts": 1726612800000, "soil_moist_pct": 30.7 },
+    { "ts": 1726616400000, "soil_moist_pct": 30.3 },
+    { "ts": 1726620000000, "soil_moist_pct": 29.9 },
+    { "ts": 1726623600000, "soil_moist_pct": 29.6 },
+    { "ts": 1726627200000, "soil_moist_pct": 29.2 },
+    { "ts": 1726630800000, "soil_moist_pct": 28.9 },
+    { "ts": 1726634400000, "soil_moist_pct": 28.6 },
+    { "ts": 1726638000000, "soil_moist_pct": 28.3 },
+    { "ts": 1726641600000, "soil_moist_pct": 28.1 }
+  ],
+  "forecast": [],  
+  // 무시됨 (서버가 위치 기반으로 채움)
+  "meta": { "plant_type":"generic", "pot_diameter_cm":14, "pot_height_cm":12, "media_type":"peat_coco_perlite", "theta_min_pct":18.0 }
+}
