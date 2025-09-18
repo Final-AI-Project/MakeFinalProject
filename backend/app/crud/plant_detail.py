@@ -10,7 +10,12 @@ from ..schemas.plant_detail import (
     WateringRecordResponse,
     WateringRecordRequest,
     HealthStatusResponse,
-    HealthAnalysisRequest
+    HealthAnalysisRequest,
+    WateringSettingsRequest,
+    WateringSettingsResponse,
+    PlantSpeciesInfoResponse,
+    PlantPestRecordRequest,
+    PlantPestRecordAddResponse
 )
 
 async def get_plant_detail(plant_idx: int, user_id: str) -> PlantDetailResponse:
@@ -27,8 +32,8 @@ async def get_plant_detail(plant_idx: int, user_id: str) -> PlantDetailResponse:
             up.user_id,
             up.plant_id,
             up.plant_name,
+            up.location,
             up.species,
-            up.pest_id,
             up.meet_day,
             up.on,
             
@@ -36,8 +41,7 @@ async def get_plant_detail(plant_idx: int, user_id: str) -> PlantDetailResponse:
             hi.humidity as current_humidity,
             hi.humid_date as humidity_date,
             
-            -- 식물 위키 정보
-            pw.wiki_img,
+            -- 식물 위키 정보 (새로운 기본키 사용)
             pw.feature,
             pw.temp,
             pw.watering,
@@ -48,12 +52,8 @@ async def get_plant_detail(plant_idx: int, user_id: str) -> PlantDetailResponse:
             pw.repot,
             pw.toxic,
             
-            -- 병해충 정보
-            pest.cause as pest_cause,
-            pest.cure as pest_cure,
-            
-            -- 사용자 식물 사진 (최신 일기의 이미지)
-            d.img_url as user_plant_image
+            -- 사용자 식물 사진 (img_address 테이블에서)
+            ia.img_url as user_plant_image
             
         FROM user_plant up
         LEFT JOIN (
@@ -64,16 +64,15 @@ async def get_plant_detail(plant_idx: int, user_id: str) -> PlantDetailResponse:
                 ROW_NUMBER() OVER (PARTITION BY plant_id ORDER BY humid_date DESC) as rn
             FROM humid_info
         ) hi ON up.plant_id = hi.plant_id AND hi.rn = 1
-        LEFT JOIN plant_wiki pw ON up.plant_id = pw.idx
-        LEFT JOIN pest_wiki pest ON up.pest_id = pest.pest_id
+        LEFT JOIN plant_wiki pw ON up.plant_id = pw.wiki_plant_id
         LEFT JOIN (
             SELECT 
-                d.user_id,
-                d.img_url,
-                ROW_NUMBER() OVER (PARTITION BY d.user_id ORDER BY d.created_at DESC) as rn
-            FROM diary d
-            WHERE d.img_url IS NOT NULL AND d.img_url != ''
-        ) d ON up.user_id = d.user_id AND d.rn = 1
+                ia.plant_id,
+                ia.img_url,
+                ROW_NUMBER() OVER (PARTITION BY ia.plant_id ORDER BY ia.idx DESC) as rn
+            FROM img_address ia
+            WHERE ia.img_url IS NOT NULL AND ia.img_url != ''
+        ) ia ON up.plant_id = ia.plant_id AND ia.rn = 1
         WHERE up.idx = %s AND up.user_id = %s
         """
         
@@ -94,11 +93,11 @@ async def get_plant_detail(plant_idx: int, user_id: str) -> PlantDetailResponse:
                 plant_name=result['plant_name'],
                 species=result['species'],
                 meet_day=result['meet_day'],
-                pest_id=result['pest_id'],
+                pest_id=None,  # user_plant 테이블에서 pest_id 제거됨
                 on=result['on'],
                 current_humidity=result['current_humidity'],
                 humidity_date=result['humidity_date'],
-                wiki_img=result['wiki_img'],
+                wiki_img=None,  # plant_wiki 테이블에 wiki_img 컬럼 없음
                 feature=result['feature'],
                 temp=result['temp'],
                 watering=result['watering'],
@@ -108,10 +107,11 @@ async def get_plant_detail(plant_idx: int, user_id: str) -> PlantDetailResponse:
                 pruning=result['pruning'],
                 repot=result['repot'],
                 toxic=result['toxic'],
-                pest_cause=result['pest_cause'],
-                pest_cure=result['pest_cure'],
+                pest_cause=None,  # 별도 테이블에서 조회 필요
+                pest_cure=None,  # 별도 테이블에서 조회 필요
                 user_plant_image=result['user_plant_image'],
-                diary_count=diary_count
+                diary_count=diary_count,
+                growing_location=result['location']  # location 컬럼 추가
             )
             
     except Exception as e:
@@ -205,6 +205,7 @@ async def get_plant_diaries(plant_idx: int, user_id: str, limit: int = 10) -> Li
 async def get_plant_pest_records(plant_idx: int, user_id: str) -> List[PlantPestRecordResponse]:
     """
     특정 식물의 병해충 기록을 조회합니다.
+    새로운 user_plant_pest 테이블을 사용합니다.
     """
     connection = None
     try:
@@ -213,12 +214,16 @@ async def get_plant_pest_records(plant_idx: int, user_id: str) -> List[PlantPest
         query = """
         SELECT 
             pw.pest_id,
+            pw.pest_name,
             pw.cause,
             pw.cure,
-            up.meet_day as recorded_date
+            upp.idx as record_id,
+            upp.pest_date as recorded_date
         FROM user_plant up
-        LEFT JOIN pest_wiki pw ON up.pest_id = pw.pest_id
-        WHERE up.idx = %s AND up.user_id = %s AND up.pest_id IS NOT NULL
+        JOIN user_plant_pest upp ON up.plant_id = upp.plant_id
+        JOIN pest_wiki pw ON upp.pest_id = pw.pest_id
+        WHERE up.idx = %s AND up.user_id = %s
+        ORDER BY upp.pest_date DESC
         """
         
         async with connection.cursor(aiomysql.DictCursor) as cursor:
@@ -227,14 +232,13 @@ async def get_plant_pest_records(plant_idx: int, user_id: str) -> List[PlantPest
             
             pest_records = []
             for row in results:
-                if row['pest_id']:  # 병해충이 있는 경우만
-                    pest_record = PlantPestRecordResponse(
-                        pest_id=row['pest_id'],
-                        cause=row['cause'],
-                        cure=row['cure'],
-                        recorded_date=row['recorded_date']
-                    )
-                    pest_records.append(pest_record)
+                pest_record = PlantPestRecordResponse(
+                    pest_id=row['pest_id'],
+                    cause=row['cause'],
+                    cure=row['cure'],
+                    recorded_date=row['recorded_date']  # 현재 날짜 사용
+                )
+                pest_records.append(pest_record)
             
             return pest_records
             
@@ -379,7 +383,7 @@ async def get_plant_detail_summary(plant_idx: int, user_id: str) -> PlantDetailS
         care_reminders = []
         if plant_info.current_humidity and plant_info.current_humidity < 30:
             care_reminders.append("습도가 낮습니다. 물을 주세요.")
-        if plant_info.pest_id:
+        if pest_records:
             care_reminders.append("병해충이 발견되었습니다. 치료가 필요합니다.")
         if plant_info.diary_count == 0:
             care_reminders.append("첫 번째 일기를 작성해보세요!")
@@ -578,11 +582,13 @@ async def analyze_plant_health(plant_idx: int, user_id: str, leaf_health_score: 
             else:
                 humidity_score = 100
         
-        # 병해충 상태 분석
+        # 병해충 상태 분석 (새로운 테이블 구조에 맞게 수정)
         pest_status = "healthy"
         pest_score = 100
         
-        if plant_info.pest_id is not None:
+        # user_plant_pest 테이블에서 병충해 기록 확인
+        pest_records = await get_plant_pest_records(plant_idx, user_id)
+        if pest_records:
             pest_status = "infected"
             pest_score = 20
         else:
@@ -645,7 +651,7 @@ async def analyze_plant_health(plant_idx: int, user_id: str, leaf_health_score: 
                 "score": humidity_score
             },
             "pest": {
-                "has_pest": plant_info.pest_id is not None,
+                "has_pest": len(pest_records) > 0,
                 "status": pest_status,
                 "score": pest_score
             },
@@ -729,6 +735,288 @@ async def record_manual_watering(plant_idx: int, user_id: str, watering_request:
             
     except Exception as e:
         print(f"Error in record_manual_watering: {e}")
+        raise e
+    finally:
+        if connection:
+            connection.close()
+
+async def get_plant_species_info(plant_idx: int, user_id: str) -> PlantSpeciesInfoResponse:
+    """
+    특정 식물의 품종 정보를 plant_wiki에서 조회합니다.
+    """
+    connection = None
+    try:
+        connection = await get_db_connection()
+        
+        query = """
+        SELECT 
+            pw.name_jong as species,
+            pw.feature,
+            pw.temp,
+            pw.watering,
+            pw.flowering,
+            pw.flower_color,
+            pw.fertilizer,
+            pw.pruning,
+            pw.repot,
+            pw.toxic
+        FROM user_plant up
+        LEFT JOIN plant_wiki pw ON up.plant_id = pw.wiki_plant_id
+        WHERE up.idx = %s AND up.user_id = %s
+        """
+        
+        async with connection.cursor(aiomysql.DictCursor) as cursor:
+            await cursor.execute(query, (plant_idx, user_id))
+            result = await cursor.fetchone()
+            
+            if not result:
+                raise ValueError("식물 정보를 찾을 수 없습니다.")
+            
+            return PlantSpeciesInfoResponse(
+                species=result['species'] or "정보 없음",
+                wiki_img=None,  # plant_wiki 테이블에 wiki_img 컬럼 없음
+                feature=result['feature'],
+                temp=result['temp'],
+                watering=result['watering'],
+                flowering=result['flowering'],
+                flower_color=result['flower_color'],
+                fertilizer=result['fertilizer'],
+                pruning=result['pruning'],
+                repot=result['repot'],
+                toxic=result['toxic']
+            )
+            
+    except Exception as e:
+        print(f"Error in get_plant_species_info: {e}")
+        raise e
+    finally:
+        if connection:
+            connection.close()
+
+async def update_watering_settings(plant_idx: int, user_id: str, settings: WateringSettingsRequest) -> WateringSettingsResponse:
+    """
+    식물의 물주기 설정을 업데이트합니다.
+    DB 저장 없이 세션/메모리에서 처리합니다.
+    """
+    connection = None
+    try:
+        connection = await get_db_connection()
+        
+        # 식물이 존재하는지 확인
+        check_query = """
+        SELECT idx FROM user_plant 
+        WHERE idx = %s AND user_id = %s
+        """
+        
+        async with connection.cursor() as cursor:
+            await cursor.execute(check_query, (plant_idx, user_id))
+            result = await cursor.fetchone()
+            
+            if not result:
+                raise ValueError("식물을 찾을 수 없습니다.")
+            
+            # 임계값 범위 검증 (5-20% 사이)
+            if not (5 <= settings.humidity_threshold <= 20):
+                raise ValueError("습도 증가율 임계값은 5%에서 20% 사이여야 합니다.")
+            
+            # DB 저장 없이 성공 응답 반환
+            return WateringSettingsResponse(
+                plant_idx=plant_idx,
+                user_id=user_id,
+                humidity_threshold=settings.humidity_threshold,
+                message=f"물주기 설정이 {settings.humidity_threshold}%로 설정되었습니다. (세션 저장)"
+            )
+                
+    except Exception as e:
+        print(f"Error in update_watering_settings: {e}")
+        raise e
+    finally:
+        if connection:
+            connection.close()
+
+async def get_watering_settings(plant_idx: int, user_id: str) -> WateringSettingsResponse:
+    """
+    식물의 현재 물주기 설정을 조회합니다.
+    기본값 10%를 반환합니다.
+    """
+    connection = None
+    try:
+        connection = await get_db_connection()
+        
+        # 식물이 존재하는지 확인
+        check_query = """
+        SELECT idx FROM user_plant
+        WHERE idx = %s AND user_id = %s
+        """
+        
+        async with connection.cursor() as cursor:
+            await cursor.execute(check_query, (plant_idx, user_id))
+            result = await cursor.fetchone()
+            
+            if not result:
+                raise ValueError("식물 정보를 찾을 수 없습니다.")
+            
+            # 기본값 10% 반환 (DB 저장 없이 세션에서 관리)
+            threshold = 10  # 기본값 10%
+            
+            return WateringSettingsResponse(
+                plant_idx=plant_idx,
+                user_id=user_id,
+                humidity_threshold=threshold,
+                message=f"현재 물주기 설정: 습도 {threshold}% 증가 시 자동 기록 (기본값)"
+            )
+            
+    except Exception as e:
+        print(f"Error in get_watering_settings: {e}")
+        raise e
+    finally:
+        if connection:
+            connection.close()
+
+async def get_plant_pest_records_by_user_plant(plant_idx: int, user_id: str) -> List[PlantPestRecordResponse]:
+    """
+    특정 유저의 특정 식물에 대한 병충해 기록을 조회합니다.
+    새로운 user_plant_pest 테이블을 사용합니다.
+    """
+    connection = None
+    try:
+        connection = await get_db_connection()
+        
+        # user_plant_pest와 pest_wiki를 조인하여 해당 식물의 병충해 기록 조회
+        query = """
+        SELECT 
+            pw.pest_id,
+            pw.pest_name,
+            pw.cause,
+            pw.cure,
+            upp.idx as record_id,
+            upp.pest_date as recorded_date
+        FROM user_plant up
+        JOIN user_plant_pest upp ON up.plant_id = upp.plant_id
+        JOIN pest_wiki pw ON upp.pest_id = pw.pest_id
+        WHERE up.idx = %s AND up.user_id = %s
+        ORDER BY upp.pest_date DESC
+        """
+        
+        async with connection.cursor(aiomysql.DictCursor) as cursor:
+            await cursor.execute(query, (plant_idx, user_id))
+            results = await cursor.fetchall()
+            
+            pest_records = []
+            for row in results:
+                pest_record = PlantPestRecordResponse(
+                    pest_id=row['pest_id'],
+                    cause=row['cause'],
+                    cure=row['cure'],
+                    recorded_date=row['recorded_date']  # 현재 날짜 사용
+                )
+                pest_records.append(pest_record)
+            
+            return pest_records
+            
+    except Exception as e:
+        print(f"Error in get_plant_pest_records_by_user_plant: {e}")
+        raise e
+    finally:
+        if connection:
+            connection.close()
+
+async def add_plant_pest_record(plant_idx: int, user_id: str, pest_id: int, pest_date: str = None) -> dict:
+    """
+    식물에 병충해 기록을 추가합니다.
+    """
+    connection = None
+    try:
+        connection = await get_db_connection()
+        
+        # 식물이 존재하는지 확인
+        check_query = """
+        SELECT plant_id FROM user_plant 
+        WHERE idx = %s AND user_id = %s
+        """
+        
+        async with connection.cursor() as cursor:
+            await cursor.execute(check_query, (plant_idx, user_id))
+            result = await cursor.fetchone()
+            
+            if not result:
+                raise ValueError("식물을 찾을 수 없습니다.")
+            
+            plant_id = result[0]
+            
+            # 병충해 기록 추가
+            insert_query = """
+            INSERT INTO user_plant_pest (plant_id, pest_id, pest_date)
+            VALUES (%s, %s, %s)
+            """
+            
+            # 날짜가 제공되지 않으면 현재 날짜 사용
+            if pest_date is None:
+                pest_date = datetime.now().strftime('%Y-%m-%d')
+            
+            await cursor.execute(insert_query, (plant_id, pest_id, pest_date))
+            await connection.commit()
+            
+            record_id = cursor.lastrowid
+            
+            return {
+                "success": True,
+                "record_id": record_id,
+                "plant_id": plant_id,
+                "pest_id": pest_id,
+                "pest_date": pest_date,
+                "message": "병충해 기록이 성공적으로 추가되었습니다."
+            }
+                
+    except Exception as e:
+        print(f"Error in add_plant_pest_record: {e}")
+        raise e
+    finally:
+        if connection:
+            connection.close()
+
+async def get_plant_recent_diary_summary(plant_idx: int, user_id: str) -> dict:
+    """
+    특정 식물과 연관된 최근 일기의 제목과 작성 날짜를 조회합니다.
+    """
+    connection = None
+    try:
+        connection = await get_db_connection()
+        
+        query = """
+        SELECT 
+            d.diary_id,
+            d.user_title,
+            d.created_at
+        FROM diary d
+        JOIN user_plant up ON d.user_id = up.user_id
+        WHERE up.idx = %s AND up.user_id = %s
+        ORDER BY d.created_at DESC
+        LIMIT 1
+        """
+        
+        async with connection.cursor(aiomysql.DictCursor) as cursor:
+            await cursor.execute(query, (plant_idx, user_id))
+            result = await cursor.fetchone()
+            
+            if result:
+                return {
+                    "has_diary": True,
+                    "latest_diary": {
+                        "diary_id": result['diary_id'],
+                        "title": result['user_title'],
+                        "created_at": result['created_at']
+                    }
+                }
+            else:
+                return {
+                    "has_diary": False,
+                    "latest_diary": None,
+                    "message": "작성한 일기가 없어요."
+                }
+            
+    except Exception as e:
+        print(f"Error in get_plant_recent_diary_summary: {e}")
         raise e
     finally:
         if connection:

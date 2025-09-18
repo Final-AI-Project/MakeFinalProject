@@ -10,7 +10,7 @@ class PlantDetailResponse(BaseModel):
     plant_name: str  # 별명
     species: Optional[str] = None  # 품종
     meet_day: Optional[datetime] = None  # 키우기 시작한날
-    pest_id: Optional[int] = None  # 건강상태 (병해충 여부)
+    pest_id: Optional[int] = None  # 건강상태 (병해충 여부) - 더 이상 사용하지 않음
     on: Optional[str] = None
     
     # 습도 정보
@@ -19,7 +19,7 @@ class PlantDetailResponse(BaseModel):
     humidity_history: Optional[List[dict]] = None
     
     # 식물 위키 정보 (품종 정보)
-    wiki_img: Optional[str] = None
+    wiki_img: Optional[str] = None  # plant_wiki 테이블에 없음
     feature: Optional[str] = None
     temp: Optional[str] = None
     watering: Optional[str] = None
@@ -30,7 +30,7 @@ class PlantDetailResponse(BaseModel):
     repot: Optional[str] = None
     toxic: Optional[str] = None
     
-    # 병해충 정보
+    # 병해충 정보 (별도 테이블에서 조회)
     pest_cause: Optional[str] = None
     pest_cure: Optional[str] = None
     
@@ -40,7 +40,7 @@ class PlantDetailResponse(BaseModel):
     # 일기 개수
     diary_count: int = 0
     
-    # 키우는 장소 + 날씨 (향후 확장용)
+    # 키우는 장소 (location 컬럼 추가)
     growing_location: Optional[str] = None
     weather: Optional[str] = None
 
@@ -126,3 +126,46 @@ class HealthAnalysisRequest(BaseModel):
     user_id: str
     leaf_health_score: Optional[float] = None  # AI 모델에서 받은 잎 건강 점수
     force_refresh: bool = False  # 강제 새로고침 여부
+
+class WateringSettingsRequest(BaseModel):
+    """물주기 설정 요청 스키마"""
+    plant_idx: int
+    user_id: str
+    humidity_threshold: int = 10  # 습도 증가율 임계값 (기본 10%, 범위: 5-20%)
+
+class WateringSettingsResponse(BaseModel):
+    """물주기 설정 응답 스키마"""
+    plant_idx: int
+    user_id: str
+    humidity_threshold: int
+    message: str
+
+class PlantSpeciesInfoResponse(BaseModel):
+    """식물 품종 정보 응답 스키마"""
+    species: str
+    wiki_img: Optional[str] = None
+    feature: Optional[str] = None
+    temp: Optional[str] = None
+    watering: Optional[str] = None
+    flowering: Optional[str] = None
+    flower_color: Optional[str] = None
+    fertilizer: Optional[str] = None
+    pruning: Optional[str] = None
+    repot: Optional[str] = None
+    toxic: Optional[str] = None
+
+class PlantPestRecordRequest(BaseModel):
+    """병충해 기록 추가 요청 스키마"""
+    plant_idx: int
+    user_id: str
+    pest_id: int
+    pest_date: Optional[str] = None  # YYYY-MM-DD 형식, 없으면 현재 날짜 사용
+
+class PlantPestRecordAddResponse(BaseModel):
+    """병충해 기록 추가 응답 스키마"""
+    success: bool
+    record_id: int
+    plant_id: int
+    pest_id: int
+    pest_date: str
+    message: str
