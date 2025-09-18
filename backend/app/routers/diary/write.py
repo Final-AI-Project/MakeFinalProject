@@ -45,14 +45,23 @@ async def create_diary(
     plant_species: Optional[str] = Form(None),
     hashtag: Optional[str] = Form(None),
     image: Optional[UploadFile] = File(None),
+    # 프론트엔드에서 받은 날씨 정보 (선택사항)
+    weather_condition: Optional[str] = Form(None),
+    weather_temperature: Optional[float] = Form(None),
+    weather_humidity: Optional[float] = Form(None),
+    weather_icon_url: Optional[str] = Form(None),
+    # 식물 건강상태 정보 (선택사항)
+    plant_health_status: Optional[str] = Form(None),
+    plant_disease_status: Optional[str] = Form(None),
+    plant_moisture: Optional[float] = Form(None),
     user: Dict[str, Any] = Depends(get_current_user),
     db: tuple[aiomysql.Connection, aiomysql.DictCursor] = Depends(get_db),
 ):
     """
     새 일기 생성
     - 사진 업로드 지원
-    - 날씨 자동 입력
-    - 식물 답변 자동 생성
+    - 날씨 정보 처리 (프론트엔드에서 받거나 자동으로 가져오기)
+    - 식물 답변 자동 생성 (건강상태, 병충해, 습도 정보 포함)
     """
     try:
         # 이미지 저장
@@ -60,17 +69,38 @@ async def create_diary(
         if image:
             img_url = await save_uploaded_image(image, "diaries")
         
-        # 날씨 정보 가져오기 (사용자 위치 기반, 현재는 더미)
-        weather_data = await weather_client.get_weather("SEOUL_KR")
-        weather = weather_data.get("condition")
-        weather_icon = weather_data.get("icon_url")
+        # 날씨 정보 처리 (프론트엔드에서 받은 데이터 우선)
+        if weather_condition and weather_icon_url:
+            # 프론트엔드에서 받은 날씨 정보 사용
+            weather = weather_condition
+            weather_icon = weather_icon_url
+        else:
+            # 프론트엔드에서 날씨 데이터를 받지 못한 경우 기본값 사용
+            weather_data = await weather_client.get_weather()
+            weather = weather_data.get("condition")
+            weather_icon = weather_data.get("icon_url")
         
         # 식물 답변 생성
         plant_reply = None
         if plant_species and user_content:
-            # 습도 정보는 현재 더미값 (실제로는 센서 데이터에서 가져와야 함)
-            moisture = 40.0  # 더미 습도값
-            talk_result = await plant_talk(plant_species, user_content, moisture)
+            # 습도 정보 처리 (프론트엔드에서 받거나 기본값 사용)
+            moisture = plant_moisture if plant_moisture is not None else 40.0
+            
+            # 건강상태와 병충해 정보를 LLM에 전달할 수 있도록 컨텍스트 구성
+            health_context = ""
+            if plant_health_status:
+                health_context += f"건강상태: {plant_health_status}. "
+            if plant_disease_status:
+                health_context += f"병충해 상태: {plant_disease_status}. "
+            if plant_moisture is not None:
+                health_context += f"현재 습도: {plant_moisture}%. "
+            
+            # 컨텍스트가 있으면 일기 내용에 추가
+            enhanced_content = user_content
+            if health_context:
+                enhanced_content = f"{health_context}{user_content}"
+            
+            talk_result = await plant_talk(plant_species, enhanced_content, moisture)
             plant_reply = talk_result.reply
         
         # 일기 생성
@@ -117,6 +147,15 @@ async def update_diary(
     plant_species: Optional[str] = Form(None),
     hashtag: Optional[str] = Form(None),
     image: Optional[UploadFile] = File(None),
+    # 프론트엔드에서 받은 날씨 정보 (선택사항)
+    weather_condition: Optional[str] = Form(None),
+    weather_temperature: Optional[float] = Form(None),
+    weather_humidity: Optional[float] = Form(None),
+    weather_icon_url: Optional[str] = Form(None),
+    # 식물 건강상태 정보 (선택사항)
+    plant_health_status: Optional[str] = Form(None),
+    plant_disease_status: Optional[str] = Form(None),
+    plant_moisture: Optional[float] = Form(None),
     user: Dict[str, Any] = Depends(get_current_user),
     db: tuple[aiomysql.Connection, aiomysql.DictCursor] = Depends(get_db),
 ):
@@ -167,14 +206,36 @@ async def update_diary(
             final_species = plant_species if plant_species is not None else existing_diary.plant_species
             
             if final_species:
-                moisture = 40.0  # 더미 습도값
-                talk_result = await plant_talk(final_species, final_content, moisture)
+                # 습도 정보 처리 (프론트엔드에서 받거나 기본값 사용)
+                moisture = plant_moisture if plant_moisture is not None else 40.0
+                
+                # 건강상태와 병충해 정보를 LLM에 전달할 수 있도록 컨텍스트 구성
+                health_context = ""
+                if plant_health_status:
+                    health_context += f"건강상태: {plant_health_status}. "
+                if plant_disease_status:
+                    health_context += f"병충해 상태: {plant_disease_status}. "
+                if plant_moisture is not None:
+                    health_context += f"현재 습도: {plant_moisture}%. "
+                
+                # 컨텍스트가 있으면 일기 내용에 추가
+                enhanced_content = final_content
+                if health_context:
+                    enhanced_content = f"{health_context}{final_content}"
+                
+                talk_result = await plant_talk(final_species, enhanced_content, moisture)
                 update_fields["plant_reply"] = talk_result.reply
         
-        # 날씨 정보 업데이트 (새로운 날씨로)
-        weather_data = await weather_client.get_weather("SEOUL_KR")
-        update_fields["weather"] = weather_data.get("condition")
-        update_fields["weather_icon"] = weather_data.get("icon_url")
+        # 날씨 정보 업데이트 (프론트엔드에서 받은 데이터 우선)
+        if weather_condition and weather_icon_url:
+            # 프론트엔드에서 받은 날씨 정보 사용
+            update_fields["weather"] = weather_condition
+            update_fields["weather_icon"] = weather_icon_url
+        else:
+            # 프론트엔드에서 날씨 데이터를 받지 못한 경우 기본값 사용
+            weather_data = await weather_client.get_weather()
+            update_fields["weather"] = weather_data.get("condition")
+            update_fields["weather_icon"] = weather_data.get("icon_url")
         
         # 일기 수정
         updated_diary = await diary_crud.patch(db, diary_id, **update_fields)
