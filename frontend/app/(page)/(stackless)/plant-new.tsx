@@ -2,10 +2,11 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // ① Imports
 // ─────────────────────────────────────────────────────────────────────────────
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState, useRef } from "react";
 import {
-	View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform,
-	TextInput, Pressable, Image, Alert, ActivityIndicator, TouchableOpacity,
+	View, Text, StyleSheet, ScrollView,
+	TextInput, Pressable, Image, Alert, ActivityIndicator,
+	Platform, Dimensions
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
@@ -57,9 +58,25 @@ export default function PlantNew() {
 	const [resultVisible, setResultVisible] = useState(false);
 	const [result, setResult] = useState<ClassifyResult | null>(null);
 
-	// 3-4) Validation & derived
-	const { paddingBottom, keyboardVisible } = useKeyboardPadding(45); // <- 키패드 덜 올라가서 수동으로 키운것
+	// 3-4) Keyboard/Bottom bar
+	const { paddingBottom, keyboardVisible, rawKeyboardHeight } = useKeyboardPadding(45); // 보정 +45 유지
+	const BASE_BAR_HEIGHT = 85;
 
+	// 3-5) Auto-center scroll 준비
+	const scrollRef = useRef<ScrollView>(null);
+	const fieldY = useRef<Record<string, number>>({});
+	function onFieldLayout(key: string, y: number) {
+		fieldY.current[key] = y;
+	}
+	function scrollToField(key: string, inputHeight = 56) {
+		const y = fieldY.current[key] ?? 0;
+		const screenH = Dimensions.get("window").height;
+		const visibleH = screenH - (keyboardVisible ? rawKeyboardHeight : 0);
+		const targetY = Math.max(0, y - (visibleH - inputHeight) / 2);
+		scrollRef.current?.scrollTo({ y: targetY, animated: true });
+	}
+
+	// 3-6) Derived/Validation
 	const isKnownSpecies = useMemo(
 		() => (species ? (SPECIES as readonly string[]).includes(species) : true),
 		[species]
@@ -70,7 +87,7 @@ export default function PlantNew() {
 		return /^\d{4}-\d{2}-\d{2}$/.test(startedAt);
 	}, [startedAt]);
 
-	// 3-5) Helpers
+	// 3-7) Helpers
 	function formatDateInput(text: string): string {
 		const digits = text.replace(/\D/g, "").slice(0, 8);
 		if (digits.length <= 4) return digits;
@@ -78,7 +95,7 @@ export default function PlantNew() {
 		return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6, 8)}`;
 	}
 
-	// 3-6) Image pick handlers
+	// 3-8) Image pick handlers
 	function handlePickImage() {
 		if (Platform.OS === "web") {
 			pickFromLibrary();
@@ -135,7 +152,7 @@ export default function PlantNew() {
 		}
 	}
 
-	// 3-7) Submit
+	// 3-9) Submit
 	function handleSubmit() {
 		if (!isAllFilled) return;
 		if (!isDateLike) {
@@ -147,21 +164,25 @@ export default function PlantNew() {
 		]);
 	}
 
-	// 3-8) Render
+	// 3-10) Render
 	return (
-		<View
-			style={[styles.container, { backgroundColor: theme.bg }]}
-		>
+		<View style={[styles.container, { backgroundColor: theme.bg }]}>
 			<ScrollView
-				keyboardShouldPersistTaps="handled"
-				keyboardDismissMode="interactive"
-				contentContainerStyle={{ paddingBottom }}
+				ref={scrollRef}
+				style={{ flex: 1 }}
+				// 살짝 터치로 키보드가 바로 닫히지 않게
+				keyboardDismissMode="none"
+				keyboardShouldPersistTaps="always"
+				// 스크롤이 버튼에 가리지 않도록: 고정바 + 키보드 높이만큼 여백
+				contentContainerStyle={{ paddingBottom: BASE_BAR_HEIGHT + paddingBottom }}
+				scrollIndicatorInsets={{ bottom: BASE_BAR_HEIGHT }}
 			>
 				{/* 사진 */}
 				<View style={styles.photoBox}>
 					<Pressable
 						onPress={handlePickImage}
 						disabled={busy}
+						onStartShouldSetResponder={() => false} // 스크롤 제스처 우선
 						style={[styles.photoPlaceholder, { borderColor: theme.border, backgroundColor: theme.graybg }]}
 					>
 						{imageUri ? (
@@ -190,13 +211,17 @@ export default function PlantNew() {
 				{/* 입력들 */}
 				<View style={styles.inputArea}>
 					{/* 품종 분류 */}
-					<View style={styles.field}>
+					<View
+						style={styles.field}
+						onLayout={(e) => onFieldLayout("species", e.nativeEvent.layout.y)}
+					>
 						<Text style={[styles.sectionLabel, { color: theme.text }]}>품종 분류</Text>
 						<TextInput
 							placeholder="직접입력 (예: 몬스테라)"
 							placeholderTextColor="#909090"
 							value={species}
 							onChangeText={setSpecies}
+							onFocus={() => scrollToField("species")}
 							style={[styles.input, { color: theme.text, borderColor: theme.border }]}
 						/>
 						<Text style={[styles.notice, { color: theme.text }]}>
@@ -210,25 +235,33 @@ export default function PlantNew() {
 					</View>
 
 					{/* 별명 */}
-					<View style={styles.field}>
+					<View
+						style={styles.field}
+						onLayout={(e) => onFieldLayout("nickname", e.nativeEvent.layout.y)}
+					>
 						<Text style={[styles.sectionLabel, { color: theme.text }]}>내 식물 별명</Text>
 						<TextInput
 							placeholder="예: 몬몬이"
 							placeholderTextColor="#909090"
 							value={nickname}
 							onChangeText={setNickname}
+							onFocus={() => scrollToField("nickname")}
 							style={[styles.input, { color: theme.text, borderColor: theme.border }]}
 						/>
 					</View>
 
 					{/* 키우기 시작한 날 */}
-					<View style={styles.field}>
+					<View
+						style={styles.field}
+						onLayout={(e) => onFieldLayout("startedAt", e.nativeEvent.layout.y)}
+					>
 						<Text style={[styles.sectionLabel, { color: theme.text }]}>키우기 시작한 날</Text>
 						<TextInput
 							placeholder="YYYY-MM-DD"
 							placeholderTextColor="#909090"
 							value={startedAt}
 							onChangeText={(text) => setStartedAt(formatDateInput(text))}
+							onFocus={() => scrollToField("startedAt")}
 							keyboardType="number-pad"
 							maxLength={10}
 							style={[styles.input, { color: theme.text, borderColor: theme.border }]}
@@ -241,7 +274,12 @@ export default function PlantNew() {
 			</ScrollView>
 
 			{/* 하단 고정 버튼 영역 */}
-			<View style={[styles.bottomBar, { backgroundColor: theme.bg, marginBottom: keyboardVisible ? paddingBottom : 0 }]}>
+			<View
+				style={[
+					styles.bottomBar,
+					{ backgroundColor: theme.bg, marginBottom: keyboardVisible ? paddingBottom : 0 },
+				]}
+			>
 				<Pressable onPress={() => router.replace("/(page)/home")} style={[styles.cancelBtn, { borderColor: theme.border }]}>
 					<Text style={[styles.cancelText, { color: theme.text }]}>취소</Text>
 				</Pressable>
@@ -251,7 +289,7 @@ export default function PlantNew() {
 					onPress={handleSubmit}
 					style={[styles.submitBtn, { backgroundColor: !isAllFilled || !isDateLike ? theme.graybg : theme.primary }]}
 				>
-					<Text style={[styles.submitText, { color: theme.text }]}>등록하기</Text>
+					<Text style={[styles.submitText, { color: '#fff' }]}>등록하기</Text>
 				</Pressable>
 			</View>
 
@@ -283,10 +321,7 @@ const styles = StyleSheet.create({
 	// 1단계 로딩 오버레이
 	busyOverlay: {
 		position: "absolute",
-		left: 0,
-		right: 0,
-		top: 0,
-		bottom: 0,
+		left: 0, right: 0, top: 0, bottom: 0,
 		alignItems: "center",
 		justifyContent: "center",
 		backgroundColor: "rgba(0,0,0,0.08)",
@@ -312,6 +347,7 @@ const styles = StyleSheet.create({
 	cancelText: { fontSize: 15, fontWeight: "600" },
 	submitBtn: { flex: 2, borderRadius: 12, alignItems: "center", justifyContent: "center", paddingVertical: 14 },
 	submitText: { fontWeight: "700", fontSize: 16 },
+
 	changeBadge: { position: "absolute", right: 10, bottom: 10, borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 },
 	changeBadgeText: { fontSize: 12, fontWeight: "700" },
 });
