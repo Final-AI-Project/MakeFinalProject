@@ -1,1 +1,0 @@
-# Diary router package
