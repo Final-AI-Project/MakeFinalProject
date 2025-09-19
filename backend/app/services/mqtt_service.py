@@ -9,9 +9,9 @@ from typing import Any, Dict, Optional
 
 import paho.mqtt.client as mqtt
 
-# 프로젝트 경로에 맞게 import 경로 조정:
-from core.config import settings                  # <-- app.core.config 라면 바꿔주세요
-from db.pool import get_db_connection       # 풀은 여기서 lazy-init/사용
+from core.config import settings                  
+from db.pool import get_db_connection 
+
 
 class MQTTService:
     """
@@ -23,7 +23,7 @@ class MQTTService:
         self._client.username_pw_set(settings.MQTT_USER, settings.MQTT_PASS)
 
         ctx = ssl.create_default_context()
-        ctx.load_verify_locations(settings.MQTT_CA_PATH)  # EMQX CA 권장
+        ctx.load_verify_locations(settings.MQTT_CA_PATH)  
         self._client.tls_set_context(ctx)
 
         self._client.on_connect = self._on_connect
