@@ -20,7 +20,7 @@ from repositories.medical import (
     get_related_diagnoses
 )
 from db.pool import get_db_connection
-from utils.security import get_current_user
+from services.auth_service import get_current_user
 from services.image_service import save_uploaded_image
 
 router = APIRouter(prefix="/medical", tags=["medical"])

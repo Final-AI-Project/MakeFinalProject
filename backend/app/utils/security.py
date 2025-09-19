@@ -87,23 +87,4 @@ def decode_token(token: str, *, refresh: bool = False) -> Dict[str, Any]:
     return payload
 
 
-# 현재 사용자 정보 반환
-async def get_current_user(
-        credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme), 
-) -> Dict[str, Any]:
-    
-    if credentials is None or not credentials.scheme.lower() == "bearer":
-        raise http_error("authorization_error", "인증 자격 증명이 제공되지 않았습니다.", 401)
-
-    # 토큰 검증
-    token = credentials.credentials
-    payload = decode_token(token, refresh=False)
-    user_id = payload.get("sub")
-    if not user_id:
-        raise http_error("token_invalid", "토큰이 유효하지 않습니다.", 401)
-    
-    user = storage.get_user_by_id(user_id)
-    if not user:
-        raise http_error("user_not_found", "사용자를 찾을 수 없습니다.", 404)
-    
-    return user
+# 현재 사용자 정보 반환은 services/auth_service.py의 get_current_user를 사용

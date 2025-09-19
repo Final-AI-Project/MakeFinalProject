@@ -13,7 +13,7 @@ from repositories.diary_list import (
     get_plant_diary_summary,
     get_recent_diaries
 )
-from utils.security import get_current_user
+from services.auth_service import get_current_user
 
 router = APIRouter(prefix="/diary-list", tags=["diary-list"])
 

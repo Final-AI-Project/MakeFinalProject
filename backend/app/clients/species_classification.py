@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from core.config import settings
 
 # 모델 서버 설정
-MODEL_SERVER_URL = "http://localhost:5000"
+MODEL_SERVER_URL = "http://10.151.212.165:5000"
 
 class SpeciesClassificationResult(BaseModel):
     success: bool
@@ -116,20 +116,22 @@ def get_species_korean_name(english_name: str) -> str:
     Returns:
         str: 한국어 품종명
     """
+    # cascade 모델이 실제 학습한 품종들만 매핑 (models/main.py의 CLASSES 기준)
     species_mapping = {
+        # 모델 서버의 CLASSES 배열에 정의된 품종들
         "monstera": "몬스테라",
-        "stuckyi_sansevieria": "스투키 산세베리아",
-        "zz_plant": "ZZ플랜트",
-        "cactus_succulent": "선인장/다육식물",
+        "stuckyi_sansevieria": "스투키",
+        "zz_plant": "금전수",
+        "cactus_succulent": "선인장/다육",
         "phalaenopsis": "호접란",
-        "chamaedorea": "차마에도레아",
-        "schefflera": "셰플레라",
+        "chamaedorea": "테이블야자",
+        "schefflera": "홍콩야자",
         "spathiphyllum": "스파티필럼",
-        "lady_palm": "레이디 팜",
-        "ficus_audrey": "피쿠스 오드리",
-        "olive_tree": "올리브 나무",
+        "lady_palm": "관음죽",
+        "ficus_audrey": "벵갈고무나무",
+        "olive_tree": "올리브나무",
         "dieffenbachia": "디펜바키아",
-        "boston_fern": "보스턴 고사리"
+        "boston_fern": "보스턴고사리"
     }
     
     return species_mapping.get(english_name, english_name)

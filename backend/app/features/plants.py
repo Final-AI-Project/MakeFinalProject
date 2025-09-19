@@ -19,7 +19,8 @@ from repositories.plant_registration import (
     update_plant,
     delete_plant,
     get_plant_stats,
-    search_plants
+    search_plants,
+    save_plant_image_to_db
 )
 from clients.species_classification import (
     classify_plant_species,
@@ -27,7 +28,7 @@ from clients.species_classification import (
     get_species_info
 )
 from services.image_service import save_uploaded_image
-from utils.security import get_current_user
+from services.auth_service import get_current_user
 from db.pool import get_db_connection
 
 router = APIRouter(prefix="/plants", tags=["plant-registration"])
@@ -61,6 +62,7 @@ async def classify_species_from_image(
             return SpeciesClassificationResponse(
                 success=True,
                 species=result.species,
+                species_korean=korean_name,
                 confidence=result.confidence,
                 top_predictions=result.top_predictions,
                 message=f"분류 완료: {korean_name} (신뢰도: {result.confidence:.1%})"
@@ -96,15 +98,20 @@ async def register_plant(
     - **image**: 식물 이미지 (선택사항)
     """
     try:
-        # 이미지가 제공된 경우 품종 분류 수행
-        if image and not species:
-            image_data = await image.read()
-            classification_result = await classify_plant_species(image_data)
+        image_url = None
+        
+        # 이미지가 제공된 경우 처리
+        if image:
+            # 품종이 없으면 AI 분류 수행
+            if not species:
+                image_data = await image.read()
+                classification_result = await classify_plant_species(image_data)
+                
+                if classification_result.success and classification_result.species:
+                    species = classification_result.species
             
-            if classification_result.success and classification_result.species:
-                species = classification_result.species
-                # 이미지 저장
-                await save_uploaded_image(image, "plants")
+            # 이미지 저장 (품종 분류 여부와 관계없이)
+            image_url = await save_uploaded_image(image, "plants")
         
         # 식물 등록 요청 생성
         plant_request = PlantRegistrationRequest(
@@ -116,6 +123,10 @@ async def register_plant(
         
         # 식물 등록
         result = await create_plant(user["user_id"], plant_request)
+        
+        # 이미지가 있으면 img_address 테이블에 저장
+        if image_url:
+            await save_plant_image_to_db(result.idx, image_url)
         
         return result
         
@@ -241,15 +252,19 @@ async def update_plant_info(
     - **image**: 식물 이미지 (선택사항)
     """
     try:
-        # 이미지가 제공된 경우 품종 분류 수행
-        if image and not species:
-            image_data = await image.read()
-            classification_result = await classify_plant_species(image_data)
+        # 이미지가 제공된 경우 처리
+        image_url = None
+        if image:
+            # 품종이 없으면 AI 분류 수행
+            if not species:
+                image_data = await image.read()
+                classification_result = await classify_plant_species(image_data)
+                
+                if classification_result.success and classification_result.species:
+                    species = classification_result.species
             
-            if classification_result.success and classification_result.species:
-                species = classification_result.species
-                # 이미지 저장
-                await save_uploaded_image(image, "plants")
+            # 이미지 저장
+            image_url = await save_uploaded_image(image, "plants")
         
         # 식물 수정 요청 생성
         update_request = PlantUpdateRequest(
@@ -267,6 +282,10 @@ async def update_plant_info(
                 status_code=404,
                 detail="식물을 찾을 수 없습니다."
             )
+        
+        # 이미지가 있으면 img_address 테이블에 저장
+        if image_url:
+            await save_plant_image_to_db(plant_idx, image_url)
         
         return result
         
@@ -350,6 +369,7 @@ async def reclassify_plant_species(
             return SpeciesClassificationResponse(
                 success=True,
                 species=result.species,
+                species_korean=korean_name,
                 confidence=result.confidence,
                 top_predictions=result.top_predictions,
                 message=f"재분류 완료: {korean_name} (신뢰도: {result.confidence:.1%})"

@@ -70,7 +70,7 @@ app.add_middleware(
 
 # ----------------- 모델 경로 설정
 SEG_MODEL_PATH = "weight/seg_best.pt"
-SPECIES_MODEL_PATH = "classifier/cascade/weight/mobilevitv2_best.pth"  # 품종 분류 모델
+SPECIES_MODEL_PATH = "classifier/cascade/weight/efficientnet_b0_best.pth"  # 품종 분류 모델
 HEALTH_MODEL_PATH = "healthy/healthy.pt"    # 건강 상태 모델
 PEST_MODEL_PATH = "classifier/pestcase/pestcase_best.pt"  # 병충해 분류 모델
 
@@ -87,7 +87,7 @@ seg_model = None
 print("🔧 Loading Species Classification Model...")
 try:
     if os.path.exists(SPECIES_MODEL_PATH):
-        species_model, _ = build_model("mobilevitv2_100", len(CLASSES), 256)
+        species_model, _ = build_model("efficientnet_b0", len(CLASSES), 224)
         checkpoint = torch.load(SPECIES_MODEL_PATH, map_location=device)
         species_model.load_state_dict(checkpoint["model"])
         species_model.to(device)
@@ -95,7 +95,7 @@ try:
         print("✅ 품종 분류 모델 로드 완료")
     else:
         print("⚠️ 품종 분류 모델 파일이 없습니다. 더미 모델을 생성합니다.")
-        species_model, _ = build_model("mobilevitv2_100", len(CLASSES), 256)
+        species_model, _ = build_model("efficientnet_b0", len(CLASSES), 224)
         species_model.to(device)
         species_model.eval()
 except Exception as e:
@@ -158,12 +158,12 @@ async def classify_species(
     try:
         # 업로드된 이미지 읽기
         image_data = await image.read()
-        pil_image = Image.open(io.BytesIO(image_data))
+        pil_image = Image.open(io.BytesIO(image_data)).convert("RGB")
         
         # 이미지 전처리 (EfficientNet B0용)
         from torchvision import transforms
         transform = transforms.Compose([
-            transforms.Resize(256),
+            transforms.Resize(224),
             transforms.CenterCrop(224),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])

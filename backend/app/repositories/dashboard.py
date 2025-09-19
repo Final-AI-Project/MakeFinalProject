@@ -9,10 +9,7 @@ async def get_user_plants_with_status(user_id: str) -> DashboardResponse:
     사용자의 모든 식물 정보와 상태를 조회합니다.
     습도 정보와 식물 위키 정보, 병해충 정보를 포함합니다.
     """
-    connection = None
-    try:
-        connection = await get_db_connection()
-        
+    async with get_db_connection() as (conn, cursor):
         # 사용자의 식물 정보와 관련된 모든 정보를 조회하는 복합 쿼리
         query = """
         SELECT 
@@ -65,54 +62,43 @@ async def get_user_plants_with_status(user_id: str) -> DashboardResponse:
         ORDER BY up.meet_day DESC
         """
         
-        async with connection.cursor(aiomysql.DictCursor) as cursor:
-            await cursor.execute(query, (user_id,))
-            results = await cursor.fetchall()
-            
-            plants = []
-            for row in results:
-                plant = PlantStatusResponse(
-                    idx=row['idx'],
-                    user_id=row['user_id'],
-                    plant_id=row['plant_id'],
-                    plant_name=row['plant_name'],
-                    species=row['species'],
-                    pest_id=row['pest_id'],
-                    meet_day=row['meet_day'],
-                    on=row['on'],
-                    current_humidity=row['current_humidity'],
-                    humidity_date=row['humidity_date'],
-                    wiki_img=row['wiki_img'],
-                    feature=row['feature'],
-                    temp=row['temp'],
-                    watering=row['watering'],
-                    pest_cause=row['pest_cause'],
-                    pest_cure=row['pest_cure'],
-                    user_plant_image=row['user_plant_image']
-                )
-                plants.append(plant)
-            
-            return DashboardResponse(
-                user_id=user_id,
-                total_plants=len(plants),
-                plants=plants
+        await cursor.execute(query, (user_id,))
+        results = await cursor.fetchall()
+        
+        plants = []
+        for row in results:
+            plant = PlantStatusResponse(
+                idx=row['idx'],
+                user_id=row['user_id'],
+                plant_id=row['plant_id'],
+                plant_name=row['plant_name'],
+                species=row['species'],
+                pest_id=row['pest_id'],
+                meet_day=row['meet_day'],
+                on=row['on'],
+                current_humidity=row['current_humidity'],
+                humidity_date=row['humidity_date'],
+                wiki_img=row['wiki_img'],
+                feature=row['feature'],
+                temp=row['temp'],
+                watering=row['watering'],
+                pest_cause=row['pest_cause'],
+                pest_cure=row['pest_cure'],
+                user_plant_image=row['user_plant_image']
             )
-            
-    except Exception as e:
-        print(f"Error in get_user_plants_with_status: {e}")
-        raise e
-    finally:
-        if connection:
-            connection.close()
+            plants.append(plant)
+        
+        return DashboardResponse(
+            user_id=user_id,
+            total_plants=len(plants),
+            plants=plants
+        )
 
 async def get_plant_humidity_history(plant_id: int, limit: int = 7) -> List[dict]:
     """
     특정 식물의 최근 습도 기록을 조회합니다.
     """
-    connection = None
-    try:
-        connection = await get_db_connection()
-        
+    async with get_db_connection() as (conn, cursor):
         query = """
         SELECT 
             humidity,
@@ -123,26 +109,15 @@ async def get_plant_humidity_history(plant_id: int, limit: int = 7) -> List[dict
         LIMIT %s
         """
         
-        async with connection.cursor(aiomysql.DictCursor) as cursor:
-            await cursor.execute(query, (plant_id, limit))
-            results = await cursor.fetchall()
-            return results
-            
-    except Exception as e:
-        print(f"Error in get_plant_humidity_history: {e}")
-        raise e
-    finally:
-        if connection:
-            connection.close()
+        await cursor.execute(query, (plant_id, limit))
+        results = await cursor.fetchall()
+        return results
 
 async def get_plant_diary_count(plant_id: int) -> int:
     """
     특정 식물의 일기 개수를 조회합니다.
     """
-    connection = None
-    try:
-        connection = await get_db_connection()
-        
+    async with get_db_connection() as (conn, cursor):
         query = """
         SELECT COUNT(*) as count
         FROM diary d
@@ -150,14 +125,6 @@ async def get_plant_diary_count(plant_id: int) -> int:
         WHERE up.plant_id = %s
         """
         
-        async with connection.cursor(aiomysql.DictCursor) as cursor:
-            await cursor.execute(query, (plant_id,))
-            result = await cursor.fetchone()
-            return result['count'] if result else 0
-            
-    except Exception as e:
-        print(f"Error in get_plant_diary_count: {e}")
-        raise e
-    finally:
-        if connection:
-            connection.close()
+        await cursor.execute(query, (plant_id,))
+        result = await cursor.fetchone()
+        return result['count'] if result else 0

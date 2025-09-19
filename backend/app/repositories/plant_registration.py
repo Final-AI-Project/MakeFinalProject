@@ -15,23 +15,22 @@ async def create_plant(
     plant_request: PlantRegistrationRequest
 ) -> PlantRegistrationResponse:
     """새 식물을 등록합니다."""
-    connection = None
     try:
-        connection = await get_db_connection()
-        
-        async with connection.cursor(aiomysql.DictCursor) as cursor:
-            # 식물 등록
+        async with get_db_connection() as (conn, cursor):
+            # 식물 등록 (plant_id가 NULL이면 0으로 설정)
+            plant_id_value = plant_request.plant_id if plant_request.plant_id is not None else 0
+            
             await cursor.execute(
                 """
-                INSERT INTO user_plant (user_id, plant_name, species, meet_day, plant_id, on, created_at)
-                VALUES (%s, %s, %s, %s, %s, 1, NOW())
+                INSERT INTO user_plant (user_id, plant_name, species, meet_day, plant_id)
+                VALUES (%s, %s, %s, %s, %s)
                 """,
                 (
                     user_id,
                     plant_request.plant_name,
                     plant_request.species,
                     plant_request.meet_day,
-                    plant_request.plant_id
+                    plant_id_value
                 )
             )
             
@@ -57,9 +56,6 @@ async def create_plant(
     except Exception as e:
         print(f"Error in create_plant: {e}")
         raise e
-    finally:
-        if connection:
-            connection.close()
 
 async def get_user_plants(
     user_id: str,
@@ -67,14 +63,11 @@ async def get_user_plants(
     limit: int = 20
 ) -> PlantListResponse:
     """사용자의 식물 목록을 조회합니다."""
-    connection = None
     try:
-        connection = await get_db_connection()
-        
-        async with connection.cursor(aiomysql.DictCursor) as cursor:
+        async with get_db_connection() as (conn, cursor):
             # 전체 개수 조회
             await cursor.execute(
-                "SELECT COUNT(*) as total FROM user_plant WHERE user_id = %s AND on = 1",
+                "SELECT COUNT(*) as total FROM user_plant WHERE user_id = %s",
                 (user_id,)
             )
             count_result = await cursor.fetchone()
@@ -87,7 +80,7 @@ async def get_user_plants(
             await cursor.execute(
                 """
                 SELECT * FROM user_plant 
-                WHERE user_id = %s AND on = 1
+                WHERE user_id = %s
                 ORDER BY created_at DESC
                 LIMIT %s OFFSET %s
                 """,
@@ -119,19 +112,13 @@ async def get_user_plants(
     except Exception as e:
         print(f"Error in get_user_plants: {e}")
         raise e
-    finally:
-        if connection:
-            connection.close()
 
 async def get_plant_by_id(plant_idx: int, user_id: str) -> Optional[PlantRegistrationResponse]:
     """특정 식물 정보를 조회합니다."""
-    connection = None
     try:
-        connection = await get_db_connection()
-        
-        async with connection.cursor(aiomysql.DictCursor) as cursor:
+        async with get_db_connection() as (conn, cursor):
             await cursor.execute(
-                "SELECT * FROM user_plant WHERE idx = %s AND user_id = %s AND on = 1",
+                "SELECT * FROM user_plant WHERE idx = %s AND user_id = %s",
                 (plant_idx, user_id)
             )
             result = await cursor.fetchone()
@@ -151,9 +138,6 @@ async def get_plant_by_id(plant_idx: int, user_id: str) -> Optional[PlantRegistr
     except Exception as e:
         print(f"Error in get_plant_by_id: {e}")
         raise e
-    finally:
-        if connection:
-            connection.close()
 
 async def update_plant(
     plant_idx: int,
@@ -161,11 +145,8 @@ async def update_plant(
     update_request: PlantUpdateRequest
 ) -> Optional[PlantUpdateResponse]:
     """식물 정보를 수정합니다."""
-    connection = None
     try:
-        connection = await get_db_connection()
-        
-        async with connection.cursor(aiomysql.DictCursor) as cursor:
+        async with get_db_connection() as (conn, cursor):
             # 업데이트할 필드 구성
             update_fields = []
             update_values = []
@@ -198,7 +179,7 @@ async def update_plant(
             query = f"""
                 UPDATE user_plant 
                 SET {', '.join(update_fields)}
-                WHERE idx = %s AND user_id = %s AND on = 1
+                WHERE idx = %s AND user_id = %s
             """
             
             await cursor.execute(query, update_values)
@@ -225,19 +206,13 @@ async def update_plant(
     except Exception as e:
         print(f"Error in update_plant: {e}")
         raise e
-    finally:
-        if connection:
-            connection.close()
 
 async def delete_plant(plant_idx: int, user_id: str) -> bool:
-    """식물을 삭제합니다 (소프트 삭제)."""
-    connection = None
+    """식물을 삭제합니다."""
     try:
-        connection = await get_db_connection()
-        
-        async with connection.cursor(aiomysql.DictCursor) as cursor:
+        async with get_db_connection() as (conn, cursor):
             await cursor.execute(
-                "UPDATE user_plant SET on = 0, updated_at = NOW() WHERE idx = %s AND user_id = %s",
+                "DELETE FROM user_plant WHERE idx = %s AND user_id = %s",
                 (plant_idx, user_id)
             )
             
@@ -246,17 +221,11 @@ async def delete_plant(plant_idx: int, user_id: str) -> bool:
     except Exception as e:
         print(f"Error in delete_plant: {e}")
         raise e
-    finally:
-        if connection:
-            connection.close()
 
 async def get_plant_stats(user_id: str) -> Dict[str, Any]:
     """사용자의 식물 통계를 조회합니다."""
-    connection = None
     try:
-        connection = await get_db_connection()
-        
-        async with connection.cursor(aiomysql.DictCursor) as cursor:
+        async with get_db_connection() as (conn, cursor):
             # 기본 통계 조회
             await cursor.execute(
                 """
@@ -266,7 +235,7 @@ async def get_plant_stats(user_id: str) -> Dict[str, Any]:
                     MIN(meet_day) as first_plant_date,
                     MAX(meet_day) as latest_plant_date
                 FROM user_plant 
-                WHERE user_id = %s AND on = 1
+                WHERE user_id = %s
                 """,
                 (user_id,)
             )
@@ -279,7 +248,7 @@ async def get_plant_stats(user_id: str) -> Dict[str, Any]:
                     species,
                     COUNT(*) as count
                 FROM user_plant 
-                WHERE user_id = %s AND on = 1 AND species IS NOT NULL
+                WHERE user_id = %s AND species IS NOT NULL
                 GROUP BY species
                 ORDER BY count DESC
                 LIMIT 5
@@ -302,9 +271,6 @@ async def get_plant_stats(user_id: str) -> Dict[str, Any]:
     except Exception as e:
         print(f"Error in get_plant_stats: {e}")
         raise e
-    finally:
-        if connection:
-            connection.close()
 
 async def search_plants(
     user_id: str,
@@ -313,11 +279,8 @@ async def search_plants(
     limit: int = 20
 ) -> PlantListResponse:
     """식물을 검색합니다."""
-    connection = None
     try:
-        connection = await get_db_connection()
-        
-        async with connection.cursor(aiomysql.DictCursor) as cursor:
+        async with get_db_connection() as (conn, cursor):
             search_term = f"%{query}%"
             
             # 전체 개수 조회
@@ -325,7 +288,7 @@ async def search_plants(
                 """
                 SELECT COUNT(*) as total 
                 FROM user_plant 
-                WHERE user_id = %s AND on = 1 
+                WHERE user_id = %s 
                 AND (plant_name LIKE %s OR species LIKE %s)
                 """,
                 (user_id, search_term, search_term)
@@ -340,7 +303,7 @@ async def search_plants(
             await cursor.execute(
                 """
                 SELECT * FROM user_plant 
-                WHERE user_id = %s AND on = 1 
+                WHERE user_id = %s 
                 AND (plant_name LIKE %s OR species LIKE %s)
                 ORDER BY created_at DESC
                 LIMIT %s OFFSET %s
@@ -373,6 +336,37 @@ async def search_plants(
     except Exception as e:
         print(f"Error in search_plants: {e}")
         raise e
-    finally:
-        if connection:
-            connection.close()
+
+async def save_plant_image_to_db(plant_idx: int, image_url: str) -> bool:
+    """식물 이미지를 img_address 테이블에 저장합니다."""
+    try:
+        async with get_db_connection() as (conn, cursor):
+            await cursor.execute(
+                """
+                INSERT INTO img_address (plant_id, img_url)
+                VALUES (%s, %s)
+                """,
+                (plant_idx, image_url)
+            )
+            return True
+    except Exception as e:
+        print(f"Error in save_plant_image_to_db: {e}")
+        raise e
+
+async def get_plant_images(plant_idx: int) -> List[str]:
+    """식물의 이미지 URL 목록을 조회합니다."""
+    try:
+        async with get_db_connection() as (conn, cursor):
+            await cursor.execute(
+                """
+                SELECT img_url FROM img_address 
+                WHERE plant_id = %s
+                ORDER BY idx DESC
+                """,
+                (plant_idx,)
+            )
+            results = await cursor.fetchall()
+            return [row['img_url'] for row in results]
+    except Exception as e:
+        print(f"Error in get_plant_images: {e}")
+        raise e

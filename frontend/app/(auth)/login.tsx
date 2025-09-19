@@ -17,7 +17,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams } from "expo-router";
-import { setToken } from "../../libs/auth";
+import { setToken, setRefreshToken } from "../../libs/auth";
 import { useColorScheme, Image } from "react-native";
 import Colors from "../../constants/Colors";
 import loginEffDef from "../../assets/images/login_eff_def.png";
@@ -191,6 +191,9 @@ export default function LoginScreen() {
       }
 
       await setToken(data.access_token);
+      if (data.refresh_token) {
+        await setRefreshToken(data.refresh_token);
+      }
 
       // 로그인 성공 후 home으로 이동
       const next =

@@ -2,7 +2,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // ① Imports
 // ─────────────────────────────────────────────────────────────────────────────
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   useColorScheme,
   Pressable,
   Image,
+  Alert,
 } from "react-native";
 import { Link, useRouter } from "expo-router";
 import Colors from "../../constants/Colors";
@@ -24,6 +25,9 @@ import Animated, {
   useAnimatedReaction,
 } from "react-native-reanimated";
 import { useAuthGuard } from "../../hooks/useAuthGuard";
+import { getApiUrl } from "../../config/api";
+import { getToken } from "../../libs/auth";
+import { startLoading, stopLoading } from "../../components/common/loading";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ② Types & Constants
@@ -43,6 +47,34 @@ type Slide = {
   health?: "좋음" | "주의" | "나쁨";
 };
 
+// 백엔드 API 응답 타입
+type PlantStatusResponse = {
+  idx: number;
+  user_id: string;
+  plant_id: number;
+  plant_name: string;
+  species?: string;
+  pest_id?: number;
+  meet_day?: string;
+  on?: string;
+  current_humidity?: number;
+  humidity_date?: string;
+  wiki_img?: string;
+  feature?: string;
+  temp?: string;
+  watering?: string;
+  pest_cause?: string;
+  pest_cure?: string;
+  user_plant_image?: string;
+};
+
+type DashboardResponse = {
+  user_id: string;
+  total_plants: number;
+  plants: PlantStatusResponse[];
+  message: string;
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // ③ Component
 // ─────────────────────────────────────────────────────────────────────────────
@@ -59,38 +91,107 @@ export default function Home() {
   const progress = useSharedValue(0);
   const [activeIndex, setActiveIndex] = useState(0);
   const [parentW, setParentW] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [dashboardData, setDashboardData] = useState<DashboardResponse | null>(
+    null
+  );
 
   // 3-3) Gauge layout constants
   const SIZE = 250;
   const HALF = SIZE / 2;
 
-  // 3-4) Data: Plants & Slides
-  const [plants, setPlants] = useState<Slide[]>([
-    {
-      key: "1",
-      label: "몬스테라",
+  // 3-4) API 호출 함수
+  const fetchUserPlants = async () => {
+    try {
+      setLoading(true);
+      const token = await getToken();
+      if (!token) {
+        Alert.alert("오류", "로그인이 필요합니다.");
+        return;
+      }
+
+      // 로딩 시작
+      startLoading(router, {
+        message: "식물 정보를 불러오는 중...",
+        to: "/(page)/home" as any,
+        task: async () => {
+          const apiUrl = await getApiUrl("/home/plants/current");
+          const response = await fetch(apiUrl, {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          });
+
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+
+          const data: DashboardResponse = await response.json();
+          setDashboardData(data);
+        },
+      });
+    } catch (error) {
+      console.error("식물 데이터 조회 실패:", error);
+      Alert.alert("오류", "식물 정보를 불러오는데 실패했습니다.");
+      stopLoading(router);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 3-5) 컴포넌트 마운트 시 데이터 로드
+  useEffect(() => {
+    fetchUserPlants();
+  }, []);
+
+  // 3-6) 백엔드 데이터를 UI 데이터로 변환
+  const convertToSlide = (plant: PlantStatusResponse): Slide => {
+    // 건강 상태 결정 (병해충이 있으면 "나쁨", 습도가 낮으면 "주의", 그 외는 "좋음")
+    let health: "좋음" | "주의" | "나쁨" = "좋음";
+    if (plant.pest_id) {
+      health = "나쁨";
+    } else if (plant.current_humidity && plant.current_humidity < 30) {
+      health = "주의";
+    }
+
+    return {
+      key: plant.idx.toString(),
+      label: plant.plant_name,
       bg: theme.bg,
       color: theme.text,
-      waterLevel: 75,
-      species: "몬스테라",
-      startedAt: "2025-05-01",
-      photoUri: null,
-      health: "좋음",
-    },
-    {
-      key: "2",
-      label: "금전수",
-      bg: theme.bg,
-      color: theme.text,
-      waterLevel: 30,
-      species: "금전수",
-      startedAt: "2025-06-10",
-      photoUri: null,
-      health: "주의",
-    },
-  ]);
+      waterLevel: plant.current_humidity || 0,
+      species: plant.species,
+      startedAt: plant.meet_day,
+      photoUri: plant.user_plant_image || null,
+      health: health,
+    };
+  };
+
+  // 3-7) 실제 데이터만 사용 (하드코딩 제거)
+  const plants = useMemo(() => {
+    if (dashboardData && dashboardData.plants.length > 0) {
+      return dashboardData.plants.map(convertToSlide);
+    }
+    // API 호출 실패 시 빈 배열 반환 (하드코딩 제거)
+    return [];
+  }, [dashboardData, theme]);
 
   const slides = useMemo(() => {
+    // 식물이 없으면 "새 식물 등록" 버튼만 표시
+    if (plants.length === 0) {
+      return [
+        {
+          key: "add",
+          label: "+ \n 새 식물 등록",
+          bg: theme.graybg,
+          type: "action" as const,
+        },
+      ];
+    }
+
+    // 식물이 있으면 식물들 + 새 식물 등록 버튼
     return [
       ...plants,
       {
@@ -302,7 +403,7 @@ export default function Home() {
         </Link>
 
         {/* plantInfo */}
-        <Link href="/(auth)/login" asChild>
+        <Link href="/(page)/(stackless)/info-room" asChild>
           <Pressable style={styles.cardBase}>
             <LinearGradient
               colors={["#FFF6B7", "#F6416C"]}

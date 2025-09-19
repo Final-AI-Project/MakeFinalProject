@@ -3,10 +3,10 @@
 
 // 서버 주소를 환경에 맞게 설정
 export const API_BASE_URL =
-  process.env.EXPO_PUBLIC_API_BASE_URL || "http://192.168.162.14:3000";
+  process.env.EXPO_PUBLIC_API_BASE_URL || "http://10.151.212.165:3000";
 
 // 디버깅용: 여러 포트 시도 (외부 환경 고려)
-export const POSSIBLE_PORTS = [3000, 5000, 8080, 8000, 8001, 9000, 4000];
+export const POSSIBLE_PORTS = [3000, 8000, 5000, 8080, 8001, 9000, 4000];
 
 // API 엔드포인트들
 export const API_ENDPOINTS = {
@@ -64,7 +64,7 @@ export const findWorkingPort = async (): Promise<number | null> => {
 
   for (const port of POSSIBLE_PORTS) {
     try {
-      const testUrl = `http://192.168.162.14:${port}/healthcheck`;
+      const testUrl = `http://10.151.212.165:${port}/healthcheck`;
       console.log(`Trying port ${port}: ${testUrl}`);
 
       const testRes = await fetch(testUrl, {
@@ -104,5 +104,5 @@ export const getApiUrl = async (endpoint: string): Promise<string> => {
     );
   }
 
-  return `http://192.168.162.14:${workingPort}${endpoint}`;
+  return `http://10.151.212.165:${workingPort}${endpoint}`;
 };

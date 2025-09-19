@@ -13,7 +13,7 @@ from schemas.disease_diagnosis import (
 from clients.disease_diagnosis import diagnose_disease_from_image
 from services.image_service import save_uploaded_image
 from db.pool import get_db_connection
-from utils.security import get_current_user
+from services.auth_service import get_current_user
 
 router = APIRouter(prefix="/disease-diagnosis", tags=["disease-diagnosis"])
 

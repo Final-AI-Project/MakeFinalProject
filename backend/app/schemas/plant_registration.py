@@ -26,7 +26,8 @@ class SpeciesClassificationRequest(BaseModel):
 class SpeciesClassificationResponse(BaseModel):
     """품종 분류 응답 스키마"""
     success: bool = Field(..., description="분류 성공 여부")
-    species: Optional[str] = Field(None, description="분류된 품종명")
+    species: Optional[str] = Field(None, description="분류된 품종명 (영어)")
+    species_korean: Optional[str] = Field(None, description="분류된 품종명 (한글)")
     confidence: Optional[float] = Field(None, description="신뢰도 (0-1)")
     top_predictions: Optional[List[dict]] = Field(None, description="상위 예측 결과들")
     message: str = Field(..., description="결과 메시지")
