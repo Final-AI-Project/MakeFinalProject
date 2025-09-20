@@ -11,7 +11,14 @@ from db.pool import init_pool, close_pool
 from utils.errors import register_error_handlers
 
 # 라우터 임포트
-from routes import router
+from api import (
+    auth_router,
+    diary_router,
+    diary_list_router,
+    info_room_router,
+    pest_diagnosis_router,
+    plants_router
+)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -30,10 +37,15 @@ app = FastAPI(
 register_error_handlers(app)
 
 # Static 파일 서빙 설정
-app.mount("/static", StaticFiles(directory="../static"), name="static")
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # 라우터 등록
-app.include_router(router)
+app.include_router(auth_router)
+app.include_router(diary_router)
+app.include_router(diary_list_router)
+app.include_router(info_room_router)
+app.include_router(pest_diagnosis_router)
+app.include_router(plants_router)
 
 # CORS (모바일/프론트 개발 편의) - 모든 오리진 허용
 app.add_middleware(

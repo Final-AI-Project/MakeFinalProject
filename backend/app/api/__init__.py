@@ -1,16 +1,18 @@
 """
-라우터 모듈 통합 진입점
+API 라우터 모듈 통합 진입점
 """
-from .detail import router as detail_router
+from .auth import router as auth_router
 from .diary import router as diary_router
-from .pest import router as pest_router
-from .watering import router as watering_router
-from .images import router as images_router
+from .diary_list import router as diary_list_router
+from .info_room import router as info_room_router
+from .pest_diagnosis import router as pest_diagnosis_router
+from .plants import router as plants_router
 
 __all__ = [
-    "detail_router",
-    "diary_router", 
-    "pest_router",
-    "watering_router",
-    "images_router"
+    "auth_router",
+    "diary_router",
+    "diary_list_router", 
+    "info_room_router",
+    "pest_diagnosis_router",
+    "plants_router"
 ]
