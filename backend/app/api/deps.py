@@ -9,12 +9,12 @@ from db.pool import get_db_connection
 from services.auth_service import get_current_user
 
 
-def get_db() -> Generator[aiomysql.Connection, None, None]:
+async def get_db():
     """
     데이터베이스 연결 의존성
     """
     async with get_db_connection() as (conn, cursor):
-        yield conn
+        yield conn, cursor
 
 
 def get_current_user_dependency() -> Dict[str, Any]:

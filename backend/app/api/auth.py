@@ -3,7 +3,7 @@ from __future__ import annotations
 import aiomysql
 from fastapi import APIRouter, Depends
 
-from db.pool import get_db
+from api.deps import get_db
 from schemas.user import UserCreate, UserOut, TokenPair, UserLoginRequest, RefreshRequest, LogoutRequest
 
 from services import auth_service  
