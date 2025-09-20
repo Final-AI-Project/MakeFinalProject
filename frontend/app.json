@@ -13,7 +13,7 @@
     },
     "android": {
       "softwareKeyboardLayoutMode": "resize",
-	  "windowSoftInputMode": "adjustResize",
+      "windowSoftInputMode": "adjustResize",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"

@@ -10,7 +10,7 @@ from repositories.plant_registration import (
     create_plant, get_user_plants, get_plant_by_id, 
     update_plant, delete_plant, save_plant_image_to_db, get_plant_images
 )
-from clients.species_classification import classify_species_from_image
+from clients.species_classification import classify_plant_species
 from services.auth_service import get_current_user
 from services.image_service import save_uploaded_image
 
@@ -28,17 +28,24 @@ async def classify_species_endpoint(
     - **image**: 분류할 식물 이미지
     """
     try:
-        # 이미지 저장
-        image_url = await save_uploaded_image(image, "plants")
+        # 이미지 데이터 읽기
+        image_data = await image.read()
         
         # 종류 분류
-        result = await classify_species_from_image(image_url)
+        result = await classify_plant_species(image_data)
         
-        return SpeciesClassificationResponse(
-            species=result["species"],
-            confidence=result["confidence"],
-            species_korean=result.get("species_korean")
-        )
+        if result.success:
+            from clients.species_classification import get_species_korean_name
+            return SpeciesClassificationResponse(
+                species=result.species,
+                confidence=result.confidence,
+                species_korean=get_species_korean_name(result.species) if result.species else None
+            )
+        else:
+            raise HTTPException(
+                status_code=500,
+                detail=result.message
+            )
         
     except Exception as e:
         raise HTTPException(

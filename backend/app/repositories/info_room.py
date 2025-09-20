@@ -9,7 +9,10 @@ from schemas.info_room import (
     PestWikiListResponse,
     PlantWikiDetailResponse,
     PestWikiDetailResponse,
-    InfoRoomStatsResponse
+    InfoRoomStatsResponse,
+    PlantInfoResponse,
+    PlantInfoListResponse,
+    PlantInfoSearchRequest
 )
 
 async def get_plant_wiki_list(
@@ -319,3 +322,111 @@ async def search_plant_wiki_by_category(
     finally:
         if connection:
             connection.close()
+
+# API에서 사용하는 함수들 (기존 위키 함수들을 래핑)
+async def get_plant_info_list(
+    page: int = 1,
+    limit: int = 20,
+    species: Optional[str] = None
+) -> PlantInfoListResponse:
+    """식물 정보 목록을 조회합니다."""
+    wiki_response = await get_plant_wiki_list(page=page, limit=limit, search=species)
+    
+    # PlantWikiInfo를 PlantInfoResponse로 변환
+    plants = [
+        PlantInfoResponse(
+            wiki_plant_id=plant.wiki_plant_id,
+            name_jong=plant.name_jong,
+            feature=plant.feature,
+            temp=plant.temp,
+            watering=plant.watering,
+            flowering=plant.flowering,
+            flower_color=plant.flower_color,
+            fertilizer=plant.fertilizer,
+            pruning=plant.pruning,
+            repot=plant.repot,
+            toxic=plant.toxic
+        ) for plant in wiki_response.plants
+    ]
+    
+    return PlantInfoListResponse(
+        plants=plants,
+        total_count=wiki_response.total_count,
+        page=wiki_response.page,
+        limit=wiki_response.limit
+    )
+
+async def get_plant_info_by_id(plant_id: int) -> Optional[PlantInfoResponse]:
+    """특정 식물의 상세 정보를 조회합니다."""
+    wiki_detail = await get_plant_wiki_detail(plant_id)
+    
+    if not wiki_detail:
+        return None
+    
+    return PlantInfoResponse(
+        wiki_plant_id=wiki_detail.wiki_plant_id,
+        name_jong=wiki_detail.name_jong,
+        feature=wiki_detail.feature,
+        temp=wiki_detail.temp,
+        watering=wiki_detail.watering,
+        flowering=wiki_detail.flowering,
+        flower_color=wiki_detail.flower_color,
+        fertilizer=wiki_detail.fertilizer,
+        pruning=wiki_detail.pruning,
+        repot=wiki_detail.repot,
+        toxic=wiki_detail.toxic
+    )
+
+async def search_plant_info(
+    request: PlantInfoSearchRequest,
+    page: int = 1,
+    limit: int = 20
+) -> PlantInfoListResponse:
+    """식물 정보를 검색합니다."""
+    wiki_response = await get_plant_wiki_list(page=page, limit=limit, search=request.query)
+    
+    # PlantWikiInfo를 PlantInfoResponse로 변환
+    plants = [
+        PlantInfoResponse(
+            wiki_plant_id=plant.wiki_plant_id,
+            name_jong=plant.name_jong,
+            feature=plant.feature,
+            temp=plant.temp,
+            watering=plant.watering,
+            flowering=plant.flowering,
+            flower_color=plant.flower_color,
+            fertilizer=plant.fertilizer,
+            pruning=plant.pruning,
+            repot=plant.repot,
+            toxic=plant.toxic
+        ) for plant in wiki_response.plants
+    ]
+    
+    return PlantInfoListResponse(
+        plants=plants,
+        total_count=wiki_response.total_count,
+        page=wiki_response.page,
+        limit=wiki_response.limit
+    )
+
+async def get_plant_info_by_species(species: str) -> Optional[PlantInfoResponse]:
+    """식물 종류로 식물 정보를 조회합니다."""
+    wiki_response = await get_plant_wiki_list(page=1, limit=1, search=species)
+    
+    if not wiki_response.plants:
+        return None
+    
+    plant = wiki_response.plants[0]
+    return PlantInfoResponse(
+        wiki_plant_id=plant.wiki_plant_id,
+        name_jong=plant.name_jong,
+        feature=plant.feature,
+        temp=plant.temp,
+        watering=plant.watering,
+        flowering=plant.flowering,
+        flower_color=plant.flower_color,
+        fertilizer=plant.fertilizer,
+        pruning=plant.pruning,
+        repot=plant.repot,
+        toxic=plant.toxic
+    )

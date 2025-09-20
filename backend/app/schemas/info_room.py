@@ -65,3 +65,29 @@ class InfoRoomStatsResponse(BaseModel):
     total_plants: int
     total_pests: int
     last_updated: Optional[datetime] = None
+
+class PlantInfoResponse(BaseModel):
+    """식물 정보 응답 스키마"""
+    wiki_plant_id: int
+    name_jong: str
+    feature: Optional[str] = None
+    temp: Optional[str] = None
+    watering: Optional[str] = None
+    flowering: Optional[str] = None
+    flower_color: Optional[str] = None
+    fertilizer: Optional[str] = None
+    pruning: Optional[str] = None
+    repot: Optional[str] = None
+    toxic: Optional[str] = None
+
+class PlantInfoListResponse(BaseModel):
+    """식물 정보 목록 응답 스키마"""
+    plants: List[PlantInfoResponse]
+    total_count: int
+    page: int
+    limit: int
+
+class PlantInfoSearchRequest(BaseModel):
+    """식물 정보 검색 요청 스키마"""
+    query: str
+    species: Optional[str] = None

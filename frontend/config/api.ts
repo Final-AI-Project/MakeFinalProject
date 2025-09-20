@@ -5,19 +5,18 @@ import Constants from "expo-constants";
 import { Platform } from "react-native";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 1) BASE_URL 해석 (ENV → app.config.ts extra → 합리적 기본값)
+// 1) BASE_URL 해석 (app.config.ts extra에서 가져오기)
 // ─────────────────────────────────────────────────────────────────────────────
 function resolveDefaultBaseUrl(): string {
-  const envUrl = process.env.EXPO_PUBLIC_API_BASE_URL?.trim();
-  if (envUrl) return envUrl;
-
+  // app.config.ts의 extra.API_BASE_URL 사용
   const extraUrl = (
     (Constants.expoConfig?.extra as any)?.API_BASE_URL as string | undefined
   )?.trim();
+
   if (extraUrl) return extraUrl;
 
-  // 개발 기본값: 에뮬/실행환경별 호스트 추론
-  const host = Platform.OS === "android" ? "10.0.2.2" : "localhost";
+  // fallback: 개발 기본값 (현재 IP 자동 감지)
+  const host = Platform.OS === "android" ? "10.0.2.2" : "192.168.200.110";
   return `http://${host}:3000`;
 }
 
@@ -127,7 +126,12 @@ export const API_ENDPOINTS = {
 // 3) URL 헬퍼
 // ─────────────────────────────────────────────────────────────────────────────
 export const createApiUrl = (endpoint: string): string => {
-  return `${API_BASE_URL}${endpoint}`;
+  // API_BASE_URL 끝에 슬래시가 있고 endpoint 시작에 슬래시가 있으면 중복 제거
+  const baseUrl = API_BASE_URL.endsWith("/")
+    ? API_BASE_URL.slice(0, -1)
+    : API_BASE_URL;
+  const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
+  return `${baseUrl}${cleanEndpoint}`;
 };
 
 // 디버깅용: 여러 포트 시도 (외부 환경 고려)
@@ -165,24 +169,8 @@ export const findWorkingPort = async (): Promise<number | null> => {
   return null;
 };
 
-// 동적 API URL 생성 함수
+// 동적 API URL 생성 함수 (단순화)
 export const getApiUrl = async (endpoint: string): Promise<string> => {
-  // ENV나 extra로 지정되어 있으면 그대로 사용
-  if (
-    process.env.EXPO_PUBLIC_API_BASE_URL ||
-    (Constants.expoConfig?.extra as any)?.API_BASE_URL
-  ) {
-    return createApiUrl(endpoint);
-  }
-
-  // 로컬 개발: 포트 탐색
-  const workingPort = await findWorkingPort();
-  if (!workingPort) {
-    throw new Error(
-      "모든 포트에서 서버에 연결할 수 없습니다. 백엔드 서버가 실행 중인지 확인해주세요."
-    );
-  }
-
-  const { protocol, host } = getOriginParts(API_BASE_URL);
-  return `${protocol}://${host}:${workingPort}${endpoint}`;
+  // app.config.ts에서 설정된 URL 사용
+  return createApiUrl(endpoint);
 };
