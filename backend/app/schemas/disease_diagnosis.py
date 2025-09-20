@@ -38,10 +38,9 @@ class UserPlantsResponse(BaseModel):
 class DiseaseDiagnosisSaveRequest(BaseModel):
     """병충해 진단 저장 요청 스키마"""
     plant_id: Optional[int] = Field(None, description="선택한 식물 ID (선택사항)")
-    disease_name: str = Field(..., description="선택한 병충해 이름")
-    confidence: float = Field(..., description="신뢰도")
-    diagnosis_date: date = Field(..., description="진단 날짜")
+    predictions: List[DiseasePrediction] = Field(..., description="진단 결과 목록")
     image_url: Optional[str] = Field(None, description="진단 이미지 URL")
+    notes: Optional[str] = Field(None, description="추가 메모")
 
 
 class DiseaseDiagnosisSaveResponse(BaseModel):
@@ -49,4 +48,3 @@ class DiseaseDiagnosisSaveResponse(BaseModel):
     success: bool = Field(..., description="저장 성공 여부")
     message: str = Field(..., description="저장 결과 메시지")
     diagnosis_id: Optional[int] = Field(None, description="저장된 진단 ID")
-    saved_to_my_plants: bool = Field(..., description="내 식물에 저장되었는지 여부")

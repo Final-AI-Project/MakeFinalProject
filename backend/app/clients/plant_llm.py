@@ -6,8 +6,8 @@ from typing import Optional, Literal
 from pydantic import BaseModel
 from core.config import settings
 
-# 모델 서버 설정
-MODEL_SERVER_URL = "http://localhost:5000"
+# 모델 서버 설정 (환경변수에서 가져오기)
+MODEL_SERVER_URL = settings.MODEL_SERVER_URL
 
 class TalkResult(BaseModel):
     mode: Literal["daily", "plant", "hybrid"]
@@ -86,3 +86,26 @@ async def get_plant_reply(species: str, user_text: str, moisture: Optional[float
     """
     result = await plant_talk(species, user_text, moisture)
     return result.reply
+
+async def get_plant_llm_response(species: str, user_content: str, plant_nickname: Optional[str] = None) -> dict:
+    """
+    일기 작성용 LLM 응답 함수
+    """
+    try:
+        result = await plant_talk(species, user_content)
+        return {
+            "success": True,
+            "reply": result.reply,
+            "mode": result.mode,
+            "species": result.species,
+            "state": result.state
+        }
+    except Exception as e:
+        print(f"LLM 응답 생성 실패: {e}")
+        return {
+            "success": False,
+            "reply": "식물이 답변을 준비 중입니다. 잠시 후 다시 확인해주세요.",
+            "mode": "daily",
+            "species": species,
+            "state": "error"
+        }

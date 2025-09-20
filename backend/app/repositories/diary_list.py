@@ -1,13 +1,10 @@
-import aiomysql
+from __future__ import annotations
 from typing import List, Optional, Dict, Any
-from datetime import datetime, date, timedelta
-from db.pool import get_db_connection
-from schemas.diary import (
-    DiaryListItemResponse,
-    DiaryListResponse,
-    DiarySearchRequest,
-    DiaryStatsResponse
-)
+from datetime import datetime, date
+import aiomysql
+from core.database import get_db_connection
+from schemas.diary import DiaryListResponse, DiarySearchRequest, DiaryStatsResponse, DiaryListItemResponse
+
 
 async def get_user_diary_list(
     user_id: str,
@@ -15,97 +12,88 @@ async def get_user_diary_list(
     limit: int = 20,
     order_by: str = "created_at",
     order_direction: str = "desc",
-    search_request: Optional[DiarySearchRequest] = None
+    plant_nickname: Optional[str] = None,
+    plant_species: Optional[str] = None,
+    start_date: Optional[date] = None,
+    end_date: Optional[date] = None,
+    hashtag: Optional[str] = None
 ) -> DiaryListResponse:
-    """사용자의 일기 목록을 조회합니다."""
-    connection = None
-    try:
-        connection = await get_db_connection()
-        
-        # 정렬 방향 검증
-        if order_direction.lower() not in ["asc", "desc"]:
-            order_direction = "desc"
-        
-        # 정렬 기준 검증 및 매핑
-        order_mapping = {
-            "created_at": "d.created_at",
-            "updated_at": "d.updated_at", 
-            "plant_nickname": "d.plant_nickname",
-            "plant_species": "d.plant_species",
-            "user_title": "d.user_title"
-        }
-        
-        order_column = order_mapping.get(order_by, "d.created_at")
-        
-        # 검색 조건 구성
-        where_conditions = ["d.user_id = %s"]
-        params = [user_id]
-        
-        if search_request:
-            if search_request.query:
-                where_conditions.append("(d.user_title LIKE %s OR d.user_content LIKE %s)")
-                search_term = f"%{search_request.query}%"
-                params.extend([search_term, search_term])
-            
-            if search_request.plant_nickname:
-                where_conditions.append("d.plant_nickname LIKE %s")
-                params.append(f"%{search_request.plant_nickname}%")
-            
-            if search_request.plant_species:
-                where_conditions.append("d.plant_species LIKE %s")
-                params.append(f"%{search_request.plant_species}%")
-            
-            if search_request.start_date:
-                where_conditions.append("DATE(d.created_at) >= %s")
-                params.append(search_request.start_date)
-            
-            if search_request.end_date:
-                where_conditions.append("DATE(d.created_at) <= %s")
-                params.append(search_request.end_date)
-            
-            if search_request.hashtag:
-                where_conditions.append("d.hashtag LIKE %s")
-                params.append(f"%{search_request.hashtag}%")
-        
-        where_clause = " AND ".join(where_conditions)
-        
-        # 전체 개수 조회
-        count_query = f"SELECT COUNT(*) as total FROM diary d WHERE {where_clause}"
-        
-        async with connection.cursor(aiomysql.DictCursor) as cursor:
-            await cursor.execute(count_query, params)
-            count_result = await cursor.fetchone()
-            total_count = count_result['total']
-            
-            # 페이지네이션 계산
-            offset = (page - 1) * limit
-            
-            # 일기 목록 조회
-            list_query = f"""
-            SELECT 
-                d.idx,
-                d.user_title,
-                d.user_content,
-                d.plant_nickname,
-                d.plant_species,
-                d.plant_reply,
-                d.weather,
-                d.weather_icon,
-                d.img_url,
-                d.hashtag,
-                d.created_at,
-                d.updated_at
-            FROM diary d
-            WHERE {where_clause}
-            ORDER BY {order_column} {order_direction.upper()}
-            LIMIT %s OFFSET %s
+    """사용자의 일기 목록 조회"""
+    async with get_db_connection() as (conn, cursor):
+        try:
+            # 기본 쿼리 구성
+            base_query = """
+                SELECT d.*, ia.img_url as diary_img_url
+                FROM diary d
+                LEFT JOIN img_address ia ON d.diary_id = ia.diary_id
+                WHERE d.user_id = %s
             """
+            params = [user_id]
             
-            list_params = params + [limit, offset]
-            await cursor.execute(list_query, list_params)
+            # 필터 조건 추가
+            if plant_nickname:
+                base_query += " AND d.plant_nickname LIKE %s"
+                params.append(f"%{plant_nickname}%")
+            
+            if plant_species:
+                base_query += " AND d.plant_species LIKE %s"
+                params.append(f"%{plant_species}%")
+            
+            if start_date:
+                base_query += " AND d.created_at >= %s"
+                params.append(start_date)
+            
+            if end_date:
+                base_query += " AND d.created_at <= %s"
+                params.append(end_date)
+            
+            if hashtag:
+                base_query += " AND d.hashtag LIKE %s"
+                params.append(f"%{hashtag}%")
+            
+            # 정렬 조건 추가
+            valid_order_fields = ["created_at", "updated_at", "plant_nickname", "plant_species", "user_title"]
+            if order_by not in valid_order_fields:
+                order_by = "created_at"
+            
+            valid_directions = ["asc", "desc"]
+            if order_direction not in valid_directions:
+                order_direction = "desc"
+            
+            base_query += f" ORDER BY d.{order_by} {order_direction.upper()}"
+            
+            # 전체 개수 조회
+            count_query = base_query.replace("SELECT d.*, ia.img_url as diary_img_url", "SELECT COUNT(*)")
+            await cursor.execute(count_query, params)
+            total_count = (await cursor.fetchone())["COUNT(*)"]
+            
+            # 페이지네이션 추가
+            offset = (page - 1) * limit
+            base_query += " LIMIT %s OFFSET %s"
+            params.extend([limit, offset])
+            
+            # 데이터 조회
+            await cursor.execute(base_query, params)
             results = await cursor.fetchall()
             
-            diaries = [DiaryListItemResponse(**result) for result in results]
+            # DiaryListItemResponse로 변환
+            diaries = []
+            for row in results:
+                diary = DiaryListItemResponse(
+                    idx=row["diary_id"],
+                    user_title=row["user_title"],
+                    user_content=row["user_content"],
+                    plant_nickname=row.get("plant_nickname"),
+                    plant_species=row.get("plant_species"),
+                    plant_reply=row.get("plant_content"),
+                    weather=row.get("weather"),
+                    weather_icon=row.get("weather_icon"),
+                    img_url=row.get("diary_img_url"),
+                    hashtag=row.get("hashtag"),
+                    created_at=row["created_at"],
+                    updated_at=row.get("updated_at")
+                )
+                diaries.append(diary)
             
             return DiaryListResponse(
                 diaries=diaries,
@@ -115,160 +103,202 @@ async def get_user_diary_list(
                 has_more=(offset + limit) < total_count
             )
             
-    except Exception as e:
-        print(f"Error in get_user_diary_list: {e}")
-        raise e
-    finally:
-        if connection:
-            connection.close()
+        except Exception as e:
+            raise Exception(f"일기 목록 조회 중 오류: {str(e)}")
+
 
 async def search_user_diaries(
     user_id: str,
-    query: str,
+    request: DiarySearchRequest,
     page: int = 1,
     limit: int = 20
 ) -> DiaryListResponse:
-    """사용자의 일기를 검색합니다."""
-    search_request = DiarySearchRequest(query=query)
-    return await get_user_diary_list(
-        user_id=user_id,
-        page=page,
-        limit=limit,
-        search_request=search_request
-    )
+    """일기 검색"""
+    async with get_db_connection() as (conn, cursor):
+        try:
+            # 검색 쿼리 구성
+            search_query = """
+                SELECT d.*, ia.img_url as diary_img_url
+                FROM diary d
+                LEFT JOIN img_address ia ON d.diary_id = ia.diary_id
+                WHERE d.user_id = %s
+            """
+            params = [user_id]
+            
+            # 검색 조건 추가
+            if request.query:
+                search_query += " AND (d.user_title LIKE %s OR d.user_content LIKE %s)"
+                search_term = f"%{request.query}%"
+                params.extend([search_term, search_term])
+            
+            if request.plant_nickname:
+                search_query += " AND d.plant_nickname LIKE %s"
+                params.append(f"%{request.plant_nickname}%")
+            
+            if request.plant_species:
+                search_query += " AND d.plant_species LIKE %s"
+                params.append(f"%{request.plant_species}%")
+            
+            if request.start_date:
+                search_query += " AND d.created_at >= %s"
+                params.append(request.start_date)
+            
+            if request.end_date:
+                search_query += " AND d.created_at <= %s"
+                params.append(request.end_date)
+            
+            if request.hashtag:
+                search_query += " AND d.hashtag LIKE %s"
+                params.append(f"%{request.hashtag}%")
+            
+            search_query += " ORDER BY d.created_at DESC"
+            
+            # 전체 개수 조회
+            count_query = search_query.replace("SELECT d.*, ia.img_url as diary_img_url", "SELECT COUNT(*)")
+            await cursor.execute(count_query, params)
+            total_count = (await cursor.fetchone())["COUNT(*)"]
+            
+            # 페이지네이션 추가
+            offset = (page - 1) * limit
+            search_query += " LIMIT %s OFFSET %s"
+            params.extend([limit, offset])
+            
+            # 데이터 조회
+            await cursor.execute(search_query, params)
+            results = await cursor.fetchall()
+            
+            # DiaryListItemResponse로 변환
+            diaries = []
+            for row in results:
+                diary = DiaryListItemResponse(
+                    idx=row["diary_id"],
+                    user_title=row["user_title"],
+                    user_content=row["user_content"],
+                    plant_nickname=row.get("plant_nickname"),
+                    plant_species=row.get("plant_species"),
+                    plant_reply=row.get("plant_content"),
+                    weather=row.get("weather"),
+                    weather_icon=row.get("weather_icon"),
+                    img_url=row.get("diary_img_url"),
+                    hashtag=row.get("hashtag"),
+                    created_at=row["created_at"],
+                    updated_at=row.get("updated_at")
+                )
+                diaries.append(diary)
+            
+            return DiaryListResponse(
+                diaries=diaries,
+                total_count=total_count,
+                page=page,
+                limit=limit,
+                has_more=(offset + limit) < total_count
+            )
+            
+        except Exception as e:
+            raise Exception(f"일기 검색 중 오류: {str(e)}")
+
 
 async def get_diary_stats(user_id: str) -> DiaryStatsResponse:
-    """사용자의 일기 통계를 조회합니다."""
-    connection = None
-    try:
-        connection = await get_db_connection()
-        
-        # 기본 통계 조회
-        stats_query = """
-        SELECT 
-            COUNT(*) as total_diaries,
-            COUNT(DISTINCT plant_nickname) as total_plants,
-            COUNT(CASE WHEN created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY) THEN 1 END) as recent_diary_count
-        FROM diary 
-        WHERE user_id = %s
-        """
-        
-        async with connection.cursor(aiomysql.DictCursor) as cursor:
-            await cursor.execute(stats_query, (user_id,))
-            stats_result = await cursor.fetchone()
+    """일기 통계 조회"""
+    async with get_db_connection() as (conn, cursor):
+        try:
+            # 전체 일기 수
+            await cursor.execute("SELECT COUNT(*) as total FROM diary WHERE user_id = %s", (user_id,))
+            total_diaries = (await cursor.fetchone())["total"]
             
-            # 가장 활발한 식물 조회
-            most_active_query = """
-            SELECT 
-                plant_nickname,
-                COUNT(*) as diary_count
-            FROM diary 
-            WHERE user_id = %s AND plant_nickname IS NOT NULL
-            GROUP BY plant_nickname
-            ORDER BY diary_count DESC
-            LIMIT 1
-            """
+            # 최근 7일 일기 수
+            await cursor.execute("""
+                SELECT COUNT(*) as recent 
+                FROM diary 
+                WHERE user_id = %s AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+            """, (user_id,))
+            recent_diaries = (await cursor.fetchone())["recent"]
             
-            await cursor.execute(most_active_query, (user_id,))
-            most_active_result = await cursor.fetchone()
+            # 가장 활발한 식물
+            await cursor.execute("""
+                SELECT plant_species, COUNT(*) as count
+                FROM diary 
+                WHERE user_id = %s AND plant_species IS NOT NULL
+                GROUP BY plant_species
+                ORDER BY count DESC
+                LIMIT 1
+            """, (user_id,))
+            most_active = await cursor.fetchone()
             
-            total_diaries = stats_result['total_diaries']
-            total_plants = stats_result['total_plants']
-            recent_diary_count = stats_result['recent_diary_count']
-            most_active_plant = most_active_result['plant_nickname'] if most_active_result else None
-            average_diaries_per_plant = total_diaries / total_plants if total_plants > 0 else 0
+            # 식물 수
+            await cursor.execute("""
+                SELECT COUNT(DISTINCT plant_species) as plant_count
+                FROM diary 
+                WHERE user_id = %s AND plant_species IS NOT NULL
+            """, (user_id,))
+            plant_count = (await cursor.fetchone())["plant_count"]
             
             return DiaryStatsResponse(
                 total_diaries=total_diaries,
-                total_plants=total_plants,
-                recent_diary_count=recent_diary_count,
-                most_active_plant=most_active_plant,
-                average_diaries_per_plant=round(average_diaries_per_plant, 2)
+                total_plants=plant_count,
+                recent_diary_count=recent_diaries,
+                most_active_plant=most_active["plant_species"] if most_active else None,
+                average_diaries_per_plant=total_diaries / plant_count if plant_count > 0 else 0.0
             )
             
-    except Exception as e:
-        print(f"Error in get_diary_stats: {e}")
-        raise e
-    finally:
-        if connection:
-            connection.close()
+        except Exception as e:
+            raise Exception(f"일기 통계 조회 중 오류: {str(e)}")
 
-async def get_plant_diary_summary(user_id: str) -> List[Dict[str, Any]]:
-    """식물별 일기 요약을 조회합니다."""
-    connection = None
-    try:
-        connection = await get_db_connection()
-        
-        query = """
-        SELECT 
-            plant_nickname,
-            plant_species,
-            COUNT(*) as diary_count,
-            MAX(created_at) as last_diary_date,
-            MIN(created_at) as first_diary_date
-        FROM diary 
-        WHERE user_id = %s AND plant_nickname IS NOT NULL
-        GROUP BY plant_nickname, plant_species
-        ORDER BY diary_count DESC
-        """
-        
-        async with connection.cursor(aiomysql.DictCursor) as cursor:
-            await cursor.execute(query, (user_id,))
-            results = await cursor.fetchall()
+
+async def get_plant_diary_summary(plant_id: int, user_id: str) -> Dict[str, Any]:
+    """식물별 일기 요약"""
+    async with get_db_connection() as (conn, cursor):
+        try:
+            await cursor.execute("""
+                SELECT 
+                    COUNT(*) as diary_count,
+                    MAX(created_at) as last_diary_date,
+                    AVG(CASE WHEN hist_watered = 1 THEN 1 ELSE 0 END) as watering_frequency
+                FROM diary 
+                WHERE user_id = %s AND plant_id = %s
+            """, (user_id, plant_id))
             
-            return [
-                {
-                    "plant_nickname": row['plant_nickname'],
-                    "plant_species": row['plant_species'],
-                    "diary_count": row['diary_count'],
-                    "last_diary_date": row['last_diary_date'],
-                    "first_diary_date": row['first_diary_date']
-                }
-                for row in results
-            ]
+            result = await cursor.fetchone()
+            return dict(result) if result else {}
             
-    except Exception as e:
-        print(f"Error in get_plant_diary_summary: {e}")
-        raise e
-    finally:
-        if connection:
-            connection.close()
+        except Exception as e:
+            raise Exception(f"식물 일기 요약 조회 중 오류: {str(e)}")
+
 
 async def get_recent_diaries(user_id: str, limit: int = 5) -> List[DiaryListItemResponse]:
-    """사용자의 최근 일기를 조회합니다."""
-    connection = None
-    try:
-        connection = await get_db_connection()
-        
-        query = """
-        SELECT 
-            d.idx,
-            d.user_title,
-            d.user_content,
-            d.plant_nickname,
-            d.plant_species,
-            d.plant_reply,
-            d.weather,
-            d.weather_icon,
-            d.img_url,
-            d.hashtag,
-            d.created_at,
-            d.updated_at
-        FROM diary d
-        WHERE d.user_id = %s
-        ORDER BY d.created_at DESC
-        LIMIT %s
-        """
-        
-        async with connection.cursor(aiomysql.DictCursor) as cursor:
+    """최근 일기 조회"""
+    async with get_db_connection() as (conn, cursor):
+        try:
+            query = """
+                SELECT d.*, ia.img_url as diary_img_url
+                FROM diary d
+                LEFT JOIN img_address ia ON d.diary_id = ia.diary_id
+                WHERE d.user_id = %s
+                ORDER BY d.created_at DESC
+                LIMIT %s
+            """
             await cursor.execute(query, (user_id, limit))
             results = await cursor.fetchall()
             
-            return [DiaryListItemResponse(**result) for result in results]
+            diaries = []
+            for row in results:
+                diary = DiaryListItemResponse(
+                    idx=row["diary_id"],
+                    user_title=row["user_title"],
+                    user_content=row["user_content"],
+                    plant_nickname=row.get("plant_nickname"),
+                    plant_species=row.get("plant_species"),
+                    plant_reply=row.get("plant_content"),
+                    weather=row.get("weather"),
+                    weather_icon=row.get("weather_icon"),
+                    img_url=row.get("diary_img_url"),
+                    hashtag=row.get("hashtag"),
+                    created_at=row["created_at"],
+                    updated_at=row.get("updated_at")
+                )
+                diaries.append(diary)
             
-    except Exception as e:
-        print(f"Error in get_recent_diaries: {e}")
-        raise e
-    finally:
-        if connection:
-            connection.close()
+            return diaries
+            
+        except Exception as e:
+            raise Exception(f"최근 일기 조회 중 오류: {str(e)}")

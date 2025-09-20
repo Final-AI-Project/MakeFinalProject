@@ -7,8 +7,8 @@ from typing import Optional, List, Dict, Any
 from pydantic import BaseModel
 from core.config import settings
 
-# 모델 서버 설정
-MODEL_SERVER_URL = "http://10.151.212.165:5000"
+# 모델 서버 설정 (환경변수에서 가져오기)
+MODEL_SERVER_URL = settings.MODEL_SERVER_URL
 
 class SpeciesClassificationResult(BaseModel):
     success: bool

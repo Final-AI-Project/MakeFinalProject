@@ -1,40 +1,48 @@
 // app/(page)/medical.tsx
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
-	View,
-	Text,
-	StyleSheet,
-	Image,
-	Pressable,
-	Animated,
-	RefreshControl,
-	ActivityIndicator,
-	useColorScheme,
-	SectionList,
+  View,
+  Text,
+  StyleSheet,
+  Image,
+  Pressable,
+  Animated,
+  RefreshControl,
+  ActivityIndicator,
+  useColorScheme,
+  SectionList,
 } from "react-native";
 import Colors from "../../constants/Colors";
 import arrowDownW from "../../assets/images/w_arrow_down.png";
 import arrowDownD from "../../assets/images/d_arrow_down.png";
+import { getApiUrl, API_ENDPOINTS } from "../../config/api";
+import { getToken, refreshToken } from "../../libs/auth";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 타입
 // ─────────────────────────────────────────────────────────────────────────────
 type Candidate = {
-	id: string;
-	code?: string;
-	name: string;
-	desc?: string;
-	confidence?: number; // 0~1
+  id: string;
+  code?: string;
+  name: string;
+  desc?: string;
+  confidence?: number; // 0~1
 };
 
 type Diagnosis = {
-	id: string;
-	photoUri?: string | null;
-	nickname: string;
-	diagnosedAt: string; // "YYYY-MM-DD" or ISO
-	diseaseName: string; // 대표 1순위 병명
-	details?: string;
-	candidates?: Candidate[]; // 상위 후보 (1~3개 렌더)
+  id: string;
+  photoUri?: string | null;
+  nickname: string;
+  diagnosedAt: string; // "YYYY-MM-DD" or ISO
+  diseaseName: string; // 대표 1순위 병명
+  details?: string;
+  candidates?: Candidate[]; // 상위 후보 (1~3개 렌더)
 };
 
 type SpeciesSection = { title: string; data: Diagnosis[] };
@@ -51,439 +59,617 @@ const API_BASE = process.env.EXPO_PUBLIC_API_BASE_URL;
  *     - USE_DEMO_ON_ERROR = false  (원한다면 true 유지해서 에러시 데모로 대체)
  *     - USE_DEMO_WHEN_EMPTY = false(원한다면 true 유지해서 빈 응답시 데모로 대체)
  */
-const FORCE_DEMO = false;          // true: 항상 DEMO_DATA만 사용 (개발/시연용)
-const USE_DEMO_ON_ERROR = true;    // true: API 에러 시 DEMO_DATA로 대체
-const USE_DEMO_WHEN_EMPTY = true;  // true: API가 빈 배열이면 DEMO_DATA로 대체
+const FORCE_DEMO = false; // true: 항상 DEMO_DATA만 사용 (개발/시연용)
+const USE_DEMO_ON_ERROR = true; // true: API 에러 시 DEMO_DATA로 대체
+const USE_DEMO_WHEN_EMPTY = true; // true: API가 빈 배열이면 DEMO_DATA로 대체
 
 function formatDate(s: string) {
-	try {
-		if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-		const d = new Date(s);
-		if (Number.isNaN(d.getTime())) return s;
-		const y = d.getFullYear();
-		const m = String(d.getMonth() + 1).padStart(2, "0");
-		const dd = String(d.getDate()).padStart(2, "0");
-		return `${y}-${m}-${dd}`;
-	} catch {
-		return s;
-	}
+  try {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    const d = new Date(s);
+    if (Number.isNaN(d.getTime())) return s;
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${dd}`;
+  } catch {
+    return s;
+  }
 }
 const todayStr = new Date().toISOString().slice(0, 10);
 
 // 닉네임에서 품종 파싱: "초코(몬스테라)" -> "몬스테라"
 // 괄호가 없으면 닉네임 전체를 품종으로 간주
 function extractSpecies(nickname: string) {
-	const m = nickname.match(/(?:.*)\(([^)]+)\)\s*$/);
-	return (m?.[1] ?? nickname ?? "기타").trim();
+  const m = nickname.match(/(?:.*)\(([^)]+)\)\s*$/);
+  return (m?.[1] ?? nickname ?? "기타").trim();
 }
 
 // 리스트를 품종별로 그룹화
 function groupBySpecies(list: Diagnosis[]): SpeciesSection[] {
-	const map = new Map<string, Diagnosis[]>();
-	for (const it of list) {
-		const sp = extractSpecies(it.nickname);
-		if (!map.has(sp)) map.set(sp, []);
-		map.get(sp)!.push(it);
-	}
-	return Array.from(map.entries())
-		.sort((a, b) => a[0].localeCompare(b[0]))
-		.map(([title, data]) => ({ title, data }));
+  const map = new Map<string, Diagnosis[]>();
+  for (const it of list) {
+    const sp = extractSpecies(it.nickname);
+    if (!map.has(sp)) map.set(sp, []);
+    map.get(sp)!.push(it);
+  }
+  return Array.from(map.entries())
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([title, data]) => ({ title, data }));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 페이지
 // ─────────────────────────────────────────────────────────────────────────────
 export default function MedicalPage() {
-	const scheme = useColorScheme();
-	const theme = Colors[scheme === "dark" ? "dark" : "light"];
+  const scheme = useColorScheme();
+  const theme = Colors[scheme === "dark" ? "dark" : "light"];
 
-	const [data, setData] = useState<Diagnosis[]>([]);
-	const [loading, setLoading] = useState(true);
-	const [refreshing, setRefreshing] = useState(false);
-	const [error, setError] = useState<string | null>(null);
+  const [data, setData] = useState<Diagnosis[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-	// 아코디언 상태
-	const openMap = useRef<Record<string, boolean>>({});
-	const rotateMap = useRef<Record<string, Animated.Value>>({});
-	const heightMap = useRef<Record<string, Animated.Value>>({});
-	const contentHMap = useRef<Record<string, number>>({});
+  // 아코디언 상태
+  const openMap = useRef<Record<string, boolean>>({});
+  const rotateMap = useRef<Record<string, Animated.Value>>({});
+  const heightMap = useRef<Record<string, Animated.Value>>({});
+  const contentHMap = useRef<Record<string, number>>({});
 
-	const getRotate = (id: string) => (rotateMap.current[id] ??= new Animated.Value(0));
-	const getHeight = (id: string) => (heightMap.current[id] ??= new Animated.Value(0));
-	const getContentH = (id: string) => contentHMap.current[id] ?? 0;
-	const setContentH = (id: string, h: number) => {
-		contentHMap.current[id] = h;
-		if (openMap.current[id]) getHeight(id).setValue(h);
-	};
-	const getOpen = (id: string) => !!openMap.current[id];
-	const setOpen = (id: string, val: boolean) => (openMap.current[id] = val);
+  const getRotate = (id: string) =>
+    (rotateMap.current[id] ??= new Animated.Value(0));
+  const getHeight = (id: string) =>
+    (heightMap.current[id] ??= new Animated.Value(0));
+  const getContentH = (id: string) => contentHMap.current[id] ?? 0;
+  const setContentH = (id: string, h: number) => {
+    contentHMap.current[id] = h;
+    if (openMap.current[id]) getHeight(id).setValue(h);
+  };
+  const getOpen = (id: string) => !!openMap.current[id];
+  const setOpen = (id: string, val: boolean) => (openMap.current[id] = val);
 
-	// 데이터 로드
-	const fetchData = useCallback(async () => {
-		/**
-		 * ▷▷▷ TODO(REAL_API):
-		 *  - 운영에서 "데모 먼저 보여주기"가 싫다면, 아래 setData(DEMO_DATA)를 삭제해라.
-		 *  - 개발/시연에선 즉시 DEMO 보이게 두는 게 편함.
-		 */
-		setData(DEMO_DATA);
+  // 데이터 로드
+  const fetchData = useCallback(async () => {
+    /**
+     * ▷▷▷ TODO(REAL_API):
+     *  - 운영에서 "데모 먼저 보여주기"가 싫다면, 아래 setData(DEMO_DATA)를 삭제해라.
+     *  - 개발/시연에선 즉시 DEMO 보이게 두는 게 편함.
+     */
+    setData(DEMO_DATA);
 
-		// 강제 데모 모드
-		if (FORCE_DEMO) {
-			setError(null);
-			setLoading(false);
-			return;
-		}
+    // 강제 데모 모드
+    if (FORCE_DEMO) {
+      setError(null);
+      setLoading(false);
+      return;
+    }
 
-		if (!API_BASE) {
-			setError("EXPO_PUBLIC_API_BASE_URL이 설정되어 있지 않습니다. (데모 데이터 표시)");
-			setLoading(false);
-			return;
-		}
+    try {
+      setError(null);
+      setLoading(true);
 
-		try {
-			setError(null);
-			setLoading(true);
+      const token = await getToken();
+      if (!token) {
+        setError("로그인이 필요합니다. (데모 데이터 표시)");
+        setLoading(false);
+        return;
+      }
 
-			/**
-			 * ▷▷▷ TODO(REAL_API):
-			 *  - 실제 쓰는 엔드포인트로 교체:
-			 *    예) `${API_BASE}/medical/diagnoses?mine=true`
-			 *       또는 `${API_BASE}/plants/mine/diagnoses`
-			 */
-			const res = await fetch(`${API_BASE}/medical/diagnoses?mine=true`, { method: "GET" });
+      // 병충해 진단 기록이 있는 식물 목록 조회
+      const plantsApiUrl = await getApiUrl(API_ENDPOINTS.PEST_DIAGNOSIS.PLANTS);
+      const plantsResponse = await fetch(plantsApiUrl, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
 
-			if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!plantsResponse.ok) {
+        if (plantsResponse.status === 401) {
+          // 토큰 갱신 시도
+          const refreshSuccess = await refreshToken();
+          if (refreshSuccess) {
+            const newToken = await getToken();
+            const retryResponse = await fetch(plantsApiUrl, {
+              method: "GET",
+              headers: {
+                Authorization: `Bearer ${newToken}`,
+                "Content-Type": "application/json",
+              },
+            });
 
-			const raw = await res.json().catch(() => []);
-			const arr: Diagnosis[] = Array.isArray(raw) ? raw : [];
+            if (retryResponse.ok) {
+              const plantsData = await retryResponse.json();
+              await processPlantsData(plantsData.plants, newToken);
+            } else {
+              throw new Error(`HTTP error! status: ${retryResponse.status}`);
+            }
+          } else {
+            setError("로그인이 만료되었습니다. (데모 데이터 표시)");
+          }
+        } else {
+          throw new Error(`HTTP error! status: ${plantsResponse.status}`);
+        }
+      } else {
+        const plantsData = await plantsResponse.json();
+        await processPlantsData(plantsData.plants, token);
+      }
+    } catch (e: any) {
+      // 에러 처리
+      if (USE_DEMO_ON_ERROR) {
+        setError((e?.message ?? "데이터 로딩 실패") + " (데모 데이터 표시)");
+        // 데모 유지
+      } else {
+        setError(e?.message ?? "데이터 로딩 실패");
+        setData([]); // 진짜 에러면 빈 화면을 원할 때
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-			if (arr.length === 0) {
-				// 빈 응답 처리
-				if (USE_DEMO_WHEN_EMPTY) {
-					// 데모 유지
-					setError(null);
-				} else {
-					setData([]); // 진짜로 "비어 있음"을 보여주고 싶을 때
-				}
-			} else {
-				const normalized = arr.map((it, idx) => ({
-					...it,
-					id: it.id ?? `diag_${idx}`,
-					diagnosedAt: formatDate(it.diagnosedAt),
-				}));
-				setData(normalized);
-			}
-		} catch (e: any) {
-			// 에러 처리
-			if (USE_DEMO_ON_ERROR) {
-				setError((e?.message ?? "데이터 로딩 실패") + " (데모 데이터 표시)");
-				// 데모 유지
-			} else {
-				setError(e?.message ?? "데이터 로딩 실패");
-				setData([]); // 진짜 에러면 빈 화면을 원할 때
-			}
-		} finally {
-			setLoading(false);
-		}
-	}, []);
+  // 식물 데이터 처리 함수
+  const processPlantsData = async (plants: any[], token: string) => {
+    const diagnoses: Diagnosis[] = [];
 
-	useEffect(() => {
-		fetchData();
-	}, [fetchData]);
+    for (const plant of plants) {
+      try {
+        // 각 식물의 병충해 진단 기록 조회
+        const diagnosisApiUrl = await getApiUrl(
+          API_ENDPOINTS.PEST_DIAGNOSIS.PLANT_DIAGNOSES(plant.plant_id)
+        );
+        const diagnosisResponse = await fetch(diagnosisApiUrl, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
 
-	const onRefresh = useCallback(async () => {
-		setRefreshing(true);
-		await fetchData();
-		setRefreshing(false);
-	}, [fetchData]);
+        if (diagnosisResponse.ok) {
+          const diagnosisData = await diagnosisResponse.json();
 
-	const sections = useMemo(() => groupBySpecies(data), [data]);
+          // 각 진단 기록을 Diagnosis 형태로 변환
+          for (const diagnosis of diagnosisData.diagnoses) {
+            diagnoses.push({
+              id: `diag_${plant.plant_id}_${diagnosis.pest_id}`,
+              photoUri: null, // 이미지는 나중에 추가
+              nickname: `${plant.plant_name}(${plant.species})`,
+              diagnosedAt: formatDate(diagnosis.diagnosed_at),
+              diseaseName: diagnosis.pest_name,
+              details: diagnosis.symptom,
+              candidates: [
+                {
+                  id: `candidate_${diagnosis.pest_id}_1`,
+                  name: diagnosis.pest_name,
+                  desc: diagnosis.symptom,
+                  confidence: diagnosis.confidence || 0.85,
+                },
+              ],
+            });
+          }
+        }
+      } catch (error) {
+        console.error(`식물 ${plant.plant_name}의 진단 기록 조회 실패:`, error);
+      }
+    }
 
-	// 아이템 렌더
-	const renderItem = useCallback(
-		({ item }: { item: Diagnosis }) => {
-			const rotate = getRotate(item.id);
-			const height = getHeight(item.id);
-			const arrowRotate = rotate.interpolate({
-				inputRange: [0, 1],
-				outputRange: ["0deg", "540deg"],
-			});
+    if (diagnoses.length === 0) {
+      // 빈 응답 처리
+      if (USE_DEMO_WHEN_EMPTY) {
+        // 데모 유지
+        setError(null);
+      } else {
+        setData([]); // 진짜로 "비어 있음"을 보여주고 싶을 때
+      }
+    } else {
+      setData(diagnoses);
+    }
+  };
 
-			const toggle = () => {
-				const next = !getOpen(item.id);
-				setOpen(item.id, next);
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
-				if (next) rotate.setValue(0);
-				Animated.timing(rotate, {
-					toValue: next ? 1 : 0,
-					duration: 260,
-					useNativeDriver: true,
-				}).start();
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchData();
+    setRefreshing(false);
+  }, [fetchData]);
 
-				const targetH = next ? getContentH(item.id) : 0;
-				Animated.timing(height, {
-					toValue: targetH,
-					duration: 220,
-					useNativeDriver: false,
-				}).start();
-			};
+  const sections = useMemo(() => groupBySpecies(data), [data]);
 
-			return (
-				<View style={{ marginBottom: 14 }}>
-					<View style={[styles.card, { borderColor: theme.border, backgroundColor: theme.bg }]}>
-						<Pressable onPress={toggle}>
-							<View style={styles.row}>
-								<View style={styles.left}>
-									<View style={[styles.photo, { borderColor: theme.border }]}>
-										{item.photoUri ? (
-											<Image
-												source={{ uri: item.photoUri }}
-												style={{ width: "100%", height: "100%", borderRadius: 8 }}
-											/>
-										) : (
-											<View style={styles.placeholder}>
-												<Text style={{ color: theme.text }}>사진</Text>
-											</View>
-										)}
-									</View>
-								</View>
-								<View style={styles.right}>
-									<View style={[styles.box, { borderColor: theme.border }]}>
-										<Text numberOfLines={1} style={[styles.title, { color: theme.text }]}>
-											{item.nickname} / {formatDate(item.diagnosedAt)}
-										</Text>
-									</View>
-									<View style={[styles.box, { borderColor: theme.border, marginTop: 6 }]}>
-										<Text numberOfLines={1} style={[styles.sub, { color: theme.text }]}>
-											{item.diseaseName}
-										</Text>
-									</View>
-								</View>
-							</View>
-						</Pressable>
+  // 아이템 렌더
+  const renderItem = useCallback(
+    ({ item }: { item: Diagnosis }) => {
+      const rotate = getRotate(item.id);
+      const height = getHeight(item.id);
+      const arrowRotate = rotate.interpolate({
+        inputRange: [0, 1],
+        outputRange: ["0deg", "540deg"],
+      });
 
-						<Animated.View style={{ height: height, overflow: "hidden" }}>
-							<View
-								style={styles.accWrap}
-								onLayout={(e) => {
-									const h = e.nativeEvent.layout.height;
-									setContentH(item.id, h);
-								}}
-							>
-								{/* 1) 큰 사진 박스 */}
-								<View style={[styles.accPhotoBox, { borderColor: theme.border }]}>
-									{item.photoUri ? (
-										<Image
-											source={{ uri: item.photoUri }}
-											style={{ width: "100%", height: "100%" }}
-											resizeMode="cover"
-										/>
-									) : (
-										<Text style={[styles.accPhotoText, { color: theme.text }]}>사진</Text>
-									)}
-								</View>
+      const toggle = () => {
+        const next = !getOpen(item.id);
+        setOpen(item.id, next);
 
-								{/* 2) 별명/날짜 표시 */}
-								<View style={[styles.accRow, { borderColor: theme.border, backgroundColor: theme.bg }]}>
-									<Text style={[styles.accRowText, { color: theme.text }]}>
-										내 식물 별명 / 진단 날짜(당일): {item.nickname} / {todayStr}
-									</Text>
-								</View>
+        if (next) rotate.setValue(0);
+        Animated.timing(rotate, {
+          toValue: next ? 1 : 0,
+          duration: 260,
+          useNativeDriver: true,
+        }).start();
 
-								{/* 3) 후보 병충해 1~3 */}
-								{(item.candidates ?? []).slice(0, 3).map((d, i) => (
-									<View
-										key={d.id}
-										style={[styles.accRow, { borderColor: theme.border, backgroundColor: theme.bg }]}
-									>
-										<Text style={[styles.accRowText, { color: theme.text }]}>
-											{i + 1}. {d.name} : {d.desc ?? "-"}
-											{typeof d.confidence === "number" ? ` (${Math.round(d.confidence * 100)}%)` : ""}
-										</Text>
-									</View>
-								))}
-							</View>
-						</Animated.View>
+        const targetH = next ? getContentH(item.id) : 0;
+        Animated.timing(height, {
+          toValue: targetH,
+          duration: 220,
+          useNativeDriver: false,
+        }).start();
+      };
 
-						<Pressable onPress={toggle} style={styles.arrow} hitSlop={8}>
-							<Animated.View style={{ transform: [{ rotate: arrowRotate }] }}>
-								<Image
-									source={scheme === "dark" ? arrowDownD : arrowDownW}
-									style={styles.arrowImg}
-									resizeMode="contain"
-								/>
-							</Animated.View>
-						</Pressable>
-					</View>
-				</View>
-			);
-		},
-		[scheme, theme]
-	);
+      return (
+        <View style={{ marginBottom: 14 }}>
+          <View
+            style={[
+              styles.card,
+              { borderColor: theme.border, backgroundColor: theme.bg },
+            ]}
+          >
+            <Pressable onPress={toggle}>
+              <View style={styles.row}>
+                <View style={styles.left}>
+                  <View style={[styles.photo, { borderColor: theme.border }]}>
+                    {item.photoUri ? (
+                      <Image
+                        source={{ uri: item.photoUri }}
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          borderRadius: 8,
+                        }}
+                      />
+                    ) : (
+                      <View style={styles.placeholder}>
+                        <Text style={{ color: theme.text }}>사진</Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
+                <View style={styles.right}>
+                  <View style={[styles.box, { borderColor: theme.border }]}>
+                    <Text
+                      numberOfLines={1}
+                      style={[styles.title, { color: theme.text }]}
+                    >
+                      {item.nickname} / {formatDate(item.diagnosedAt)}
+                    </Text>
+                  </View>
+                  <View
+                    style={[
+                      styles.box,
+                      { borderColor: theme.border, marginTop: 6 },
+                    ]}
+                  >
+                    <Text
+                      numberOfLines={1}
+                      style={[styles.sub, { color: theme.text }]}
+                    >
+                      {item.diseaseName}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            </Pressable>
 
-	if (loading) {
-		return (
-			<View style={[styles.center, { backgroundColor: theme.bg }]}>
-				<ActivityIndicator size="large" />
-				<Text style={{ color: theme.text, marginTop: 8 }}>불러오는 중…</Text>
-			</View>
-		);
-	}
+            <Animated.View style={{ height: height, overflow: "hidden" }}>
+              <View
+                style={styles.accWrap}
+                onLayout={(e) => {
+                  const h = e.nativeEvent.layout.height;
+                  setContentH(item.id, h);
+                }}
+              >
+                {/* 1) 큰 사진 박스 */}
+                <View
+                  style={[styles.accPhotoBox, { borderColor: theme.border }]}
+                >
+                  {item.photoUri ? (
+                    <Image
+                      source={{ uri: item.photoUri }}
+                      style={{ width: "100%", height: "100%" }}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <Text style={[styles.accPhotoText, { color: theme.text }]}>
+                      사진
+                    </Text>
+                  )}
+                </View>
 
-	return (
-		<View style={[styles.container, { backgroundColor: theme.bg }]}>
-			{error ? (
-				<View style={[styles.errorBox, { borderColor: theme.border, backgroundColor: theme.bg }]}>
-					<Text style={{ color: theme.text }}>⚠️ {error}</Text>
-				</View>
-			) : null}
+                {/* 2) 별명/날짜 표시 */}
+                <View
+                  style={[
+                    styles.accRow,
+                    { borderColor: theme.border, backgroundColor: theme.bg },
+                  ]}
+                >
+                  <Text style={[styles.accRowText, { color: theme.text }]}>
+                    내 식물 별명 / 진단 날짜(당일): {item.nickname} / {todayStr}
+                  </Text>
+                </View>
 
-			<SectionList
-				sections={sections}
-				keyExtractor={(item) => item.id}
-				renderItem={({ item }) => renderItem({ item })}
-				renderSectionHeader={({ section }) => (
-					<View style={[styles.sectionHeader, { borderColor: theme.border, backgroundColor: theme.bg }]}>
-						<Text style={[styles.sectionHeaderText, { color: theme.text }]}>{section.title}</Text>
-					</View>
-				)}
-				contentContainerStyle={{ padding: 16, paddingBottom: 24 }}
-				refreshControl={
-					<RefreshControl
-						refreshing={refreshing}
-						onRefresh={onRefresh}
-						tintColor={scheme === "dark" ? "#fff" : "#000"}
-					/>
-				}
-				ListEmptyComponent={
-					<View style={[styles.center, { paddingTop: 40 }]}>
-						<Text style={{ color: theme.text }}>표시할 진단이 없습니다.</Text>
-					</View>
-				}
-			/>
-		</View>
-	);
+                {/* 3) 후보 병충해 1~3 */}
+                {(item.candidates ?? []).slice(0, 3).map((d, i) => (
+                  <View
+                    key={d.id}
+                    style={[
+                      styles.accRow,
+                      { borderColor: theme.border, backgroundColor: theme.bg },
+                    ]}
+                  >
+                    <Text style={[styles.accRowText, { color: theme.text }]}>
+                      {i + 1}. {d.name} : {d.desc ?? "-"}
+                      {typeof d.confidence === "number"
+                        ? ` (${Math.round(d.confidence * 100)}%)`
+                        : ""}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </Animated.View>
+
+            <Pressable onPress={toggle} style={styles.arrow} hitSlop={8}>
+              <Animated.View style={{ transform: [{ rotate: arrowRotate }] }}>
+                <Image
+                  source={scheme === "dark" ? arrowDownD : arrowDownW}
+                  style={styles.arrowImg}
+                  resizeMode="contain"
+                />
+              </Animated.View>
+            </Pressable>
+          </View>
+        </View>
+      );
+    },
+    [scheme, theme]
+  );
+
+  if (loading) {
+    return (
+      <View style={[styles.center, { backgroundColor: theme.bg }]}>
+        <ActivityIndicator size="large" />
+        <Text style={{ color: theme.text, marginTop: 8 }}>불러오는 중…</Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={[styles.container, { backgroundColor: theme.bg }]}>
+      {error ? (
+        <View
+          style={[
+            styles.errorBox,
+            { borderColor: theme.border, backgroundColor: theme.bg },
+          ]}
+        >
+          <Text style={{ color: theme.text }}>⚠️ {error}</Text>
+        </View>
+      ) : null}
+
+      <SectionList
+        sections={sections}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => renderItem({ item })}
+        renderSectionHeader={({ section }) => (
+          <View
+            style={[
+              styles.sectionHeader,
+              { borderColor: theme.border, backgroundColor: theme.bg },
+            ]}
+          >
+            <Text style={[styles.sectionHeaderText, { color: theme.text }]}>
+              {section.title}
+            </Text>
+          </View>
+        )}
+        contentContainerStyle={{ padding: 16, paddingBottom: 24 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={scheme === "dark" ? "#fff" : "#000"}
+          />
+        }
+        ListEmptyComponent={
+          <View style={[styles.center, { paddingTop: 40 }]}>
+            <Text style={{ color: theme.text }}>표시할 진단이 없습니다.</Text>
+          </View>
+        }
+      />
+    </View>
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DEMO_DATA
 // ─────────────────────────────────────────────────────────────────────────────
 const DEMO_DATA: Diagnosis[] = [
-	{
-		id: "diag_001",
-		nickname: "초코(몬스테라)",
-		diagnosedAt: "2025-09-18T10:20:00+09:00",
-		diseaseName: "잎마름병",
-		details: "엽연 갈변과 건조 흔적이 관찰됨. 통풍 부족 및 과습 의심.",
-		photoUri: "https://picsum.photos/seed/plant1/480/360",
-		candidates: [
-			{ id: "cand_001", code: "leaf_blight", name: "잎마름병", desc: "가장자리 갈변·마름", confidence: 0.87 },
-			{ id: "cand_002", code: "powdery_mildew", name: "흰가루병", desc: "백색 분말성 균총", confidence: 0.08 },
-			{ id: "cand_003", code: "scale_insect", name: "깍지벌레", desc: "줄기·잎의 흰 혹", confidence: 0.05 },
-		],
-	},
-	{
-		id: "diag_002",
-		nickname: "토리(올리브나무)",
-		diagnosedAt: "2025-09-17",
-		diseaseName: "진딧물",
-		details: "잎 뒷면 점착 물질과 굴절광 반사. 그을음병 동반 가능.",
-		photoUri: "https://picsum.photos/seed/plant2/480/360",
-		candidates: [
-			{ id: "cand_004", code: "aphid", name: "진딧물", desc: "연한 새순 부위 군집", confidence: 0.76 },
-			{ id: "cand_005", code: "spider_mite", name: "응애", desc: "미세한 점상 피해", confidence: 0.14 },
-			{ id: "cand_006", code: "thrips", name: "총채벌레", desc: "은백색 변색 스트리크", confidence: 0.10 },
-		],
-	},
-	{
-		id: "diag_003",
-		nickname: "토리(올리브나무)",
-		diagnosedAt: "2025-09-17",
-		diseaseName: "진딧물",
-		details: "잎 뒷면 점착 물질과 굴절광 반사. 그을음병 동반 가능.",
-		photoUri: "https://picsum.photos/seed/plant3/480/360",
-		candidates: [
-			{ id: "cand_007", code: "aphid", name: "진딧물", desc: "연한 새순 부위 군집", confidence: 0.76 },
-			{ id: "cand_008", code: "spider_mite", name: "응애", desc: "미세한 점상 피해", confidence: 0.14 },
-			{ id: "cand_009", code: "thrips", name: "총채벌레", desc: "은백색 변색 스트리크", confidence: 0.10 },
-		],
-	},
+  {
+    id: "diag_001",
+    nickname: "초코(몬스테라)",
+    diagnosedAt: "2025-09-18T10:20:00+09:00",
+    diseaseName: "잎마름병",
+    details: "엽연 갈변과 건조 흔적이 관찰됨. 통풍 부족 및 과습 의심.",
+    photoUri: "https://picsum.photos/seed/plant1/480/360",
+    candidates: [
+      {
+        id: "cand_001",
+        code: "leaf_blight",
+        name: "잎마름병",
+        desc: "가장자리 갈변·마름",
+        confidence: 0.87,
+      },
+      {
+        id: "cand_002",
+        code: "powdery_mildew",
+        name: "흰가루병",
+        desc: "백색 분말성 균총",
+        confidence: 0.08,
+      },
+      {
+        id: "cand_003",
+        code: "scale_insect",
+        name: "깍지벌레",
+        desc: "줄기·잎의 흰 혹",
+        confidence: 0.05,
+      },
+    ],
+  },
+  {
+    id: "diag_002",
+    nickname: "토리(올리브나무)",
+    diagnosedAt: "2025-09-17",
+    diseaseName: "진딧물",
+    details: "잎 뒷면 점착 물질과 굴절광 반사. 그을음병 동반 가능.",
+    photoUri: "https://picsum.photos/seed/plant2/480/360",
+    candidates: [
+      {
+        id: "cand_004",
+        code: "aphid",
+        name: "진딧물",
+        desc: "연한 새순 부위 군집",
+        confidence: 0.76,
+      },
+      {
+        id: "cand_005",
+        code: "spider_mite",
+        name: "응애",
+        desc: "미세한 점상 피해",
+        confidence: 0.14,
+      },
+      {
+        id: "cand_006",
+        code: "thrips",
+        name: "총채벌레",
+        desc: "은백색 변색 스트리크",
+        confidence: 0.1,
+      },
+    ],
+  },
+  {
+    id: "diag_003",
+    nickname: "토리(올리브나무)",
+    diagnosedAt: "2025-09-17",
+    diseaseName: "진딧물",
+    details: "잎 뒷면 점착 물질과 굴절광 반사. 그을음병 동반 가능.",
+    photoUri: "https://picsum.photos/seed/plant3/480/360",
+    candidates: [
+      {
+        id: "cand_007",
+        code: "aphid",
+        name: "진딧물",
+        desc: "연한 새순 부위 군집",
+        confidence: 0.76,
+      },
+      {
+        id: "cand_008",
+        code: "spider_mite",
+        name: "응애",
+        desc: "미세한 점상 피해",
+        confidence: 0.14,
+      },
+      {
+        id: "cand_009",
+        code: "thrips",
+        name: "총채벌레",
+        desc: "은백색 변색 스트리크",
+        confidence: 0.1,
+      },
+    ],
+  },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 스타일
 // ─────────────────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-	container: { flex: 1, paddingBottom: 50 },
-	center: { flex: 1, alignItems: "center", justifyContent: "center" },
+  container: { flex: 1, paddingBottom: 50 },
+  center: { flex: 1, alignItems: "center", justifyContent: "center" },
 
-	card: { borderWidth: 1, borderRadius: 12, padding: 12 },
-	row: { flexDirection: "row" },
-	left: { marginRight: 10, justifyContent: "center" },
-	photo: {
-		width: 72,
-		height: 72,
-		borderWidth: 1,
-		borderRadius: 8,
-		overflow: "hidden",
-		backgroundColor: "#ddd",
-		alignItems: "center",
-		justifyContent: "center",
-	},
-	placeholder: { flex: 1, alignItems: "center", justifyContent: "center" },
-	right: { flex: 1 },
-	box: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8 },
-	title: { fontSize: 15, fontWeight: "600" },
-	sub: { fontSize: 15, fontWeight: "500" },
+  card: { borderWidth: 1, borderRadius: 12, padding: 12 },
+  row: { flexDirection: "row" },
+  left: { marginRight: 10, justifyContent: "center" },
+  photo: {
+    width: 72,
+    height: 72,
+    borderWidth: 1,
+    borderRadius: 8,
+    overflow: "hidden",
+    backgroundColor: "#ddd",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  placeholder: { flex: 1, alignItems: "center", justifyContent: "center" },
+  right: { flex: 1 },
+  box: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  title: { fontSize: 15, fontWeight: "600" },
+  sub: { fontSize: 15, fontWeight: "500" },
 
-	arrow: {
-		alignSelf: "center",
-		marginTop: 8,
-		padding: 6,
-		width: 36,
-		height: 36,
-		alignItems: "center",
-		justifyContent: "center",
-	},
-	arrowImg: { width: 24, height: 24 },
+  arrow: {
+    alignSelf: "center",
+    marginTop: 8,
+    padding: 6,
+    width: 36,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  arrowImg: { width: 24, height: 24 },
 
-	errorBox: {
-		margin: 16,
-		padding: 12,
-		borderRadius: 10,
-		borderWidth: 1,
-	},
+  errorBox: {
+    margin: 16,
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
 
-	accWrap: { paddingTop: 8, paddingBottom: 12 },
-	accPhotoBox: {
-		borderWidth: 1,
-		borderRadius: 8,
-		height: 160,
-		alignItems: "center",
-		justifyContent: "center",
-		marginBottom: 10,
-		backgroundColor: "#eee",
-	},
-	accPhotoText: { fontSize: 14 },
-	accRow: {
-		borderWidth: 1,
-		borderRadius: 8,
-		paddingHorizontal: 12,
-		paddingVertical: 10,
-		marginBottom: 8,
-	},
-	accRowText: { fontSize: 14, lineHeight: 20 },
+  accWrap: { paddingTop: 8, paddingBottom: 12 },
+  accPhotoBox: {
+    borderWidth: 1,
+    borderRadius: 8,
+    height: 160,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 10,
+    backgroundColor: "#eee",
+  },
+  accPhotoText: { fontSize: 14 },
+  accRow: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 8,
+  },
+  accRowText: { fontSize: 14, lineHeight: 20 },
 
-	sectionHeader: {
-		borderWidth: 1,
-		borderRadius: 8,
-		paddingHorizontal: 10,
-		paddingVertical: 6,
-		marginBottom: 10,
-	},
-	sectionHeaderText: {
-		fontSize: 13,
-		fontWeight: "700",
-		opacity: 0.8,
-	},
+  sectionHeader: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginBottom: 10,
+  },
+  sectionHeaderText: {
+    fontSize: 13,
+    fontWeight: "700",
+    opacity: 0.8,
+  },
 });
