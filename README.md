@@ -238,6 +238,7 @@ npx expo start
 ### 변경 전/후 비교
 
 **변경 전:**
+
 ```
 backend/app/
 ├── routers/          # API 라우터
@@ -248,6 +249,7 @@ backend/app/
 ```
 
 **변경 후:**
+
 ```
 backend/app/
 ├── api/              # 통합된 API 라우터
