@@ -5,7 +5,7 @@ from fastapi import Depends, HTTPException, status
 from typing import Generator, Dict, Any
 import aiomysql
 
-from core.database import get_db_connection
+from db.pool import get_db_connection
 from services.auth_service import get_current_user
 
 

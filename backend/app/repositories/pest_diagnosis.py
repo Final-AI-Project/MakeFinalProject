@@ -2,7 +2,7 @@ from __future__ import annotations
 from typing import List, Optional, Dict, Any, Tuple
 from datetime import datetime, date
 import aiomysql
-from core.database import get_db_connection
+from db.pool import get_db_connection
 from models.pest_wiki import PestWiki
 from schemas.disease_diagnosis import DiseasePrediction, DiseaseDiagnosisResponse
 
