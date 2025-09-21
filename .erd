@@ -4,9 +4,9 @@
   "settings": {
     "width": 2000,
     "height": 2000,
-    "scrollTop": -522.5313,
-    "scrollLeft": -391.2883,
-    "zoomLevel": 1,
+    "scrollTop": -13.83,
+    "scrollLeft": -443.4284,
+    "zoomLevel": 0.85,
     "show": 431,
     "database": 4,
     "databaseName": "Final",
@@ -274,24 +274,26 @@
         "columnIds": [
           "rSkyq-D71VXDexQRdyVuF",
           "CeJBYFe1MhxT4GGD6GsiF",
+          "bR2VqCvl2-e9NDHJ1n3fy",
           "4rDLwAshJUlGhQ9V5egn8"
         ],
         "seqColumnIds": [
           "rSkyq-D71VXDexQRdyVuF",
           "CeJBYFe1MhxT4GGD6GsiF",
+          "bR2VqCvl2-e9NDHJ1n3fy",
           "4rDLwAshJUlGhQ9V5egn8",
           "CmgZEdldQ6g1CPriZt9RG"
         ],
         "ui": {
-          "x": 1013.1818,
-          "y": 840.909,
+          "x": 1026.1229,
+          "y": 819.7326,
           "zIndex": 2,
           "widthName": 61,
           "widthComment": 60,
           "color": ""
         },
         "meta": {
-          "updateAt": 1758351806850,
+          "updateAt": 1758464485676,
           "createAt": 1758351516218
         }
       },
@@ -1302,18 +1304,18 @@
         "tableId": "OerKeLtoGGv4hmnEYg3ns",
         "name": "humidity",
         "comment": "",
-        "dataType": "int",
+        "dataType": "varchar(50)",
         "default": "",
         "options": 8,
         "ui": {
           "keys": 0,
           "widthName": 60,
           "widthComment": 60,
-          "widthDataType": 60,
+          "widthDataType": 61,
           "widthDefault": 60
         },
         "meta": {
-          "updateAt": 1758351516218,
+          "updateAt": 1758464483152,
           "createAt": 1758351516218
         }
       },
@@ -1976,6 +1978,26 @@
           "updateAt": 1758351516219,
           "createAt": 1758351516219
         }
+      },
+      "bR2VqCvl2-e9NDHJ1n3fy": {
+        "id": "bR2VqCvl2-e9NDHJ1n3fy",
+        "tableId": "OerKeLtoGGv4hmnEYg3ns",
+        "name": "sensor_digit",
+        "comment": "",
+        "dataType": "int",
+        "default": "",
+        "options": 8,
+        "ui": {
+          "keys": 0,
+          "widthName": 65,
+          "widthComment": 60,
+          "widthDataType": 60,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1758464486285,
+          "createAt": 1758464454936
+        }
       }
     },
     "relationshipEntities": {
@@ -2166,8 +2188,8 @@
           "columnIds": [
             "rSkyq-D71VXDexQRdyVuF"
           ],
-          "x": 1013.1818,
-          "y": 904.909,
+          "x": 1026.1229,
+          "y": 895.7326,
           "direction": 1
         },
         "meta": {
