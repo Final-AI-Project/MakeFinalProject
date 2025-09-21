@@ -14,6 +14,7 @@ import { useColorScheme } from "react-native";
 import { useRouter } from "expo-router";
 import Colors from "../../constants/Colors";
 import { fetchSimpleWeather } from "../../components/common/weatherBox";
+import { useFocusEffect } from "@react-navigation/native";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ② Helpers & Types
@@ -210,7 +211,7 @@ function BottomSheet({
                     Animated.spring(translateY, {
                         toValue: 0,
                         useNativeDriver: true,
-                        bounciness: 3,
+                       	bounciness: 3,
                     }).start();
                 }
             },
@@ -293,7 +294,7 @@ export default function Diary() {
 		[]
 	);
 
-	// 날씨 자동 채움 (WeatherBox 렌더링 없이)
+	// 날씨 자동 채움 (WeatherBox 렌더링 없이) — 기존 그대로 유지
 	useEffect(() => {
 		(async () => {
 			try {
@@ -308,7 +309,7 @@ export default function Diary() {
 		})();
 	}, []);
 
-	// 제출 버튼 활성 조건 (모든 입력 완료 판정)
+	// ✅ 제출 버튼 활성 조건 (모든 입력 완료 판정)
 	const canSubmit = Boolean(photoUri && title.trim() && selectedPlant && date && weather && body.trim());
 
 	// 사진 선택
@@ -335,8 +336,8 @@ export default function Diary() {
 
 		// TODO: 서버 저장 & LLM 호출 후 setAiText(resp.message)
 		setAiPreviewVisible(true);   // 등록 후에만 미리보기 표시
-		setSheetVisible(true);	   // 등록하면 바텀시트 열림
-		setIsSubmitted(true);		// 이후부터 '수정' 모드
+		setSheetVisible(true);       // 등록하면 바텀시트 열림
+		setIsSubmitted(true);        // 이후부터 '수정' 모드
 	};
 
 	// 수정: 오늘의 일기 업데이트 + LLM 재호출 + 알럿 + 시트 오픈
@@ -370,13 +371,33 @@ export default function Diary() {
 		}
 	};
 
-
-	// 버튼 라벨/핸들러 스위칭 (✔️ 누락으로 인한 '수정' 동작 불가 버그 수정)
+	// 버튼 라벨/핸들러 스위칭
 	const primaryLabel = isSubmitted ? "수정하기" : "등록하기";
 	const primaryOnPress = isSubmitted ? handleUpdate : handleSubmit;
 
-	// 바텀시트 타이틀: OOO의 하고픈 말
+	// 바텀시트 타이틀
 	const sheetTitle = `${selectedPlant ?? "식물"}의 하고픈 말`;
+
+	// ─────────────────────────────────────────────────────────────────────
+	// ✅ 포커스 시 전체 리셋 (날씨/날짜는 건드리지 않음)
+	// ─────────────────────────────────────────────────────────────────────
+	const resetDiary = React.useCallback(() => {
+		Keyboard.dismiss();
+		setPhotoUri(null);
+		setTitle("");
+		setSelectedPlant(null);
+		setBody("");
+		setAiPreviewVisible(false);
+		setIsSubmitted(false);
+		setSheetVisible(false);
+		setAiText("오늘은 통풍만 잘 시켜주세요. 물은 내일 추천! 🌤️");
+	}, []);
+
+	useFocusEffect(
+		React.useCallback(() => {
+			resetDiary();
+		}, [resetDiary])
+	);
 
 	return (
 		<KeyboardAvoidingView
@@ -493,7 +514,7 @@ export default function Diary() {
 						</Pressable>
 						<Pressable
 							disabled={!canSubmit}
-							onPress={() => { Keyboard.dismiss(); primaryOnPress(); }}  // ← 수정: 먼저 키패드 닫기
+							onPress={() => { Keyboard.dismiss(); primaryOnPress(); }}  // ← 먼저 키패드 닫기
 							style={[styles.submitBtn, { backgroundColor: !canSubmit ? theme.graybg : theme.primary }]}
 						>
 							<Text style={[styles.submitText, { color: "#fff" }]}>{primaryLabel}</Text>
