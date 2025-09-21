@@ -13,6 +13,7 @@ import {
 	SectionList,
 } from "react-native";
 import Colors from "../../constants/Colors";
+import { useRouter } from "expo-router";
 import arrowDownW from "../../assets/images/w_arrow_down.png";
 import arrowDownD from "../../assets/images/d_arrow_down.png";
 
@@ -96,6 +97,8 @@ function groupBySpecies(list: Diagnosis[]): SpeciesSection[] {
 export default function MedicalPage() {
 	const scheme = useColorScheme();
 	const theme = Colors[scheme === "dark" ? "dark" : "light"];
+
+	const router = useRouter();
 
 	const [data, setData] = useState<Diagnosis[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -332,12 +335,6 @@ export default function MedicalPage() {
 
 	return (
 		<View style={[styles.container, { backgroundColor: theme.bg }]}>
-			{error ? (
-				<View style={[styles.errorBox, { borderColor: theme.border, backgroundColor: theme.bg }]}>
-					<Text style={{ color: theme.text }}>⚠️ {error}</Text>
-				</View>
-			) : null}
-
 			<SectionList
 				sections={sections}
 				keyExtractor={(item) => item.id}
@@ -361,6 +358,22 @@ export default function MedicalPage() {
 					</View>
 				}
 			/>
+
+			{/* ✅ 고정 FAB: 병충해 진단 상세로 이동 */}
+			<Pressable
+				onPress={() => router.push("/(page)/(stackless)/medical-detail")}
+				style={({ pressed }) => [
+					styles.fab,
+					{ opacity: pressed ? 0.85 : 1, backgroundColor: theme.primary ?? "#00c73c" },
+				]}
+				android_ripple={{ color: "#ffffff22", borderless: false }}
+				hitSlop={8}
+				accessibilityRole="button"
+				accessibilityLabel="병충해 진단하기로 이동"
+			>
+				<Text style={styles.fabPlus}>+</Text>
+				<Text style={styles.fabLabel}>진단하기</Text>
+			</Pressable>
 		</View>
 	);
 }
@@ -414,7 +427,7 @@ const DEMO_DATA: Diagnosis[] = [
 // 스타일
 // ─────────────────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-	container: { flex: 1, paddingBottom: 50 },
+	container: { flex: 1, paddingBottom: 120 },
 	center: { flex: 1, alignItems: "center", justifyContent: "center" },
 
 	card: { borderWidth: 1, borderRadius: 12, padding: 12 },
@@ -485,5 +498,38 @@ const styles = StyleSheet.create({
 		fontSize: 13,
 		fontWeight: "700",
 		opacity: 0.8,
+	},
+
+	fab: {
+		position: "absolute",
+		right: 18,
+		bottom: 85,
+		borderRadius: 28,
+		paddingHorizontal: 16,
+		height: 56,
+		minWidth: 56,
+		flexDirection: "row",
+		alignItems: "center",
+		justifyContent: "center",
+
+		// iOS shadow
+		shadowColor: "#000",
+		shadowOpacity: 0.18,
+		shadowRadius: 6,
+		shadowOffset: { width: 0, height: 2 },
+		// Android shadow
+		elevation: 3,
+	},
+	fabPlus: {
+		fontSize: 22,
+		fontWeight: "800",
+		color: "#fff",
+		marginRight: 8,
+		lineHeight: 22,
+	},
+	fabLabel: {
+		fontSize: 15,
+		fontWeight: "700",
+		color: "#fff",
 	},
 });
