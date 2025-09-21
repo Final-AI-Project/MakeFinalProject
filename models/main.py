@@ -253,85 +253,91 @@ def get_health_recommendation(health_status: str) -> str:
     }
     return recommendations.get(health_status, '식물 상태를 주의 깊게 관찰하세요.')
 
-# -------------------------- 병충해/질병 분류기 API (통합)
+# -------------------------- 병충해/질병 분류기 API (통합) - 건강 상태 우선 확인
 @app.post("/disease")
 async def classify_disease(
     image: UploadFile = File(...)
 ):
     """
-    식물의 병충해/질병을 분류
+    식물의 건강 상태를 먼저 확인하고, 문제가 있을 때만 병충해 진단 수행
     """
-    if pest_model is None:
-        # 병충해 모델이 없는 경우 건강 상태 모델을 활용
-        if health_model is None:
-            raise HTTPException(status_code=500, detail="병충해/질병 분류 모델이 로드되지 않았습니다.")
-        
-        try:
-            # 건강 상태 모델을 사용하여 질병 여부 판단
-            image_data = await image.read()
-            pil_image = Image.open(io.BytesIO(image_data))
-            
-            result = predict_health(pil_image, topk=1)
-            health_status = result['class_name']
-            confidence = result['score']
-            
-            # 건강 상태를 기반으로 질병 여부 판단
-            if health_status == 'diseased':
-                disease_info = {
-                    'disease': 'possible_disease',
-                    'confidence': confidence,
-                    'message': '식물에 질병이 있을 가능성이 있습니다.',
-                    'recommendation': '식물 전문가나 가든센터에 상담을 받아보세요.'
-                }
-            else:
-                disease_info = {
-                    'disease': 'no_disease',
-                    'confidence': confidence,
-                    'message': '현재 질병의 징후가 보이지 않습니다.',
-                    'recommendation': '정기적인 관찰을 계속하세요.'
-                }
-            
-            return JSONResponse(content={
-                'success': True,
-                'message': disease_info['message'],
-                'disease': disease_info['disease'],
-                'confidence': round(disease_info['confidence'], 4),
-                'recommendation': disease_info['recommendation'],
-                'note': '건강 상태 모델을 사용한 예비 진단입니다.'
-            })
-            
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"병충해/질병 분류 중 오류가 발생했습니다: {str(e)}")
-    
-    # 병충해 모델을 사용하여 병충해/질병 분류
     try:
         # 업로드된 이미지 읽기
         image_data = await image.read()
         pil_image = Image.open(io.BytesIO(image_data))
         
-        # 병충해 분류 수행 (질병 정보 포함)
-        preds, msg = predict_pest(pil_image)
+        print(f"[DEBUG] 이미지 크기: {pil_image.size}")
+        print(f"[DEBUG] 이미지 모드: {pil_image.mode}")
+        
+        # 1단계: 건강 상태 확인
+        if health_model is None:
+            raise HTTPException(status_code=500, detail="건강 상태 분류 모델이 로드되지 않았습니다.")
+        
+        print(f"[DEBUG] 건강 상태 확인 시작...")
+        health_result = predict_health(pil_image, topk=1)
+        health_status = health_result['class_name']
+        health_confidence = health_result['score']
+        
+        print(f"[DEBUG] 건강 상태: {health_status}, 신뢰도: {health_confidence}")
+        
+        # 2단계: 건강한 경우
+        if health_status == 'healthy':
+            return JSONResponse(content={
+                'success': True,
+                'health_check': True,
+                'health_status': health_status,
+                'health_confidence': round(health_confidence, 4),
+                'message': '건강한 식물입니다!',
+                'recommendation': '현재 상태를 유지하세요. 정기적인 물주기와 햇빛을 제공하세요.',
+                'disease_predictions': []
+            })
+        
+        # 3단계: 건강하지 않은 경우 - 병충해 진단 수행
+        print(f"[DEBUG] 건강하지 않음 - 병충해 진단 시작...")
+        
+        if pest_model is None:
+            # 병충해 모델이 없는 경우 건강 상태만 반환
+            return JSONResponse(content={
+                'success': True,
+                'health_check': True,
+                'health_status': health_status,
+                'health_confidence': round(health_confidence, 4),
+                'message': f'식물에 문제가 있을 수 있습니다. (상태: {health_status})',
+                'recommendation': '식물 전문가나 가든센터에 상담을 받아보세요.',
+                'disease_predictions': []
+            })
+        
+        # 병충해 분류 수행
+        try:
+            preds, msg = predict_pest(pil_image)
+            print(f"[DEBUG] 병충해 예측 결과: {preds}")
+            print(f"[DEBUG] 메시지: {msg}")
+        except Exception as e:
+            print(f"[DEBUG] predict_pest 오류: {e}")
+            import traceback
+            print(f"[DEBUG] 트레이스백: {traceback.format_exc()}")
+            raise e
         
         # 예측 결과 처리
+        disease_predictions = []
         if preds and len(preds) > 0:
-            top_pred = preds[0]
-            class_name = top_pred[0]
-            confidence = top_pred[1]
-        else:
-            class_name = "unknown"
-            confidence = 0.0
+            for i, pred in enumerate(preds[:3]):
+                class_name = pred[0]
+                confidence = pred[1]
+                disease_predictions.append({
+                    'class_name': class_name,
+                    'confidence': round(confidence, 4),
+                    'rank': i + 1
+                })
         
         return JSONResponse(content={
             'success': True,
-            'message': f"병충해/질병 분류 완료: {class_name}",
-            'disease': class_name,
-            'confidence': round(confidence, 4),
-            'disease_info': {
-                'description': f"{class_name} 병충해가 감지되었습니다.",
-                'treatment': '식물 전문가에게 상담하세요.',
-                'prevention': '정기적인 관찰과 관리가 필요합니다.'
-            },
-            'recommendation': msg,
+            'health_check': True,
+            'health_status': health_status,
+            'health_confidence': round(health_confidence, 4),
+            'message': f'식물에 문제가 감지되었습니다. (상태: {health_status})',
+            'recommendation': '아래 진단 결과를 참고하여 적절한 조치를 취하세요.',
+            'disease_predictions': disease_predictions,
             'all_predictions': [{'class_name': pred[0], 'confidence': round(pred[1], 4)} for pred in preds[:3]]
         })
         

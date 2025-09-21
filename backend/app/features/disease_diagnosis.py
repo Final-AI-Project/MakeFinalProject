@@ -33,25 +33,40 @@ async def diagnose_disease_from_upload(
         if not image.filename:
             raise HTTPException(status_code=400, detail="파일명이 없습니다.")
         
+        print(f"[DEBUG] 업로드된 파일: {image.filename}")
+        print(f"[DEBUG] 파일 타입: {image.content_type}")
+        
         # 이미지 데이터 읽기
         image_data = await image.read()
+        print(f"[DEBUG] 이미지 데이터 크기: {len(image_data)} bytes")
         
         # 이미지 저장
         img_url = await save_uploaded_image(image, "disease_diagnosis")
+        print(f"[DEBUG] 저장된 이미지 URL: {img_url}")
         
         # 병충해 진단 수행
         result = await diagnose_disease_from_image(image_data)
+        print(f"[DEBUG] 진단 결과: {result}")
         
-        return DiseaseDiagnosisResponse(
+        response = DiseaseDiagnosisResponse(
             success=result.success,
+            health_check=result.health_check,
+            health_status=result.health_status,
+            health_confidence=result.health_confidence,
             message=result.message,
-            predictions=result.predictions,
+            recommendation=result.recommendation,
+            disease_predictions=result.disease_predictions,
             image_url=img_url
         )
+        print(f"[DEBUG] 최종 응답: {response}")
+        return response
         
     except HTTPException:
         raise
     except Exception as e:
+        print(f"[DEBUG] 진단 API 오류: {e}")
+        import traceback
+        print(f"[DEBUG] 트레이스백: {traceback.format_exc()}")
         raise HTTPException(
             status_code=500,
             detail=f"병충해 진단 중 오류가 발생했습니다: {str(e)}"
@@ -191,6 +206,63 @@ async def save_disease_diagnosis(
         raise HTTPException(
             status_code=500,
             detail=f"병충해 진단 저장 중 오류가 발생했습니다: {str(e)}"
+        )
+
+
+@router.get("/pest-info/{pest_name}")
+async def get_pest_info(
+    pest_name: str,
+    db: tuple = Depends(get_db_connection)
+):
+    """
+    병충해 이름으로 상세 정보를 조회합니다.
+    """
+    try:
+        async with db.cursor(aiomysql.DictCursor) as cursor:
+            await cursor.execute(
+                """
+                SELECT 
+                    pest_id,
+                    pest_name,
+                    cause,
+                    cure,
+                    description
+                FROM pest_wiki 
+                WHERE pest_name = %s
+                LIMIT 1
+                """,
+                (pest_name,)
+            )
+            result = await cursor.fetchone()
+            
+            if result:
+                return {
+                    "success": True,
+                    "pest_info": {
+                        "pest_id": result["pest_id"],
+                        "pest_name": result["pest_name"],
+                        "cause": result["cause"],
+                        "cure": result["cure"],
+                        "description": result["description"]
+                    }
+                }
+            else:
+                # DB에 없는 경우 기본 정보 반환
+                return {
+                    "success": True,
+                    "pest_info": {
+                        "pest_id": None,
+                        "pest_name": pest_name,
+                        "cause": "정확한 원인을 파악하기 위해 식물 전문가에게 상담하세요.",
+                        "cure": "적절한 치료제 사용과 환경 개선이 필요합니다.",
+                        "description": f"{pest_name} 병충해가 감지되었습니다."
+                    }
+                }
+            
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"병충해 정보 조회 중 오류가 발생했습니다: {str(e)}"
         )
 
 

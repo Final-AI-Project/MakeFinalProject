@@ -49,8 +49,12 @@ except ImportError:
     
 
 # ===== 설정(환경변수로 덮어쓰기 가능) =====
-MODEL_PATH = os.getenv("PLANT_MODEL")
+MODEL_PATH = os.getenv("PLANT_MODEL", str(BASE_DIR / "pestcase_best.pt"))  # 절대 경로로 기본값 설정
 DEVICE     = os.getenv("PLANT_DEVICE", "cuda" if torch.cuda.is_available() else "cpu").strip()
+
+print(f"[DEBUG] MODEL_PATH: {MODEL_PATH}")
+print(f"[DEBUG] DEVICE: {DEVICE}")
+print(f"[DEBUG] BASE_DIR: {BASE_DIR}")
 
 # ===== 전역 상태(지연 로딩) =====
 _model = None
@@ -108,6 +112,13 @@ def _load_once():
     with _lock:
         if _model is not None:
             return
+        
+        print(f"[DEBUG] 모델 로딩 시작 - MODEL_PATH: {MODEL_PATH}")
+        print(f"[DEBUG] 모델 파일 존재 여부: {os.path.exists(MODEL_PATH)}")
+        
+        if not os.path.exists(MODEL_PATH):
+            raise FileNotFoundError(f"모델 파일을 찾을 수 없습니다: {MODEL_PATH}")
+        
         device = torch.device(DEVICE)
         ckpt = torch.load(str(MODEL_PATH), map_location=device)  # {"classes","model","cfg"}
         _classes = ckpt["classes"]

@@ -244,14 +244,18 @@ async def delete_plant(plant_idx: int, user_id: str) -> bool:
                 img_deleted = cursor.rowcount
                 print(f"[DEBUG] 삭제된 이미지 수: {img_deleted}")
                 
-                # 3. 관련된 진단 데이터 삭제 (medical_diagnosis 테이블에서)
+                # 3. 관련된 진단 데이터 삭제 (medical_diagnosis 테이블이 있는 경우에만)
                 print(f"[DEBUG] 관련 진단 데이터 삭제 중...")
-                await cursor.execute(
-                    "DELETE FROM medical_diagnosis WHERE plant_id = %s",
-                    (actual_plant_id,)
-                )
-                diagnosis_deleted = cursor.rowcount
-                print(f"[DEBUG] 삭제된 진단 수: {diagnosis_deleted}")
+                try:
+                    await cursor.execute(
+                        "DELETE FROM medical_diagnosis WHERE plant_id = %s",
+                        (actual_plant_id,)
+                    )
+                    diagnosis_deleted = cursor.rowcount
+                    print(f"[DEBUG] 삭제된 진단 수: {diagnosis_deleted}")
+                except Exception as e:
+                    print(f"[DEBUG] medical_diagnosis 테이블이 없거나 오류 발생: {e}")
+                    diagnosis_deleted = 0
                 
                 # 4. 마지막으로 식물 삭제 (plant_id로 삭제)
                 print(f"[DEBUG] 식물 삭제 중...")

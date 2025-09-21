@@ -92,8 +92,14 @@ export default function medicalDetail() {
 	const [date] = useState(todayStr());
 	const [weather, setWeather] = useState<Weather>(null); // 서버 저장에 활용 가능
 
-	// 병충해 후보 top3 (초기엔 비워둠 → 박스는 렌더하되 텍스트만 “기본”)
-	const [candidates, setCandidates] = useState<Candidate[]>([]);
+	// 진단 결과 상태
+	const [diagnosisResult, setDiagnosisResult] = useState<{
+		healthStatus: string;
+		healthConfidence: number;
+		message: string;
+		recommendation: string;
+		diseasePredictions: any[];
+	} | null>(null);
 
 	// 내 식물(별명) - 실제 API에서 가져오기
 	const [myPlants, setMyPlants] = useState<{ label: string; value: string }[]>([]);
@@ -175,7 +181,7 @@ export default function medicalDetail() {
 		setIsMine(mode);
 		setSelectedPlant(null);
 		setPhotoUri(null);
-		setCandidates([]);
+		setDiagnosisResult(null);
 		setInferBusy(false);
 	};
 
@@ -236,7 +242,7 @@ export default function medicalDetail() {
 	const runDiagnosis = async (uri: string) => {
 		try {
 			setInferBusy(true);
-			setCandidates([]); // 텍스트를 "병충해 진단/진단 중…"으로 보이게 초기화
+			setDiagnosisResult(null); // 초기화
 
 			// 실제 백엔드 API 호출
 			const token = await getToken();
@@ -252,46 +258,71 @@ export default function medicalDetail() {
 			} as any);
 
 			const apiUrl = await getApiUrl("/disease-diagnosis/diagnose");
+			console.log("진단 API URL:", apiUrl);
+			
 			const response = await fetch(apiUrl, {
 				method: "POST",
 				body: formData,
 				headers: {
 					Authorization: `Bearer ${token}`,
-					"Content-Type": "multipart/form-data",
 				},
 			});
 
+			console.log("진단 응답 상태:", response.status);
+
 			if (!response.ok) {
-				throw new Error(`진단 실패: ${response.status}`);
+				const errorText = await response.text();
+				console.error("진단 API 오류:", errorText);
+				throw new Error(`진단 실패: ${response.status} - ${errorText}`);
 			}
 
 			const result = await response.json();
-			if (result.success && result.predictions) {
-				setCandidates(result.predictions.map((pred: any, index: number) => ({
-					id: String(index + 1),
-					name: pred.disease_name || pred.name || "알 수 없는 병충해",
-					desc: pred.description || pred.desc || "상세 정보 없음",
-					confidence: pred.confidence || pred.score || 0,
-				})));
+			console.log("진단 결과:", result);
+			
+			if (result.success) {
+				setDiagnosisResult({
+					healthStatus: result.health_status,
+					healthConfidence: result.health_confidence,
+					message: result.message,
+					recommendation: result.recommendation,
+					diseasePredictions: result.disease_predictions || []
+				});
 			} else {
 				throw new Error("진단 결과를 받을 수 없습니다.");
 			}
 		} catch (e) {
 			console.error("진단 오류:", e);
-			Alert.alert("진단 실패", "사진 진단 중 문제가 발생했습니다.");
-			setCandidates([]);
+			Alert.alert("진단 실패", `사진 진단 중 문제가 발생했습니다: ${e.message}`);
+			setDiagnosisResult(null);
 		} finally {
 			setInferBusy(false);
 		}
 	};
 
-	// 병충해 박스 내 텍스트 계산
-	const getDiseaseContent = (idx: number) => {
-		if (!photoUri) return { title: "사진을 등록하세요", desc: "" };
-		if (inferBusy) return { title: "진단 중…", desc: "" };
-		const item = candidates[idx];
-		if (item) return { title: item.name, desc: item.desc ?? "" };
-		return { title: "병충해 진단", desc: "" };
+	// 진단 결과 표시 함수
+	const getDiagnosisDisplay = () => {
+		if (!photoUri) return { type: "empty", title: "사진을 등록하세요", desc: "" };
+		if (inferBusy) return { type: "loading", title: "진단 중…", desc: "" };
+		
+		if (!diagnosisResult) return { type: "empty", title: "병충해 진단", desc: "" };
+		
+		// 건강한 경우
+		if (diagnosisResult.healthStatus === "healthy") {
+			return {
+				type: "healthy",
+				title: "건강한 식물입니다!",
+				desc: diagnosisResult.recommendation,
+				confidence: diagnosisResult.healthConfidence
+			};
+		}
+		
+		// 건강하지 않은 경우 - 병충해 진단 결과 표시
+		return {
+			type: "diseased",
+			title: diagnosisResult.message,
+			desc: diagnosisResult.recommendation,
+			diseases: diagnosisResult.diseasePredictions
+		};
 	};
 
 	return (
@@ -368,22 +399,55 @@ export default function medicalDetail() {
 					</View>
 				)}
 
-				{/* 4) 병충해 1/2/3 박스 — 항상 렌더, 텍스트만 상태에 맞게 변경 */}
+				{/* 4) 진단 결과 표시 */}
 				<View style={{ marginTop: 8, paddingHorizontal: 24 }}>
-					{[0, 1, 2].map((idx) => {
-						const c = getDiseaseContent(idx);
-						return (
-							<View key={idx} style={[styles.rowBox, { borderColor: theme.border, marginBottom: 8 }]}>
-								<Text style={[styles.rank, { color: theme.text }]}>{idx + 1}.</Text>
-								<View style={{ flex: 1 }}>
-									<Text style={[styles.diseaseName, { color: theme.text }]}>{c.title}</Text>
-									{!!c.desc && (
-										<Text style={[styles.diseaseDesc, { color: theme.text, opacity: 0.8 }]}>{c.desc}</Text>
-									)}
+					{(() => {
+						const display = getDiagnosisDisplay();
+						
+						if (display.type === "healthy") {
+							// 건강한 경우 - 단일 박스
+							return (
+								<View style={[styles.rowBox, { borderColor: "#4CAF50", backgroundColor: "#E8F5E8", marginBottom: 8 }]}>
+									<Text style={[styles.rank, { color: "#2E7D32" }]}>✓</Text>
+									<View style={{ flex: 1 }}>
+										<Text style={[styles.diseaseName, { color: "#2E7D32" }]}>{display.title}</Text>
+										<Text style={[styles.diseaseDesc, { color: "#2E7D32", opacity: 0.8 }]}>
+											{display.desc}
+										</Text>
+										<Text style={[styles.diseaseDesc, { color: "#2E7D32", opacity: 0.6, fontSize: 12 }]}>
+											신뢰도: {(display.confidence * 100).toFixed(1)}%
+										</Text>
+									</View>
 								</View>
-							</View>
-						);
-					})}
+							);
+						} else if (display.type === "diseased" && display.diseases) {
+							// 병충해 진단 결과 - 상위 3개 표시
+							return display.diseases.map((disease, idx) => (
+								<View key={idx} style={[styles.rowBox, { borderColor: theme.border, marginBottom: 8 }]}>
+									<Text style={[styles.rank, { color: theme.text }]}>{disease.rank}.</Text>
+									<View style={{ flex: 1 }}>
+										<Text style={[styles.diseaseName, { color: theme.text }]}>{disease.class_name}</Text>
+										<Text style={[styles.diseaseDesc, { color: theme.text, opacity: 0.8 }]}>
+											신뢰도: {(disease.confidence * 100).toFixed(1)}%
+										</Text>
+									</View>
+								</View>
+							));
+						} else {
+							// 기본 상태 (사진 없음, 로딩 중 등)
+							return (
+								<View style={[styles.rowBox, { borderColor: theme.border, marginBottom: 8 }]}>
+									<Text style={[styles.rank, { color: theme.text }]}>1.</Text>
+									<View style={{ flex: 1 }}>
+										<Text style={[styles.diseaseName, { color: theme.text }]}>{display.title}</Text>
+										{!!display.desc && (
+											<Text style={[styles.diseaseDesc, { color: theme.text, opacity: 0.8 }]}>{display.desc}</Text>
+										)}
+									</View>
+								</View>
+							);
+						}
+					})()}
 				</View>
 
 				{/* 안내 문구 (다른 식물 선택 시) */}
