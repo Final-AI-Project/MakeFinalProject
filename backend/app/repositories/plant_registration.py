@@ -17,20 +17,17 @@ async def create_plant(
     """새 식물을 등록합니다."""
     try:
         async with get_db_connection() as (conn, cursor):
-            # 식물 등록 (plant_id가 NULL이면 0으로 설정)
-            plant_id_value = plant_request.plant_id if plant_request.plant_id is not None else 0
-            
+            # 식물 등록 (plant_id는 auto_increment이므로 제외, location은 NULL 허용이므로 제외)
             await cursor.execute(
                 """
-                INSERT INTO user_plant (user_id, plant_name, species, meet_day, plant_id)
-                VALUES (%s, %s, %s, %s, %s)
+                INSERT INTO user_plant (user_id, plant_name, species, meet_day)
+                VALUES (%s, %s, %s, %s)
                 """,
                 (
                     user_id,
                     plant_request.plant_name,
                     plant_request.species,
-                    plant_request.meet_day,
-                    plant_id_value
+                    plant_request.meet_day
                 )
             )
             
@@ -44,7 +41,7 @@ async def create_plant(
             result = await cursor.fetchone()
             
             return PlantRegistrationResponse(
-                idx=result['plant_id'],  # plant_id를 idx로 반환
+                idx=result['plant_id'],  # plant_id가 실제 primary key
                 user_id=result['user_id'],
                 plant_name=result['plant_name'],
                 species=result['species'],
