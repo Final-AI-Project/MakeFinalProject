@@ -30,7 +30,9 @@ app = FastAPI(
 register_error_handlers(app)
 
 # Static 파일 서빙 설정
-app.mount("/static", StaticFiles(directory="../static"), name="static")
+import os
+static_dir = os.path.join(os.path.dirname(__file__), "..", "static")
+app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 # 라우터 등록
 app.include_router(router)

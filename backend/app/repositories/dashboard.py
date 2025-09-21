@@ -13,14 +13,14 @@ async def get_user_plants_with_status(user_id: str) -> DashboardResponse:
         # 사용자의 식물 정보와 관련된 모든 정보를 조회하는 복합 쿼리
         query = """
         SELECT 
-            up.idx,
+            up.plant_id as idx,  -- plant_id를 idx로 반환
             up.user_id,
             up.plant_id,
             up.plant_name,
             up.species,
             up.pest_id,
             up.meet_day,
-            up.on,
+            up.location,
             
             -- 최신 습도 정보
             hi.humidity as current_humidity,
@@ -36,8 +36,8 @@ async def get_user_plants_with_status(user_id: str) -> DashboardResponse:
             pest.cause as pest_cause,
             pest.cure as pest_cure,
             
-            -- 사용자 식물 사진 (최신 일기의 이미지)
-            d.img_url as user_plant_image
+            -- 사용자 식물 사진 (img_address 테이블의 이미지)
+            ia.img_url as user_plant_image
             
         FROM user_plant up
         LEFT JOIN (
@@ -48,16 +48,16 @@ async def get_user_plants_with_status(user_id: str) -> DashboardResponse:
                 ROW_NUMBER() OVER (PARTITION BY plant_id ORDER BY humid_date DESC) as rn
             FROM humid_info
         ) hi ON up.plant_id = hi.plant_id AND hi.rn = 1
-        LEFT JOIN plant_wiki pw ON up.plant_id = pw.idx
+        LEFT JOIN plant_wiki pw ON up.plant_id = pw.wiki_plant_id  -- 올바른 조인
         LEFT JOIN pest_wiki pest ON up.pest_id = pest.pest_id
         LEFT JOIN (
             SELECT 
-                d.user_id,
-                d.img_url,
-                ROW_NUMBER() OVER (PARTITION BY d.user_id ORDER BY d.created_at DESC) as rn
-            FROM diary d
-            WHERE d.img_url IS NOT NULL AND d.img_url != ''
-        ) d ON up.user_id = d.user_id AND d.rn = 1
+                plant_id,
+                img_url,
+                ROW_NUMBER() OVER (PARTITION BY plant_id ORDER BY idx DESC) as rn
+            FROM img_address
+            WHERE img_url IS NOT NULL AND img_url != ''
+        ) ia ON up.plant_id = ia.plant_id AND ia.rn = 1
         WHERE up.user_id = %s
         ORDER BY up.meet_day DESC
         """
@@ -68,14 +68,14 @@ async def get_user_plants_with_status(user_id: str) -> DashboardResponse:
         plants = []
         for row in results:
             plant = PlantStatusResponse(
-                idx=row['idx'],
+                idx=row['idx'],  # plant_id가 idx로 반환됨
                 user_id=row['user_id'],
                 plant_id=row['plant_id'],
                 plant_name=row['plant_name'],
                 species=row['species'],
                 pest_id=row['pest_id'],
                 meet_day=row['meet_day'],
-                on=row['on'],
+                on=row.get('location'),  # location을 on으로 매핑
                 current_humidity=row['current_humidity'],
                 humidity_date=row['humidity_date'],
                 wiki_img=row['wiki_img'],

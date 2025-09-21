@@ -34,23 +34,23 @@ async def create_plant(
                 )
             )
             
-            plant_idx = cursor.lastrowid
+            plant_id = cursor.lastrowid
             
             # 생성된 식물 정보 조회
             await cursor.execute(
-                "SELECT * FROM user_plant WHERE idx = %s",
-                (plant_idx,)
+                "SELECT * FROM user_plant WHERE plant_id = %s",
+                (plant_id,)
             )
             result = await cursor.fetchone()
             
             return PlantRegistrationResponse(
-                idx=result['idx'],
+                idx=result['plant_id'],  # plant_id를 idx로 반환
                 user_id=result['user_id'],
                 plant_name=result['plant_name'],
                 species=result['species'],
                 meet_day=result['meet_day'],
                 plant_id=result['plant_id'],
-                created_at=result['created_at']
+                created_at=result.get('created_at', result.get('meet_day'))
             )
             
     except Exception as e:
@@ -81,7 +81,7 @@ async def get_user_plants(
                 """
                 SELECT * FROM user_plant 
                 WHERE user_id = %s
-                ORDER BY created_at DESC
+                ORDER BY meet_day DESC
                 LIMIT %s OFFSET %s
                 """,
                 (user_id, limit, offset)
@@ -90,13 +90,13 @@ async def get_user_plants(
             
             plants = [
                 PlantRegistrationResponse(
-                    idx=row['idx'],
+                    idx=row['plant_id'],  # plant_id를 idx로 반환
                     user_id=row['user_id'],
                     plant_name=row['plant_name'],
                     species=row['species'],
                     meet_day=row['meet_day'],
                     plant_id=row['plant_id'],
-                    created_at=row['created_at']
+                    created_at=row.get('created_at', row.get('meet_day'))
                 )
                 for row in results
             ]
@@ -118,20 +118,20 @@ async def get_plant_by_id(plant_idx: int, user_id: str) -> Optional[PlantRegistr
     try:
         async with get_db_connection() as (conn, cursor):
             await cursor.execute(
-                "SELECT * FROM user_plant WHERE idx = %s AND user_id = %s",
+                "SELECT * FROM user_plant WHERE plant_id = %s AND user_id = %s",
                 (plant_idx, user_id)
             )
             result = await cursor.fetchone()
             
             if result:
                 return PlantRegistrationResponse(
-                    idx=result['idx'],
+                    idx=result['plant_id'],  # plant_id를 idx로 반환
                     user_id=result['user_id'],
                     plant_name=result['plant_name'],
                     species=result['species'],
                     meet_day=result['meet_day'],
                     plant_id=result['plant_id'],
-                    created_at=result['created_at']
+                    created_at=result.get('created_at', result.get('meet_day'))
                 )
             return None
             
@@ -171,15 +171,15 @@ async def update_plant(
                 # 업데이트할 필드가 없는 경우
                 return await get_plant_by_id(plant_idx, user_id)
             
-            # updated_at 추가
-            update_fields.append("updated_at = NOW()")
+            # updated_at 추가 (컬럼이 있다면)
+            # update_fields.append("updated_at = NOW()")
             
             # 쿼리 실행
             update_values.extend([plant_idx, user_id])
             query = f"""
                 UPDATE user_plant 
                 SET {', '.join(update_fields)}
-                WHERE idx = %s AND user_id = %s
+                WHERE plant_id = %s AND user_id = %s
             """
             
             await cursor.execute(query, update_values)
@@ -187,19 +187,19 @@ async def update_plant(
             if cursor.rowcount > 0:
                 # 수정된 식물 정보 조회
                 await cursor.execute(
-                    "SELECT * FROM user_plant WHERE idx = %s AND user_id = %s",
+                    "SELECT * FROM user_plant WHERE plant_id = %s AND user_id = %s",
                     (plant_idx, user_id)
                 )
                 result = await cursor.fetchone()
                 
                 return PlantUpdateResponse(
-                    idx=result['idx'],
+                    idx=result['plant_id'],  # plant_id를 idx로 반환
                     user_id=result['user_id'],
                     plant_name=result['plant_name'],
                     species=result['species'],
                     meet_day=result['meet_day'],
                     plant_id=result['plant_id'],
-                    updated_at=result['updated_at']
+                    updated_at=result.get('updated_at', result.get('meet_day'))
                 )
             return None
             
@@ -212,7 +212,7 @@ async def delete_plant(plant_idx: int, user_id: str) -> bool:
     try:
         async with get_db_connection() as (conn, cursor):
             await cursor.execute(
-                "DELETE FROM user_plant WHERE idx = %s AND user_id = %s",
+                "DELETE FROM user_plant WHERE plant_id = %s AND user_id = %s",
                 (plant_idx, user_id)
             )
             
@@ -305,7 +305,7 @@ async def search_plants(
                 SELECT * FROM user_plant 
                 WHERE user_id = %s 
                 AND (plant_name LIKE %s OR species LIKE %s)
-                ORDER BY created_at DESC
+                ORDER BY meet_day DESC
                 LIMIT %s OFFSET %s
                 """,
                 (user_id, search_term, search_term, limit, offset)
@@ -314,13 +314,13 @@ async def search_plants(
             
             plants = [
                 PlantRegistrationResponse(
-                    idx=row['idx'],
+                    idx=row['plant_id'],  # plant_id를 idx로 반환
                     user_id=row['user_id'],
                     plant_name=row['plant_name'],
                     species=row['species'],
                     meet_day=row['meet_day'],
                     plant_id=row['plant_id'],
-                    created_at=row['created_at']
+                    created_at=row.get('created_at', row.get('meet_day'))
                 )
                 for row in results
             ]
