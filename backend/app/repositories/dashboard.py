@@ -17,29 +17,49 @@ async def get_user_plants_with_status(user_id: str) -> DashboardResponse:
         table_structure = await cursor.fetchall()
         print(f"[DEBUG] user_plant table structure: {table_structure}")
         
+        # img_address 테이블 구조도 확인
+        print("[DEBUG] Checking img_address table structure...")
+        await cursor.execute("DESCRIBE img_address")
+        img_table_structure = await cursor.fetchall()
+        print(f"[DEBUG] img_address table structure: {img_table_structure}")
+        
         # 간단한 쿼리로 테스트 (실제 구조에 맞게)
         print("[DEBUG] Testing simple query...")
         await cursor.execute("SELECT plant_id, user_id, plant_name FROM user_plant WHERE user_id = %s LIMIT 1", (user_id,))
         test_result = await cursor.fetchone()
         print(f"[DEBUG] Test query result: {test_result}")
         
-        # 실제 데이터베이스 구조에 맞는 쿼리
-        simple_query = """
+        # 이미지 정보를 포함한 쿼리 (plant_id로 조인)
+        query = """
         SELECT 
             up.plant_id,
             up.user_id,
             up.plant_name,
             up.species,
-            up.meet_day
+            up.meet_day,
+            
+            -- 사용자 식물 사진 (img_address 테이블의 이미지 - 가장 예전 것)
+            ia.img_url as user_plant_image
+            
         FROM user_plant up
+        LEFT JOIN (
+            SELECT 
+                plant_id,
+                img_url,
+                ROW_NUMBER() OVER (PARTITION BY plant_id ORDER BY plant_id ASC) as rn
+            FROM img_address
+            WHERE img_url IS NOT NULL AND img_url != '' AND plant_id IS NOT NULL
+        ) ia ON up.plant_id = ia.plant_id AND ia.rn = 1
         WHERE up.user_id = %s
         ORDER BY up.meet_day DESC
         """
         
-        print(f"[DEBUG] Executing simple query with user_id: {user_id}")
-        await cursor.execute(simple_query, (user_id,))
+        print(f"[DEBUG] Executing query with user_id: {user_id}")
+        await cursor.execute(query, (user_id,))
         results = await cursor.fetchall()
-        print(f"[DEBUG] Simple query returned {len(results)} results")
+        print(f"[DEBUG] Query returned {len(results)} results")
+        for i, row in enumerate(results):
+            print(f"[DEBUG] Row {i}: plant_id={row['plant_id']}, plant_name={row['plant_name']}, user_plant_image={row['user_plant_image']}")
         
         plants = []
         for row in results:
@@ -60,7 +80,7 @@ async def get_user_plants_with_status(user_id: str) -> DashboardResponse:
                 watering=None,
                 pest_cause=None,
                 pest_cure=None,
-                user_plant_image=None
+                user_plant_image=row['user_plant_image']  # 실제 이미지 URL 사용
             )
             plants.append(plant)
         
