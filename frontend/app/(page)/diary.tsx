@@ -16,6 +16,11 @@ import Colors from "../../constants/Colors";
 import { fetchSimpleWeather } from "../../components/common/weatherBox";
 import { useFocusEffect } from "@react-navigation/native";
 
+// ✅ 데코 이미지 (RN는 default import/require 사용)
+import LLMDecoImage from "../../assets/images/LLM_setting.png";        // 고정
+import LLMDecoImageFace from "../../assets/images/LLM_setting_face.png"; // 애니메 #1
+import LLMDecoImageHand from "../../assets/images/LLM_setting_hand.png"; // 애니메 #2
+
 // ─────────────────────────────────────────────────────────────────────────────
 // ② Helpers & Types
 // ─────────────────────────────────────────────────────────────────────────────
@@ -136,123 +141,125 @@ function AnimatedChars({
 
 /** 바텀시트 (딤 탭으로는 닫히지 않음 / 드래그 & 버튼만 닫힘 / 닫은 뒤 스크롤 잠김 방지) */
 function BottomSheet({
-    visible,
-    text,
-    title,
-    onClose,
-    theme,
+	visible, text, title, onClose, theme, children,
 }: {
-    visible: boolean;
-    text: string;
-    title: string;
-    onClose: () => void;
-    theme: typeof Colors.light;
+	visible: boolean;
+	text: string;
+	title: string;
+	onClose: () => void;
+	theme: typeof Colors.light;
+	children?: React.ReactNode;   // ✅ 렌더만 추가 (기능 변화 없음)
 }) {
-    const screenH = Dimensions.get("window").height;
-    const translateY = useRef(new Animated.Value(screenH)).current;
-    const [interactive, setInteractive] = useState(false);
-    const [isOpen, setIsOpen] = useState(false); // _value 대신 내부 상태로 가드
-    const visibleRef = useRef(visible);
-    useEffect(() => { visibleRef.current = visible; }, [visible]);
+	const screenH = Dimensions.get("window").height;
+	const translateY = useRef(new Animated.Value(screenH)).current;
+	const [interactive, setInteractive] = useState(false);
+	const [isOpen, setIsOpen] = useState(false); // _value 대신 내부 상태로 가드
+	const visibleRef = useRef(visible);
+	useEffect(() => { visibleRef.current = visible; }, [visible]);
 
-    const openSheet = () => {
-        translateY.stopAnimation();      // ✅ 이전 애니메이션 중단
-        setInteractive(true);
-        setIsOpen(true);
-        Animated.timing(translateY, {
-            toValue: 0,
-            duration: 260,
-            easing: Easing.out(Easing.cubic),
-            useNativeDriver: true,
-        }).start(({ finished }) => {
-            if (!finished) return;
-            // 열기 완료 후에도 최신 visible이 false면 즉시 닫기 일치화
-            if (!visibleRef.current) closeSheet();
-        });
-    };
+	const openSheet = () => {
+		translateY.stopAnimation();	  // ✅ 이전 애니메이션 중단
+		setInteractive(true);
+		setIsOpen(true);
+		Animated.timing(translateY, {
+			toValue: 0,
+			duration: 260,
+			easing: Easing.out(Easing.cubic),
+			useNativeDriver: true,
+		}).start(({ finished }) => {
+			if (!finished) return;
+			// 열기 완료 후에도 최신 visible이 false면 즉시 닫기 일치화
+			if (!visibleRef.current) closeSheet();
+		});
+	};
 
-    const closeSheet = (after?: () => void) => {
-        translateY.stopAnimation();      // ✅ 이전 애니메이션 중단
-        Animated.timing(translateY, {
-            toValue: screenH,
-            duration: 200,
-            easing: Easing.in(Easing.cubic),
-            useNativeDriver: true,
-        }).start(({ finished }) => {
-            if (!finished) return;
-            setIsOpen(false);
-            // ❗ 최신 의도 상태를 보고 포인터 해제
-            setInteractive(visibleRef.current ? true : false);
-            after?.();
-        });
-    };
+	const closeSheet = (after?: () => void) => {
+		translateY.stopAnimation();	  // ✅ 이전 애니메이션 중단
+		Animated.timing(translateY, {
+			toValue: screenH,
+			duration: 200,
+			easing: Easing.in(Easing.cubic),
+			useNativeDriver: true,
+		}).start(({ finished }) => {
+			if (!finished) return;
+			setIsOpen(false);
+			// ❗ 최신 의도 상태를 보고 포인터 해제
+			setInteractive(visibleRef.current ? true : false);
+			after?.();
+		});
+	};
 
-    useEffect(() => {
-        if (visible) openSheet();
-        else closeSheet();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [visible]);
+	useEffect(() => {
+		if (visible) openSheet();
+		else closeSheet();
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [visible]);
 
-    const panResponder = useRef(
-        PanResponder.create({
-            onMoveShouldSetPanResponder: (_, g) => g.dy > 6,
-            onPanResponderGrant: () => {
-                // ✅ 드래그 시작 시 포인터 보장
-                setInteractive(true);
-            },
-            onPanResponderMove: (_, g) => {
-                const dy = Math.max(0, g.dy);
-                translateY.setValue(dy);
-            },
-            onPanResponderRelease: (_, g) => {
-                const shouldClose = g.dy > 120 || g.vy > 0.8;
-                if (shouldClose) closeSheet(onClose);
-                else {
-                    Animated.spring(translateY, {
-                        toValue: 0,
-                        useNativeDriver: true,
-                       	bounciness: 3,
-                    }).start();
-                }
-            },
-        })
-    ).current;
+	const panResponder = useRef(
+		PanResponder.create({
+			onMoveShouldSetPanResponder: (_, g) => g.dy > 6,
+			onPanResponderGrant: () => {
+				// ✅ 드래그 시작 시 포인터 보장
+				setInteractive(true);
+			},
+			onPanResponderMove: (_, g) => {
+				const dy = Math.max(0, g.dy);
+				translateY.setValue(dy);
+			},
+			onPanResponderRelease: (_, g) => {
+				const shouldClose = g.dy > 120 || g.vy > 0.8;
+				if (shouldClose) closeSheet(onClose);
+				else {
+					Animated.spring(translateY, {
+						toValue: 0,
+						useNativeDriver: true,
+						bounciness: 3,
+					}).start();
+				}
+			},
+		})
+	).current;
 
-    // ✅ _value 의존 제거: 의도(visible)와 내부 상태(isOpen), 포인터(interactive)로 판단
-    if (!visible && !isOpen && !interactive) return null;
+	// ✅ _value 의존 제거: 의도(visible)와 내부 상태(isOpen), 포인터(interactive)로 판단
+	if (!visible && !isOpen && !interactive) return null;
 
-    const dimOpacity = translateY.interpolate({
-        inputRange: [0, screenH],
-        outputRange: [1, 0],
-    });
+	const dimOpacity = translateY.interpolate({
+		inputRange: [0, screenH],
+		outputRange: [1, 0],
+	});
 
-    return (
-        <View style={[StyleSheet.absoluteFill, { pointerEvents: interactive ? "auto" : "none" }]}>
-            <Animated.View
-                style={[
-                    StyleSheet.absoluteFillObject,
-                    { backgroundColor: "rgba(0,0,0,0.5)", opacity: dimOpacity },
-                ]}
-            />
-            <Animated.View
-                style={[styles.sheetWrap, { transform: [{ translateY }] }]}
-                {...panResponder.panHandlers}
-            >
-                <View style={[styles.sheetHandle, { backgroundColor: theme.text === "#1a1a1a" ? "#d1d5db" : "#475569" }]} />
-                <Text style={[styles.sheetTitle, { color: theme.text }]}>{title}</Text>
-                <View style={styles.sheetBody}>
-                    <AnimatedChars text={text || "임시 응답 텍스트가 없습니다."}
-                                   delayStep={22} duration={260}
-                                   style={[styles.sheetText, { color: theme.text }]} />
-                </View>
-                <View style={styles.sheetActions}>
-                    <Pressable onPress={() => closeSheet(onClose)} style={[styles.sheetBtn]}>
-                        <Text style={[styles.sheetBtnText, { color: theme.text }]}>닫기</Text>
-                    </Pressable>
-                </View>
-            </Animated.View>
-        </View>
-    );
+	return (
+		<View style={[StyleSheet.absoluteFill, { pointerEvents: interactive ? "auto" : "none" }]}>
+			<Animated.View
+				style={[
+					StyleSheet.absoluteFillObject,
+					{ backgroundColor: "rgba(0,0,0,0.5)", opacity: dimOpacity },
+				]}
+			/>
+			<Animated.View
+				style={[styles.sheetWrap, { transform: [{ translateY }] }]}
+				{...panResponder.panHandlers}
+			>
+				<View style={[styles.sheetHandle, { backgroundColor: theme.text === "#1a1a1a" ? "#d1d5db" : "#475569" }]} />
+				<Text style={[styles.sheetTitle, { color: theme.text }]}>{title}</Text>
+				<View style={styles.sheetBody}>
+					<AnimatedChars
+						text={text || "임시 응답 텍스트가 없습니다."}
+						delayStep={22}
+						duration={260}
+						style={[styles.sheetText, { color: theme.text }]}
+					/>
+					{/* ✅ 데코(children) 영역 — 기능 변화 없음, 렌더만 */}
+					{children ? <View style={styles.sheetDeco}>{children}</View> : null}
+				</View>
+				<View style={styles.sheetActions}>
+					<Pressable onPress={() => closeSheet(onClose)} style={[styles.sheetBtn]}>
+						<Text style={[styles.sheetBtnText, { color: theme.text }]}>닫기</Text>
+					</Pressable>
+				</View>
+			</Animated.View>
+		</View>
+	);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -277,7 +284,7 @@ export default function Diary() {
 	const [sheetVisible, setSheetVisible] = useState(false);
 
 	// AI 텍스트 (단일 소스)
-	const [aiText, setAiText] = useState<string>("오늘은 통풍만 잘 시켜주세요. 물은 내일 추천! 🌤️");
+	const [aiText, setAiText] = useState<string>("오늘은 통풍만 잘 시켜주세요. 물은 내일 추천! 🌤️오늘은 통풍만 잘 시켜주세요. 물은 내일 추천! 🌤️오늘은 통풍만 잘 시켜주세요. 물은 내일 추천! 🌤️오늘은 통풍만 잘 시켜주세요. 물은 내일 추천! 🌤️");
 
 	// 등록 후에만 미리보기 표시
 	const [aiPreviewVisible, setAiPreviewVisible] = useState(false);
@@ -342,31 +349,22 @@ export default function Diary() {
 
 	// 수정: 오늘의 일기 업데이트 + LLM 재호출 + 알럿 + 시트 오픈
 	const handleUpdate = async () => {
-    if (!canSubmit) return;
+		if (!canSubmit) return;
 		try {
 			// 1) 서버에 업데이트
-			// await fetch("/api/diaries/today", {
-			//     method: "PATCH",
-			//     headers: { "Content-Type": "application/json" },
-			//     body: JSON.stringify({ photoUri, title, selectedPlant, date, weather, body }),
-			// });
+			// await fetch("/api/diaries/today", {...})
 
-			// 2) LLM 호출로 코멘트 갱신 (예시)
-			// const llmResp = await fetch("/api/diaries/today/llm-comment", {
-			//     method: "POST",
-			//     headers: { "Content-Type": "application/json" },
-			//     body: JSON.stringify({ plant: selectedPlant, weather, body, date }),
-			// }).then(r => r.json());
+			// 2) (예시) LLM 코멘트 갱신
+			// const llmResp = await fetch("/api/diaries/today/llm-comment", {...}).then(r => r.json());
 			// setAiText(llmResp.message ?? aiText);
 
-			// 데모 동작: 실제 LLM 연동 전까지 임시 문구
+			// 데모 문구
 			setAiText("업데이트 반영 완료! 오늘 컨디션 좋아요 🌿");
 
 			// 3) 미리보기/시트 표시
 			if (!aiPreviewVisible) setAiPreviewVisible(true);
 			setSheetVisible(true);
-
-		} catch (e) {
+		} catch {
 			Alert.alert("수정 실패", "잠시 후 다시 시도해 주세요.");
 		}
 	};
@@ -377,6 +375,31 @@ export default function Diary() {
 
 	// 바텀시트 타이틀
 	const sheetTitle = `${selectedPlant ?? "식물"}의 하고픈 말`;
+
+	// ✨ 무한 애니메이션 (face, hand)
+	const move1 = useRef(new Animated.Value(0)).current;
+	const move2 = useRef(new Animated.Value(0)).current;
+
+	useEffect(() => {
+		const loop1 = Animated.loop(
+			Animated.sequence([
+				Animated.timing(move1, { toValue: 1, duration: 2000, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+				Animated.timing(move1, { toValue: 0, duration: 2000, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+			])
+		);
+		const loop2 = Animated.loop(
+			Animated.sequence([
+				Animated.timing(move2, { toValue: 1, duration: 2000, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+				Animated.timing(move2, { toValue: 0, duration: 2000, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+			])
+		);
+		loop1.start();
+		const id = setTimeout(() => loop2.start(), 400); // 약간 시간차
+		return () => { loop1.stop(); loop2.stop(); clearTimeout(id); };
+	}, [move1, move2]);
+
+	const tx1 = move1.interpolate({ inputRange: [0, 1], outputRange: [-3, 3] });
+	const tx2 = move2.interpolate({ inputRange: [0, 1], outputRange: [3, -3] });
 
 	// ─────────────────────────────────────────────────────────────────────
 	// ✅ 포커스 시 전체 리셋 (날씨/날짜는 건드리지 않음)
@@ -390,7 +413,7 @@ export default function Diary() {
 		setAiPreviewVisible(false);
 		setIsSubmitted(false);
 		setSheetVisible(false);
-		setAiText("오늘은 통풍만 잘 시켜주세요. 물은 내일 추천! 🌤️");
+		setAiText("오늘은 통풍만 잘 시켜주세요. 물은 내일 추천! 🌤️오늘은 통풍만 잘 시켜주세요. 물은 내일 추천! 🌤️오늘은 통풍만 잘 시켜주세요. 물은 내일 추천! 🌤️오늘은 통풍만 잘 시켜주세요. 물은 내일 추천! 🌤️");
 	}, []);
 
 	useFocusEffect(
@@ -530,7 +553,28 @@ export default function Diary() {
 				title={sheetTitle}
 				onClose={() => setSheetVisible(false)}
 				theme={theme}
-			/>
+			>
+				<View style={styles.LLMDecoBox}>
+					{/* 고정 이미지 */}
+					<Image
+						source={LLMDecoImage}
+						style={styles.LLMDecoImage}
+						resizeMode="contain"
+					/>
+					{/* 움직이는 얼굴 */}
+					<Animated.Image
+						source={LLMDecoImageFace}
+						style={[styles.LLMDecoFace, { transform: [{ translateX: tx1 }] }]}
+						resizeMode="contain"
+					/>
+					{/* 움직이는 손 */}
+					<Animated.Image
+						source={LLMDecoImageHand}
+						style={[styles.LLMDecoHand, { transform: [{ translateX: tx2 }] }]}
+						resizeMode="contain"
+					/>
+				</View>
+			</BottomSheet>
 		</KeyboardAvoidingView>
 	);
 }
@@ -556,7 +600,7 @@ const styles = StyleSheet.create({
 
 	inputArea: { paddingHorizontal: 24 },
 	field: { marginTop: 24 },
-	input: { borderWidth: 1, minHeight:50, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 12 },
+	input: { borderWidth: 1, minHeight: 50, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 12 },
 
 	bottomBar: { flexDirection: "row", gap: 8, marginTop: 24 },
 	cancelBtn: { flex: 1, borderWidth: 1, borderRadius: 12, alignItems: "center", justifyContent: "center", paddingVertical: 14 },
@@ -570,7 +614,7 @@ const styles = StyleSheet.create({
 	dropdownPanel: { borderWidth: 1, borderRadius: 10, overflow: "hidden", marginTop: -6 },
 	dropdownItem: { paddingHorizontal: 12, paddingVertical: 12 },
 
-	// 바텀시트
+	// ── 바텀시트
 	sheetWrap: {
 		position: "absolute",
 		left: 0,
@@ -594,7 +638,45 @@ const styles = StyleSheet.create({
 	sheetTitle: { fontSize: 14, fontWeight: "800", marginBottom: 8, opacity: 0.8 },
 	sheetBody: { paddingVertical: 6 },
 	sheetText: { fontSize: 16, lineHeight: 24 },
+
+	// ✅ 데코(children) 영역 — 시각만, 기능 변경 없음
+	sheetDeco: {
+		marginTop: 6,
+		marginBottom: 6,
+		alignSelf: "stretch",
+		alignItems: "center",
+		justifyContent: "center",
+		overflow: "visible",
+	},
+
 	sheetActions: { marginTop: 12, alignItems: "flex-end" },
 	sheetBtn: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, backgroundColor: "rgba(0,0,0,0.06)" },
 	sheetBtnText: { fontWeight: "700" },
+
+	LLMDecoBox: {
+		display:'flex',
+		flexDirection:'row',
+		alignItems: "center",
+		justifyContent: "flex-end",
+		position: "relative",
+		width:'100%',
+	},
+	LLMDecoImage: {
+		width: 120,
+		height: 100,
+	},
+	LLMDecoFace: {
+		position: "absolute",
+		width: 70,
+		height: 48,
+		right: 22,
+		top: 4,
+	},
+	LLMDecoHand: {
+		position: "absolute",
+		width: 42,
+		height: 42,
+		right: 50,
+		top: 46,
+	},
 });
