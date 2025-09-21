@@ -1,21 +1,20 @@
 // app/common/BottomTabBar.tsx
 import React from "react";
 import { View, TouchableOpacity, StyleSheet, Platform } from "react-native";
-import { Text } from "react-native"; // ← 필요 없으면 제거해도 됨
 import { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useColorScheme } from "react-native";
 import Colors from "../../constants/Colors";
 
-type RouteKey = "home" | "camera" | "diary" | "menu" | "medical";
+type RouteKey = "home" | "camera" | "diaryList" | "menu" | "medical";
 
 const ICONS: Record<RouteKey, { active: keyof typeof Ionicons.glyphMap; inactive: keyof typeof Ionicons.glyphMap }> = {
-	home:    { active: "home",    inactive: "home-outline" },
-	medical: { active: "medkit",  inactive: "medkit-outline" },
-	camera:  { active: "camera",  inactive: "camera-outline" },
-	diary:   { active: "create",  inactive: "create-outline" },
-	menu:    { active: "grid",    inactive: "grid-outline" },
+	home:    	 { active: "home",    inactive: "home-outline" },
+	medical: 	 { active: "medkit",  inactive: "medkit-outline" },
+	camera:  	 { active: "camera",  inactive: "camera-outline" },
+	diaryList:   { active: "create",  inactive: "create-outline" },
+	menu:    	 { active: "grid",    inactive: "grid-outline" },
 };
 
 export default function BottomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
@@ -50,7 +49,7 @@ export default function BottomTabBar({ state, descriptors, navigation }: BottomT
 						(options.tabBarLabel as string) ??
 						options.title ??
 						(route.name.charAt(0).toUpperCase() + route.name.slice(1));
-					const key = (route.name.toLowerCase() as RouteKey) || "home";
+					const key = (route.name as RouteKey) || "home";
 
 					const color = isFocused ? theme.primary : "#9aa0a6";
 					const iconName = isFocused ? ICONS[key]?.active : ICONS[key]?.inactive;
@@ -81,7 +80,6 @@ export default function BottomTabBar({ state, descriptors, navigation }: BottomT
 							) : (
 								<View style={styles.pill}>
 									<Ionicons name={iconName || "ellipse-outline"} size={22} color={color} />
-									{/* <Text style={[styles.label, { color }]} numberOfLines={1}>{label}</Text> */}
 								</View>
 							)}
 						</TouchableOpacity>
