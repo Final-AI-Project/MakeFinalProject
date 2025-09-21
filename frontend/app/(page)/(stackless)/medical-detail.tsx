@@ -1,4 +1,4 @@
-// app/(page)/diary.tsx
+// app/(page)/(stackless)/medical-detail.tsx
 import React, { useMemo, useState, useEffect } from "react";
 import {
 	View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform,
@@ -74,7 +74,7 @@ function InlineSelect<T extends string>({
 // ─────────────────────────────────────────────────────────────────────────────
 // ③ Component
 // ─────────────────────────────────────────────────────────────────────────────
-export default function Diary() {
+export default function medicalDetail() {
 	// Theme & Router
 	const scheme = useColorScheme();
 	const theme = Colors[scheme === "dark" ? "dark" : "light"];
