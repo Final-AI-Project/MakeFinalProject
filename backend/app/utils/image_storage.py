@@ -53,9 +53,13 @@ def get_image_path(image_type: str, filename: str) -> Path:
     """이미지 타입에 따른 경로를 반환합니다."""
     type_mapping = {
         "plant": PLANT_IMAGES_PATH,
+        "plants": PLANT_IMAGES_PATH,  # 복수형도 추가
         "diary": DIARY_IMAGES_PATH,
+        "diaries": DIARY_IMAGES_PATH,  # 복수형도 추가
         "user": USER_IMAGES_PATH,
-        "temp": TEMP_IMAGES_PATH
+        "users": USER_IMAGES_PATH,  # 복수형도 추가
+        "temp": TEMP_IMAGES_PATH,
+        "disease_diagnosis": TEMP_IMAGES_PATH  # 진단 이미지는 임시로 temp에
     }
     
     base_path = type_mapping.get(image_type, TEMP_IMAGES_PATH)
