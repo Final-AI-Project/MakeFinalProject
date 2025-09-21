@@ -19,7 +19,7 @@ export default function PageLayout() {
 			<Tabs.Screen name="home" options={{ title: "홈" }} />
 			<Tabs.Screen name="medical" options={{ title: "의료" }} />
 			<Tabs.Screen name="camera" options={{ title: "카메라" }} />
-			<Tabs.Screen name="diary" options={{ title: "일기장" }} />
+			<Tabs.Screen name="diaryList" options={{ title: "일기장" }} />
 			<Tabs.Screen name="menu" options={{ title: "전체메뉴" }} />
 
 			<Tabs.Screen
