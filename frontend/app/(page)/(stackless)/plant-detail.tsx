@@ -112,7 +112,7 @@ export default function PlantDetail() {
 						}
 
 						// API URL 생성
-						const apiUrl = await getApiUrl(API_ENDPOINTS.PLANTS.DELETE(Number(params.id)));
+						const apiUrl = getApiUrl(API_ENDPOINTS.PLANTS.DELETE(Number(params.id)));
 						
 						// 삭제 요청
 						const response = await fetch(apiUrl, {

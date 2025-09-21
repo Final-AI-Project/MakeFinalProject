@@ -361,7 +361,7 @@ export default function Diary() {
         const token = await getToken();
         if (!token) return;
 
-        const apiUrl = await getApiUrl("/home/plants/current");
+        const apiUrl = getApiUrl("/home/plants/current");
         const response = await fetch(apiUrl, {
           method: "GET",
           headers: {
@@ -449,7 +449,7 @@ export default function Diary() {
         hashtag: `#${selectedPlant} #${weather || "일상"}`,
       };
 
-      const apiUrl = await getApiUrl("/diary-list/create");
+      const apiUrl = getApiUrl("/diary-list/create");
       const response = await fetch(apiUrl, {
         method: "POST",
         headers: {

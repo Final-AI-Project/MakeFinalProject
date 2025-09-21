@@ -116,7 +116,7 @@ export default function Home() {
 				message: "식물 정보를 불러오는 중...",
 				to: "/(page)/home" as any,
 				task: async () => {
-					const apiUrl = await getApiUrl("/home/plants/current");
+					const apiUrl = getApiUrl("/home/plants/current");
 					const response = await fetch(apiUrl, {
 						method: "GET",
 						headers: {
@@ -148,7 +148,7 @@ export default function Home() {
 			const token = await getToken();
 			if (!token) return;
 
-			const apiUrl = await getApiUrl("/home/plants/current");
+			const apiUrl = getApiUrl("/home/plants/current");
 			const response = await fetch(apiUrl, {
 				method: "GET",
 				headers: {

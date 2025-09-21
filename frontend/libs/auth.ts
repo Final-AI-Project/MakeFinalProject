@@ -67,7 +67,7 @@ export async function refreshToken(): Promise<string | null> {
       return null;
     }
 
-    const apiUrl = await getApiUrl("/auth/refresh");
+    const apiUrl = getApiUrl("/auth/refresh");
     const response = await fetch(apiUrl, {
       method: "POST",
       headers: {
