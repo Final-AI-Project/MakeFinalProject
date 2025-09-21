@@ -156,6 +156,19 @@ export default function Home() {
       health = "주의";
     }
 
+    // 이미지 URL을 완전한 URL로 변환
+    let photoUri: string | null = null;
+    if (plant.user_plant_image) {
+      // 상대 경로인 경우 절대 경로로 변환
+      if (plant.user_plant_image.startsWith('/static/')) {
+        // API_BASE_URL을 사용해서 일관성 있게 처리
+        const apiBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL || "http://115.91.223.92:3000";
+        photoUri = `${apiBaseUrl}${plant.user_plant_image}`;
+      } else {
+        photoUri = plant.user_plant_image;
+      }
+    }
+
     return {
       key: plant.idx.toString(),
       label: plant.plant_name,
@@ -164,7 +177,7 @@ export default function Home() {
       waterLevel: plant.current_humidity || 0,
       species: plant.species,
       startedAt: plant.meet_day,
-      photoUri: plant.user_plant_image || null,
+      photoUri: photoUri,
       health: health,
     };
   };
