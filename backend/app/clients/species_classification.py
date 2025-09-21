@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from core.config import settings
 
 # 모델 서버 설정
-MODEL_SERVER_URL = "http://10.151.212.165:5000"
+MODEL_SERVER_URL = settings.MODEL_SERVER_URL
 
 class SpeciesClassificationResult(BaseModel):
     success: bool

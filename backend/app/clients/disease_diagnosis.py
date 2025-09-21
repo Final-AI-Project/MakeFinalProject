@@ -8,7 +8,7 @@ from core.config import settings
 from utils.errors import http_error
 
 # 모델 서버 설정
-MODEL_SERVER_URL = "http://localhost:5000"
+MODEL_SERVER_URL = settings.MODEL_SERVER_URL
 
 class DiseasePrediction(BaseModel):
     """병충해 예측 결과"""
