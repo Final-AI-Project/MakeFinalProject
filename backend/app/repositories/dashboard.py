@@ -9,82 +9,58 @@ async def get_user_plants_with_status(user_id: str) -> DashboardResponse:
     사용자의 모든 식물 정보와 상태를 조회합니다.
     습도 정보와 식물 위키 정보, 병해충 정보를 포함합니다.
     """
+    print(f"[DEBUG] get_user_plants_with_status called with user_id: {user_id}")
     async with get_db_connection() as (conn, cursor):
-        # 사용자의 식물 정보와 관련된 모든 정보를 조회하는 복합 쿼리
-        query = """
+        # 먼저 user_plant 테이블 구조 확인
+        print("[DEBUG] Checking user_plant table structure...")
+        await cursor.execute("DESCRIBE user_plant")
+        table_structure = await cursor.fetchall()
+        print(f"[DEBUG] user_plant table structure: {table_structure}")
+        
+        # 간단한 쿼리로 테스트 (실제 구조에 맞게)
+        print("[DEBUG] Testing simple query...")
+        await cursor.execute("SELECT plant_id, user_id, plant_name FROM user_plant WHERE user_id = %s LIMIT 1", (user_id,))
+        test_result = await cursor.fetchone()
+        print(f"[DEBUG] Test query result: {test_result}")
+        
+        # 실제 데이터베이스 구조에 맞는 쿼리
+        simple_query = """
         SELECT 
-            up.plant_id as idx,  -- plant_id를 idx로 반환
-            up.user_id,
             up.plant_id,
+            up.user_id,
             up.plant_name,
             up.species,
-            up.pest_id,
-            up.meet_day,
-            up.location,
-            
-            -- 최신 습도 정보
-            hi.humidity as current_humidity,
-            hi.humid_date as humidity_date,
-            
-            -- 식물 위키 정보
-            pw.wiki_img,
-            pw.feature,
-            pw.temp,
-            pw.watering,
-            
-            -- 병해충 정보
-            pest.cause as pest_cause,
-            pest.cure as pest_cure,
-            
-            -- 사용자 식물 사진 (img_address 테이블의 이미지)
-            ia.img_url as user_plant_image
-            
+            up.meet_day
         FROM user_plant up
-        LEFT JOIN (
-            SELECT 
-                plant_id,
-                humidity,
-                humid_date,
-                ROW_NUMBER() OVER (PARTITION BY plant_id ORDER BY humid_date DESC) as rn
-            FROM humid_info
-        ) hi ON up.plant_id = hi.plant_id AND hi.rn = 1
-        LEFT JOIN plant_wiki pw ON up.plant_id = pw.wiki_plant_id  -- 올바른 조인
-        LEFT JOIN pest_wiki pest ON up.pest_id = pest.pest_id
-        LEFT JOIN (
-            SELECT 
-                plant_id,
-                img_url,
-                ROW_NUMBER() OVER (PARTITION BY plant_id ORDER BY idx DESC) as rn
-            FROM img_address
-            WHERE img_url IS NOT NULL AND img_url != ''
-        ) ia ON up.plant_id = ia.plant_id AND ia.rn = 1
         WHERE up.user_id = %s
         ORDER BY up.meet_day DESC
         """
         
-        await cursor.execute(query, (user_id,))
+        print(f"[DEBUG] Executing simple query with user_id: {user_id}")
+        await cursor.execute(simple_query, (user_id,))
         results = await cursor.fetchall()
+        print(f"[DEBUG] Simple query returned {len(results)} results")
         
         plants = []
         for row in results:
             plant = PlantStatusResponse(
-                idx=row['idx'],  # plant_id가 idx로 반환됨
+                idx=row['plant_id'],  # plant_id가 실제 primary key
                 user_id=row['user_id'],
                 plant_id=row['plant_id'],
                 plant_name=row['plant_name'],
                 species=row['species'],
-                pest_id=row['pest_id'],
+                pest_id=None,
                 meet_day=row['meet_day'],
-                on=row.get('location'),  # location을 on으로 매핑
-                current_humidity=row['current_humidity'],
-                humidity_date=row['humidity_date'],
-                wiki_img=row['wiki_img'],
-                feature=row['feature'],
-                temp=row['temp'],
-                watering=row['watering'],
-                pest_cause=row['pest_cause'],
-                pest_cure=row['pest_cure'],
-                user_plant_image=row['user_plant_image']
+                on=None,  # location은 사용하지 않으므로 None
+                current_humidity=None,
+                humidity_date=None,
+                wiki_img=None,
+                feature=None,
+                temp=None,
+                watering=None,
+                pest_cause=None,
+                pest_cure=None,
+                user_plant_image=None
             )
             plants.append(plant)
         
