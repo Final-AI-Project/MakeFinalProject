@@ -106,6 +106,7 @@ class DiaryWriteRequest(OrmBase):
     plant_nickname: str | None = Field(None, max_length=100)
     plant_species: str | None = Field(None, max_length=100)
     hashtag: str | None = None
+    weather: str | None = None
 
 class DiaryWriteResponse(OrmBase):
     """일기 작성/수정 응답"""
