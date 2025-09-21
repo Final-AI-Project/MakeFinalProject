@@ -14,6 +14,8 @@ import { useColorScheme } from "react-native";
 import { useRouter } from "expo-router";
 import Colors from "../../constants/Colors";
 import { fetchSimpleWeather } from "../../components/common/weatherBox";
+import { getApiUrl } from "../../config/api";
+import { getToken } from "../../libs/auth";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ② Helpers & Types
@@ -284,14 +286,45 @@ export default function Diary() {
 	// ✅ 등록 여부: 등록 1회 후 '수정' 모드로 전환
 	const [isSubmitted, setIsSubmitted] = useState(false);
 
-	// 내 식물(별명) — TODO: 실제 내 식물 리스트로 교체
-	const myPlants = useMemo(
-		() => [
-			{ label: "초록이 (몬스테라)", value: "초록이" },
-			{ label: "복덩이 (금전수)", value: "복덩이" },
-		],
-		[]
-	);
+	// 내 식물(별명) - 실제 API에서 가져오기
+	const [myPlants, setMyPlants] = useState<{ label: string; value: string }[]>([]);
+	const [plantsLoading, setPlantsLoading] = useState(true);
+
+	// 식물 목록 가져오기
+	useEffect(() => {
+		const fetchMyPlants = async () => {
+			try {
+				const token = await getToken();
+				if (!token) return;
+
+				const apiUrl = await getApiUrl("/home/plants/current");
+				const response = await fetch(apiUrl, {
+					method: "GET",
+					headers: {
+						Authorization: `Bearer ${token}`,
+						"Content-Type": "application/json",
+					},
+				});
+
+				if (response.ok) {
+					const data = await response.json();
+					if (data.plants && Array.isArray(data.plants)) {
+						const plantOptions = data.plants.map((plant: any) => ({
+							label: `${plant.plant_name} (${plant.species || "기타"})`,
+							value: plant.plant_name,
+						}));
+						setMyPlants(plantOptions);
+					}
+				}
+			} catch (error) {
+				console.error("식물 목록 가져오기 실패:", error);
+			} finally {
+				setPlantsLoading(false);
+			}
+		};
+
+		fetchMyPlants();
+	}, []);
 
 	// 날씨 자동 채움 (WeatherBox 렌더링 없이)
 	useEffect(() => {
@@ -333,10 +366,47 @@ export default function Diary() {
 	const handleSubmit = async () => {
 		if (!canSubmit) return;
 
-		// TODO: 서버 저장 & LLM 호출 후 setAiText(resp.message)
-		setAiPreviewVisible(true);   // 등록 후에만 미리보기 표시
-		setSheetVisible(true);	   // 등록하면 바텀시트 열림
-		setIsSubmitted(true);		// 이후부터 '수정' 모드
+		try {
+			const token = await getToken();
+			if (!token) {
+				Alert.alert("오류", "로그인이 필요합니다.");
+				return;
+			}
+
+			// 일기 작성 API 호출
+			const diaryData = {
+				user_title: title,
+				user_content: body,
+				plant_nickname: selectedPlant,
+				plant_species: selectedPlant, // TODO: 실제 식물 종으로 교체
+				hashtag: `#${selectedPlant} #${weather || "일상"}`,
+			};
+
+			const apiUrl = await getApiUrl("/diary-list/create");
+			const response = await fetch(apiUrl, {
+				method: "POST",
+				headers: {
+					Authorization: `Bearer ${token}`,
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify(diaryData),
+			});
+
+			if (!response.ok) {
+				throw new Error(`일기 작성 실패: ${response.status}`);
+			}
+
+			const result = await response.json();
+			console.log("일기 작성 성공:", result);
+
+			// TODO: LLM 호출 후 setAiText(resp.message)
+			setAiPreviewVisible(true);   // 등록 후에만 미리보기 표시
+			setSheetVisible(true);	   // 등록하면 바텀시트 열림
+			setIsSubmitted(true);		// 이후부터 '수정' 모드
+		} catch (error) {
+			console.error("일기 작성 오류:", error);
+			Alert.alert("일기 작성 실패", "일기 작성 중 문제가 발생했습니다.");
+		}
 	};
 
 	// 수정: 오늘의 일기 업데이트 + LLM 재호출 + 알럿 + 시트 오픈
@@ -434,7 +504,7 @@ export default function Diary() {
 						value={selectedPlant}
 						options={myPlants}
 						onChange={setSelectedPlant}
-						placeholder="내 식물을 선택하세요"
+						placeholder={plantsLoading ? "식물 목록 로딩 중..." : "내 식물을 선택하세요"}
 						theme={theme}
 					/>
 

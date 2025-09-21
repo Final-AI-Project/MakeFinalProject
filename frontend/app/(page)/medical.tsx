@@ -16,6 +16,7 @@ import Colors from "../../constants/Colors";
 import { useRouter } from "expo-router";
 import arrowDownW from "../../assets/images/w_arrow_down.png";
 import arrowDownD from "../../assets/images/d_arrow_down.png";
+import { getToken } from "../../libs/auth";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 타입
@@ -147,13 +148,19 @@ export default function MedicalPage() {
 			setError(null);
 			setLoading(true);
 
-			/**
-			 * ▷▷▷ TODO(REAL_API):
-			 *  - 실제 쓰는 엔드포인트로 교체:
-			 *    예) `${API_BASE}/medical/diagnoses?mine=true`
-			 *       또는 `${API_BASE}/plants/mine/diagnoses`
-			 */
-			const res = await fetch(`${API_BASE}/medical/diagnoses?mine=true`, { method: "GET" });
+			// 실제 백엔드 API 호출
+			const token = await getToken();
+			if (!token) {
+				throw new Error("로그인이 필요합니다.");
+			}
+
+			const res = await fetch(`${API_BASE}/medical/diagnoses`, {
+				method: "GET",
+				headers: {
+					Authorization: `Bearer ${token}`,
+					"Content-Type": "application/json",
+				},
+			});
 
 			if (!res.ok) throw new Error(`HTTP ${res.status}`);
 

@@ -9,6 +9,8 @@ import { useColorScheme } from "react-native";
 import { useRouter } from "expo-router";
 import Colors from "../../../constants/Colors";
 import { fetchSimpleWeather } from "../../../components/common/weatherBox";
+import { getApiUrl } from "../../../config/api";
+import { getToken } from "../../../libs/auth";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ① Helpers & Types
@@ -93,14 +95,45 @@ export default function medicalDetail() {
 	// 병충해 후보 top3 (초기엔 비워둠 → 박스는 렌더하되 텍스트만 “기본”)
 	const [candidates, setCandidates] = useState<Candidate[]>([]);
 
-	// 내 식물(별명) — TODO: 실제 내 식물 리스트로 교체
-	const myPlants = useMemo(
-		() => [
-			{ label: "초록이 (몬스테라)", value: "초록이" },
-			{ label: "복덩이 (금전수)", value: "복덩이" },
-		],
-		[]
-	);
+	// 내 식물(별명) - 실제 API에서 가져오기
+	const [myPlants, setMyPlants] = useState<{ label: string; value: string }[]>([]);
+	const [plantsLoading, setPlantsLoading] = useState(true);
+
+	// 식물 목록 가져오기
+	useEffect(() => {
+		const fetchMyPlants = async () => {
+			try {
+				const token = await getToken();
+				if (!token) return;
+
+				const apiUrl = await getApiUrl("/home/plants/current");
+				const response = await fetch(apiUrl, {
+					method: "GET",
+					headers: {
+						Authorization: `Bearer ${token}`,
+						"Content-Type": "application/json",
+					},
+				});
+
+				if (response.ok) {
+					const data = await response.json();
+					if (data.plants && Array.isArray(data.plants)) {
+						const plantOptions = data.plants.map((plant: any) => ({
+							label: `${plant.plant_name} (${plant.species || "기타"})`,
+							value: plant.plant_name,
+						}));
+						setMyPlants(plantOptions);
+					}
+				}
+			} catch (error) {
+				console.error("식물 목록 가져오기 실패:", error);
+			} finally {
+				setPlantsLoading(false);
+			}
+		};
+
+		fetchMyPlants();
+	}, []);
 
 	// 날씨 자동 채움
 	useEffect(() => {
@@ -152,27 +185,99 @@ export default function medicalDetail() {
 	// 등록
 	const handleSubmit = async () => {
 		if (!canSubmit) return;
-		// TODO: 서버 저장 (photoUri, selectedPlant, date, weather, candidates)
-		Alert.alert("등록 완료", "진단 결과가 저장되었습니다.");
-		router.back();
+		
+		try {
+			const token = await getToken();
+			if (!token) {
+				Alert.alert("오류", "로그인이 필요합니다.");
+				return;
+			}
+
+			// 진단 결과 저장
+			if (candidates.length > 0) {
+				const formData = new FormData();
+				formData.append("plant_id", "1"); // TODO: 실제 식물 ID로 교체
+				formData.append("pest_id", "1"); // TODO: 실제 병충해 ID로 교체
+				formData.append("pest_date", date);
+
+				// 이미지가 있으면 추가
+				if (photoUri) {
+					formData.append("image", {
+						uri: photoUri,
+						type: "image/jpeg",
+						name: "diagnosis.jpg",
+					} as any);
+				}
+
+				const apiUrl = await getApiUrl("/medical/diagnoses/with-image");
+				const response = await fetch(apiUrl, {
+					method: "POST",
+					body: formData,
+					headers: {
+						Authorization: `Bearer ${token}`,
+						"Content-Type": "multipart/form-data",
+					},
+				});
+
+				if (!response.ok) {
+					throw new Error(`저장 실패: ${response.status}`);
+				}
+			}
+
+			Alert.alert("등록 완료", "진단 결과가 저장되었습니다.");
+			router.back();
+		} catch (error) {
+			console.error("저장 오류:", error);
+			Alert.alert("저장 실패", "진단 결과 저장 중 문제가 발생했습니다.");
+		}
 	};
 
 	// 모델 연동
 	const runDiagnosis = async (uri: string) => {
 		try {
 			setInferBusy(true);
-			setCandidates([]); // 텍스트를 “병충해 진단/진단 중…”으로 보이게 초기화
+			setCandidates([]); // 텍스트를 "병충해 진단/진단 중…"으로 보이게 초기화
 
-			// TODO: 여기를 실제 백엔드 호출로 교체
-			// 예: const resp = await fetch(INFER_URL, { method:"POST", body: formData(uri) }).then(r=>r.json());
-			// setCandidates(resp.top3);
-			await new Promise(r => setTimeout(r, 1000));
-			setCandidates([
-				{ id: "1", name: "흰가루병", desc: "잎 표면에 흰 가루처럼 보임" },
-				{ id: "2", name: "응애", desc: "미세한 거미류, 잎 뒷면 피해" },
-				{ id: "3", name: "탄저병", desc: "갈색 반점, 원형 병반" },
-			]);
+			// 실제 백엔드 API 호출
+			const token = await getToken();
+			if (!token) {
+				throw new Error("로그인이 필요합니다.");
+			}
+
+			const formData = new FormData();
+			formData.append("image", {
+				uri: uri,
+				type: "image/jpeg",
+				name: "disease.jpg",
+			} as any);
+
+			const apiUrl = await getApiUrl("/disease-diagnosis/diagnose");
+			const response = await fetch(apiUrl, {
+				method: "POST",
+				body: formData,
+				headers: {
+					Authorization: `Bearer ${token}`,
+					"Content-Type": "multipart/form-data",
+				},
+			});
+
+			if (!response.ok) {
+				throw new Error(`진단 실패: ${response.status}`);
+			}
+
+			const result = await response.json();
+			if (result.success && result.predictions) {
+				setCandidates(result.predictions.map((pred: any, index: number) => ({
+					id: String(index + 1),
+					name: pred.disease_name || pred.name || "알 수 없는 병충해",
+					desc: pred.description || pred.desc || "상세 정보 없음",
+					confidence: pred.confidence || pred.score || 0,
+				})));
+			} else {
+				throw new Error("진단 결과를 받을 수 없습니다.");
+			}
 		} catch (e) {
+			console.error("진단 오류:", e);
 			Alert.alert("진단 실패", "사진 진단 중 문제가 발생했습니다.");
 			setCandidates([]);
 		} finally {
@@ -256,7 +361,7 @@ export default function medicalDetail() {
 							value={selectedPlant}
 							options={myPlants}
 							onChange={setSelectedPlant}
-							placeholder="내 식물을 선택하세요"
+							placeholder={plantsLoading ? "식물 목록 로딩 중..." : "내 식물을 선택하세요"}
 							theme={theme}
 							style={{ marginTop: 0 }}
 						/>

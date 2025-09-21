@@ -7,6 +7,8 @@ import { View, Text, StyleSheet, Image, Alert, useColorScheme, TouchableOpacity,
 import * as ImagePicker from "expo-image-picker";
 import Colors from "../../constants/Colors";
 import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, withSequence, withDelay, Easing } from "react-native-reanimated";
+import { getApiUrl } from "../../config/api";
+import { getToken } from "../../libs/auth";
 
 // 공통 모달
 import ClassifierResultModal, { ClassifyResult } from "../../components/common/ClassifierResultModal";
@@ -46,13 +48,59 @@ export default function CameraScreen() {
 	const [result, setResult] = useState<ClassifyResult | null>(null);
 
 	// 3-3) Handlers: 이미지 선택/초기화/카메라·갤러리 권한
-	const handlePicked = (pickedUri: string) => {
+	const handlePicked = async (pickedUri: string) => {
 		setUri(pickedUri);
-		setTimeout(() => {
+		setBusy(true);
+		
+		try {
+			// 실제 백엔드 API 호출
+			const token = await getToken();
+			if (!token) {
+				Alert.alert("오류", "로그인이 필요합니다.");
+				return;
+			}
+
+			const formData = new FormData();
+			formData.append("image", {
+				uri: pickedUri,
+				type: "image/jpeg",
+				name: "species.jpg",
+			} as any);
+
+			const apiUrl = await getApiUrl("/plants/classify-species");
+			const response = await fetch(apiUrl, {
+				method: "POST",
+				body: formData,
+				headers: {
+					Authorization: `Bearer ${token}`,
+					"Content-Type": "multipart/form-data",
+				},
+			});
+
+			if (!response.ok) {
+				throw new Error(`분류 실패: ${response.status}`);
+			}
+
+			const result = await response.json();
+			if (result.success && result.species) {
+				setResult({
+					species: result.species,
+					confidence: result.confidence || 85,
+				});
+				setResultVisible(true);
+			} else {
+				throw new Error("분류 결과를 받을 수 없습니다.");
+			}
+		} catch (error) {
+			console.error("분류 오류:", error);
+			Alert.alert("분류 실패", "식물 분류 중 문제가 발생했습니다.");
+			// 실패 시 모의 분류 결과 사용
 			const r = mockClassify(pickedUri);
 			setResult(r);
 			setResultVisible(true);
-		}, 80);
+		} finally {
+			setBusy(false);
+		}
 	};
 
 	const askCamera = async () => {

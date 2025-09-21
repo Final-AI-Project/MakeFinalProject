@@ -17,7 +17,7 @@ async def create_plant(
     """새 식물을 등록합니다."""
     try:
         async with get_db_connection() as (conn, cursor):
-            # 식물 등록 (plant_id는 auto_increment이므로 제외, location은 NULL 허용이므로 제외)
+            # 식물 등록 (plant_id는 auto_increment이므로 제외)
             await cursor.execute(
                 """
                 INSERT INTO user_plant (user_id, plant_name, species, meet_day)
@@ -207,16 +207,78 @@ async def update_plant(
 async def delete_plant(plant_idx: int, user_id: str) -> bool:
     """식물을 삭제합니다."""
     try:
+        print(f"[DEBUG] delete_plant 시작 - plant_idx: {plant_idx}, user_id: {user_id}")
+        
         async with get_db_connection() as (conn, cursor):
-            await cursor.execute(
-                "DELETE FROM user_plant WHERE plant_id = %s AND user_id = %s",
-                (plant_idx, user_id)
-            )
+            print(f"[DEBUG] DB 연결 성공")
             
-            return cursor.rowcount > 0
+            # 트랜잭션 시작
+            await conn.begin()
+            print(f"[DEBUG] 트랜잭션 시작")
+            
+            try:
+                # 1. 먼저 식물이 존재하는지 확인 (plant_id만 사용)
+                print(f"[DEBUG] 식물 존재 확인 중...")
+                await cursor.execute(
+                    "SELECT plant_id FROM user_plant WHERE plant_id = %s AND user_id = %s",
+                    (plant_idx, user_id)
+                )
+                plant = await cursor.fetchone()
+                print(f"[DEBUG] 식물 조회 결과: {plant}")
+                
+                if not plant:
+                    print(f"[DEBUG] 식물을 찾을 수 없음 - 롤백")
+                    await conn.rollback()
+                    return False
+                
+                # 실제 plant_id 값 사용
+                actual_plant_id = plant['plant_id']
+                print(f"[DEBUG] 실제 plant_id: {actual_plant_id}")
+                
+                # 2. 관련된 이미지 데이터 삭제 (img_address 테이블에서)
+                print(f"[DEBUG] 관련 이미지 데이터 삭제 중...")
+                await cursor.execute(
+                    "DELETE FROM img_address WHERE plant_id = %s",
+                    (actual_plant_id,)
+                )
+                img_deleted = cursor.rowcount
+                print(f"[DEBUG] 삭제된 이미지 수: {img_deleted}")
+                
+                # 3. 관련된 진단 데이터 삭제 (medical_diagnosis 테이블에서)
+                print(f"[DEBUG] 관련 진단 데이터 삭제 중...")
+                await cursor.execute(
+                    "DELETE FROM medical_diagnosis WHERE plant_id = %s",
+                    (actual_plant_id,)
+                )
+                diagnosis_deleted = cursor.rowcount
+                print(f"[DEBUG] 삭제된 진단 수: {diagnosis_deleted}")
+                
+                # 4. 마지막으로 식물 삭제 (plant_id로 삭제)
+                print(f"[DEBUG] 식물 삭제 중...")
+                await cursor.execute(
+                    "DELETE FROM user_plant WHERE plant_id = %s AND user_id = %s",
+                    (plant_idx, user_id)
+                )
+                plant_deleted = cursor.rowcount
+                print(f"[DEBUG] 삭제된 식물 수: {plant_deleted}")
+                
+                # 트랜잭션 커밋
+                await conn.commit()
+                print(f"[DEBUG] 트랜잭션 커밋 완료")
+                
+                return plant_deleted > 0
+                
+            except Exception as e:
+                # 오류 발생 시 롤백
+                print(f"[DEBUG] 오류 발생 - 롤백: {e}")
+                await conn.rollback()
+                raise e
             
     except Exception as e:
         print(f"Error in delete_plant: {e}")
+        print(f"Error type: {type(e)}")
+        import traceback
+        print(f"Traceback: {traceback.format_exc()}")
         raise e
 
 async def get_plant_stats(user_id: str) -> Dict[str, Any]:

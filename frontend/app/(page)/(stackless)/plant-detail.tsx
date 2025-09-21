@@ -12,6 +12,9 @@ import { useRouter, type Href } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import { useColorScheme } from "react-native";
 import Colors from "../../../constants/Colors";
+import { getApiUrl } from "../../../config/api";
+import { getToken } from "../../../libs/auth";
+import { API_ENDPOINTS } from "../../../config/api";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ② Types & Constants
@@ -91,16 +94,50 @@ export default function PlantDetail() {
 	}
 
 	// 3-5) Delete / Edit / Back
-	function onDelete() {
+	async function onDelete() {
 		Alert.alert("삭제 확인", "정말 이 식물을 삭제할까요?", [
 			{ text: "취소", style: "cancel" },
 			{
 				text: "삭제",
 				style: "destructive",
-				onPress: () => {
-					// 실제 삭제 로직 연동 시 여기에 작성
-					Alert.alert("삭제됨", "식물이 삭제되었습니다.");
-					router.back();
+				onPress: async () => {
+					try {
+						setBusy(true);
+						
+						// 토큰 가져오기
+						const token = await getToken();
+						if (!token) {
+							Alert.alert("오류", "로그인이 필요합니다.");
+							return;
+						}
+
+						// API URL 생성
+						const apiUrl = await getApiUrl(API_ENDPOINTS.PLANTS.DELETE(Number(params.id)));
+						
+						// 삭제 요청
+						const response = await fetch(apiUrl, {
+							method: "DELETE",
+							headers: {
+								Authorization: `Bearer ${token}`,
+								"Content-Type": "application/json",
+							},
+						});
+
+						if (!response.ok) {
+							const errorData = await response.json().catch(() => ({}));
+							throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+						}
+
+						const result = await response.json();
+						Alert.alert("삭제 완료", result.message || "식물이 성공적으로 삭제되었습니다.");
+						router.back();
+						
+					} catch (error) {
+						console.error("식물 삭제 실패:", error);
+						Alert.alert("삭제 실패", error instanceof Error ? error.message : "식물 삭제 중 오류가 발생했습니다.");
+					} finally {
+						setBusy(false);
+					}
 				},
 			},
 		]);

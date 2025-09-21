@@ -40,6 +40,7 @@ export const API_ENDPOINTS = {
 		CREATE: "/plants",
 		GET: (plantId: number) => `/plants/${plantId}`,
 		UPDATE: (plantId: number) => `/plants/${plantId}`,
+		DELETE: (plantId: number) => `/plants/${plantId}`,
 	},
 
 	// 식물 정보 관련

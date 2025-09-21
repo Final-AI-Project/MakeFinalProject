@@ -109,14 +109,6 @@ class DiaryWriteRequest(OrmBase):
 
 class DiaryWriteResponse(OrmBase):
     """일기 작성/수정 응답"""
-    idx: int
-    user_title: str
-    user_content: str
-    plant_nickname: str | None
-    plant_species: str | None
-    plant_reply: str | None
-    weather: str | None
-    weather_icon: str | None
-    img_url: str | None
-    created_at: datetime
-    updated_at: datetime | None
+    success: bool
+    message: str
+    diary: DiaryListItemResponse

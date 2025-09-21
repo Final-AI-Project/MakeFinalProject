@@ -29,18 +29,33 @@ async def create(
 ) -> Diary:
     """새 일기 생성"""
     async with db.cursor(aiomysql.DictCursor) as cursor:
+        # 1. diary 테이블에 일기 생성 (최소한의 컬럼만 사용)
         await cursor.execute(
             """
-            INSERT INTO diary (user_id, user_title, img_url, user_content, hashtag, plant_nickname, plant_species, plant_reply, weather, weather_icon, created_at, updated_at)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
+            INSERT INTO diary (user_id, user_title, user_content)
+            VALUES (%s, %s, %s)
             """,
-            (user_id, user_title, img_url, user_content, hashtag, plant_nickname, plant_species, plant_reply, weather, weather_icon)
+            (user_id, user_title, user_content)
         )
         diary_id = cursor.lastrowid
         
-        # 생성된 일기 조회
+        # 2. 이미지가 있으면 img_address 테이블에 저장 (idx를 diary_id로 사용)
+        if img_url:
+            await cursor.execute(
+                """
+                INSERT INTO img_address (diary_id, img_url)
+                VALUES (%s, %s)
+                """,
+                (diary_id, img_url)
+            )
+        
+        # 3. 생성된 일기 조회 (idx 사용)
         await cursor.execute("SELECT * FROM diary WHERE idx = %s", (diary_id,))
         result = await cursor.fetchone()
+        if not result:
+            # idx가 없으면 다른 방법으로 조회
+            await cursor.execute("SELECT * FROM diary ORDER BY idx DESC LIMIT 1")
+            result = await cursor.fetchone()
         return Diary.from_dict(result)
 
 
