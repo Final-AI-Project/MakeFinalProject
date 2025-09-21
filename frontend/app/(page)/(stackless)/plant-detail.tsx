@@ -265,39 +265,7 @@ export default function PlantDetail() {
 						))
 					)}
 				</View>
-
-				{/* 물 주기 기록(습도 증가 기준) */}
-				<View style={styles.card}>
-					<Text style={[styles.cardTitle, { color: theme.text }]}>물 주기 기록</Text>
-					<Text style={{ color: theme.text, marginBottom: 8 }}>
-						습도계 지수가 n% 증가하면 물 준 날로 기록(수동)
-					</Text>
-					<View style={styles.row}>
-						<TextInput
-							placeholder="예: 10"
-							placeholderTextColor="#909090"
-							keyboardType="number-pad"
-							value={humidityRise}
-							onChangeText={setHumidityRise}
-							style={[styles.input, styles.inputSmall, { color: theme.text, borderColor: theme.border }]}
-						/>
-						<Text style={[styles.unit, { color: theme.text }]}>%</Text>
-						<TouchableOpacity style={[styles.smallBtn, { backgroundColor: theme.primary }]} onPress={markWateringByHumidity}>
-							<Text style={styles.smallBtnText}>기록하기</Text>
-						</TouchableOpacity>
-					</View>
-					{waterLogs.length === 0 ? (
-						<Text style={{ color: "#888", marginTop: 8 }}>기록이 없어요.</Text>
-					) : (
-						waterLogs.map(log => (
-							<View key={log.id} style={styles.listRow}>
-								<Text style={[styles.listDate, { color: theme.text }]}>{log.createdAt}</Text>
-								<Text style={[styles.listText, { color: theme.text }]}>{log.reason}</Text>
-							</View>
-						))
-					)}
-				</View>
-
+				
 				{/* 내 식물 품종 정보 (BD 연동 전 비움) */}
 				<View style={styles.card}>
 					<Text style={[styles.cardTitle, { color: theme.text }]}>내 식물 품종 정보</Text>

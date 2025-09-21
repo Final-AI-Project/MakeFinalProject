@@ -28,7 +28,7 @@ import { useAuthGuard } from "../../hooks/useAuthGuard";
 import { getApiUrl } from "../../config/api";
 import { getToken } from "../../libs/auth";
 import { startLoading, stopLoading } from "../../components/common/loading";
-import { useFocusEffect } from "@react-navigation/native"; // ✅ 추가: 포커스 감지
+import { useFocusEffect } from "@react-navigation/native";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ② Types & Constants
