@@ -48,6 +48,7 @@ async def get_diary_list(
     - **end_date**: 종료 날짜 (YYYY-MM-DD 형식)
     - **hashtag**: 해시태그로 필터링
     """
+    print(f"[DEBUG] get_diary_list API 호출됨 - user: {user}")
     try:
         # 날짜 파싱
         start_date_parsed = None
@@ -94,6 +95,9 @@ async def get_diary_list(
     except HTTPException:
         raise
     except Exception as e:
+        print(f"[DEBUG] get_diary_list API 오류: {e}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(
             status_code=500,
             detail=f"일기 목록 조회 중 오류가 발생했습니다: {str(e)}"

@@ -1,8 +1,30 @@
 from __future__ import annotations
 from typing import Optional, List, Dict, Any
 import aiomysql
+import os
+import uuid
+from datetime import datetime
 
 from models.diary import Diary
+
+
+async def save_image_file(image_data: bytes, filename: str) -> str:
+    """이미지 파일을 서버에 저장하고 URL 반환"""
+    # 이미지 저장 디렉토리 생성
+    upload_dir = "uploads/diary_images"
+    os.makedirs(upload_dir, exist_ok=True)
+    
+    # 고유한 파일명 생성
+    file_extension = os.path.splitext(filename)[1] if filename else '.jpg'
+    unique_filename = f"{uuid.uuid4()}{file_extension}"
+    file_path = os.path.join(upload_dir, unique_filename)
+    
+    # 파일 저장
+    with open(file_path, 'wb') as f:
+        f.write(image_data)
+    
+    # URL 반환 (실제 서버 URL로 변경 필요)
+    return f"/uploads/diary_images/{unique_filename}"
 
 
 async def get_by_idx(db, idx: int) -> Optional[Diary]:
@@ -19,13 +41,12 @@ async def create(
     user_id: str,
     user_title: str,
     user_content: str,
-    img_url: Optional[str] = None,
     hashtag: Optional[str] = None,
-    plant_nickname: Optional[str] = None,
-    plant_species: Optional[str] = None,
+    plant_id: Optional[int] = None,
     plant_content: Optional[str] = None,
     weather: Optional[str] = None,
-    weather_icon: Optional[str] = None,
+    image_data: Optional[bytes] = None,
+    image_filename: Optional[str] = None,
 ) -> Diary:
     """새 일기 생성"""
     print(f"[DEBUG] create_diary 호출됨 - user_id: {user_id}")
@@ -43,10 +64,10 @@ async def create(
         try:
             await cursor.execute(
                 """
-                INSERT INTO diary (user_id, user_title, user_content, hashtag, plant_content, weather)
-                VALUES (%s, %s, %s, %s, %s, %s)
+                INSERT INTO diary (user_id, user_title, user_content, hashtag, plant_id, plant_content, weather)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
                 """,
-                (user_id, user_title, user_content, hashtag, plant_content, weather)
+                (user_id, user_title, user_content, hashtag, plant_id, plant_content, weather)
             )
             diary_id = cursor.lastrowid
             print(f"[DEBUG] diary INSERT 성공 - diary_id: {diary_id}")
@@ -55,17 +76,26 @@ async def create(
             print(f"[DEBUG] INSERT 데이터: user_id={user_id}, title={user_title}, content={user_content[:50]}...")
             raise e
         
-        # 2. 이미지가 있으면 img_address 테이블에 저장 (idx를 diary_id로 사용)
-        if img_url:
-            print(f"[DEBUG] img_address 테이블에 INSERT 시도 - diary_id: {diary_id}")
-            await cursor.execute(
-                """
-                INSERT INTO img_address (diary_id, img_url)
-                VALUES (%s, %s)
-                """,
-                (diary_id, img_url)
-            )
-            print("[DEBUG] img_address INSERT 성공")
+        # 2. 이미지가 있으면 파일로 저장하고 img_address 테이블에 저장
+        if image_data and image_filename:
+            print(f"[DEBUG] 이미지 파일 저장 시도 - filename: {image_filename}")
+            try:
+                # 이미지 파일 저장
+                img_url = await save_image_file(image_data, image_filename)
+                print(f"[DEBUG] 이미지 저장 성공 - URL: {img_url}")
+                
+                # img_address 테이블에 저장
+                await cursor.execute(
+                    """
+                    INSERT INTO img_address (diary_id, plant_id, img_url)
+                    VALUES (%s, %s, %s)
+                    """,
+                    (diary_id, plant_id, img_url)
+                )
+                print("[DEBUG] img_address INSERT 성공")
+            except Exception as e:
+                print(f"[DEBUG] 이미지 저장 실패: {e}")
+                # 이미지 저장 실패해도 일기는 저장됨
         
         # 3. 생성된 일기 조회 (diary_id 사용)
         print(f"[DEBUG] 생성된 일기 조회 시도 - diary_id: {diary_id}")

@@ -1,5 +1,5 @@
 from __future__ import annotations
-from datetime import datetime
+from datetime import datetime, date
 from pydantic import Field
 from typing import List, Optional
 from .common import OrmBase
@@ -13,14 +13,11 @@ class ImgAddressOut(OrmBase):
 class DiaryCreate(OrmBase):
     user_id: str = Field(min_length=1, max_length=100)
     user_title: str = Field(min_length=1, max_length=200)
-    img_url: str | None = None
     user_content: str = Field(min_length=1)
     hashtag: str | None = None
-    plant_nickname: str | None = Field(None, max_length=100)  # 식물별명
-    plant_species: str | None = Field(None, max_length=100)   # 식물종류
+    plant_id: int | None = None        # 식물 ID (FK)
     plant_content: str | None = None   # 식물의 답변 (자동생성)
     weather: str | None = None
-    weather_icon: str | None = None    # 날씨 아이콘 URL
 
 class DiaryUpdate(OrmBase):
     user_title: str | None = None
@@ -67,11 +64,9 @@ class DiaryListItemResponse(OrmBase):
     plant_species: Optional[str] = None
     plant_content: Optional[str] = None
     weather: Optional[str] = None
-    weather_icon: Optional[str] = None
     img_url: Optional[str] = None
     hashtag: Optional[str] = None
     created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
 
 class DiaryListResponse(OrmBase):
     """일기 목록 응답 스키마"""
@@ -103,8 +98,7 @@ class DiaryWriteRequest(OrmBase):
     """일기 작성 요청"""
     user_title: str = Field(min_length=1, max_length=200)
     user_content: str = Field(min_length=1)
-    plant_nickname: str | None = Field(None, max_length=100)
-    plant_species: str | None = Field(None, max_length=100)
+    plant_id: int | None = None        # 식물 ID (FK)
     hashtag: str | None = None
     weather: str | None = None
 
