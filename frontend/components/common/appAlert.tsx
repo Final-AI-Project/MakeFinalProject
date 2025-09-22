@@ -175,12 +175,14 @@ const makeStyles = (theme: any) => StyleSheet.create({
 		opacity: 0.9,
 	},
 	actions: {
+		width:'100%',
 		flexDirection: "row",
-		justifyContent: "flex-end",
+		justifyContent: "center",
 		gap: 8,
 		marginTop: 18,
 	},
 	btn: {
+		flex:1,
 		minWidth: 76,
 		paddingHorizontal: 14,
 		paddingVertical: 10,
