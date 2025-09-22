@@ -228,11 +228,26 @@ export default function medicalDetail() {
       }
 
       // 진단 결과 저장
-      if (candidates.length > 0) {
+      if (
+        diagnosisResult &&
+        diagnosisResult.diseasePredictions &&
+        diagnosisResult.diseasePredictions.length > 0
+      ) {
+        console.log("💾 진단 결과 저장 시작");
+        console.log("🌱 선택된 식물:", selectedPlant);
+        console.log("🦠 진단 결과:", diagnosisResult.diseasePredictions[0]);
+
         const formData = new FormData();
-        formData.append("plant_id", "1"); // TODO: 실제 식물 ID로 교체
-        formData.append("pest_id", "1"); // TODO: 실제 병충해 ID로 교체
-        formData.append("pest_date", date);
+        formData.append("plant_id", (selectedPlant?.id || 1).toString()); // 선택된 식물 ID 사용
+        formData.append(
+          "disease_name",
+          diagnosisResult.diseasePredictions[0].class_name
+        ); // 가장 높은 신뢰도의 병충해
+        formData.append(
+          "confidence",
+          diagnosisResult.diseasePredictions[0].confidence.toString()
+        );
+        formData.append("diagnosis_date", date);
 
         // 이미지가 있으면 추가
         if (photoUri) {
@@ -243,19 +258,28 @@ export default function medicalDetail() {
           } as any);
         }
 
-        const apiUrl = getApiUrl("/medical/diagnoses/with-image");
+        const apiUrl = getApiUrl("/disease-diagnosis/save");
+        console.log("🌐 저장 API URL:", apiUrl);
+
         const response = await fetch(apiUrl, {
           method: "POST",
           body: formData,
           headers: {
             Authorization: `Bearer ${token}`,
-            "Content-Type": "multipart/form-data",
           },
         });
 
+        console.log("📡 저장 응답 상태:", response.status, response.ok);
+
         if (!response.ok) {
-          throw new Error(`저장 실패: ${response.status}`);
+          const errorText = await response.text();
+          console.error("❌ 저장 실패:", errorText);
+          throw new Error(`저장 실패: ${response.status} - ${errorText}`);
         }
+
+        console.log("✅ 진단 결과 저장 성공");
+      } else {
+        console.log("⚠️ 저장할 진단 결과가 없음");
       }
 
       Alert.alert("등록 완료", "진단 결과가 저장되었습니다.");

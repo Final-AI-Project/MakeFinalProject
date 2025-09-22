@@ -10,8 +10,7 @@ from contextlib import asynccontextmanager
 from core.config import settings
 from db.pool import init_pool, close_pool
 from utils.errors import register_error_handlers
-# MQTT 서비스 비활성화 (임시)
-# from services.mqtt_service import mqtt_service
+from services.mqtt_service import mqtt_service
 
 # 라우터 임포트
 from routes import router
@@ -20,13 +19,11 @@ from routes import router
 async def lifespan(app: FastAPI):
     # 시작 시
     await init_pool()
-    # MQTT 서비스 비활성화 (임시)
-    # await mqtt_service.start(asyncio.get_running_loop())
+    await mqtt_service.start(asyncio.get_running_loop())
     try:
         yield
     finally:
-        # MQTT 서비스 비활성화 (임시)
-        # await mqtt_service.stop()
+        await mqtt_service.stop()
         await close_pool()
 
 app = FastAPI(
