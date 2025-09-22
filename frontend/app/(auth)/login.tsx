@@ -386,7 +386,7 @@ const styles = StyleSheet.create({
 		alignItems: "center",
 		alignSelf: "center",
 		overflow: "hidden",
-		borderRadius: "50%",
+		borderRadius: 156,
 		width: 312,
 		height: 312,
 		marginBottom: 30,

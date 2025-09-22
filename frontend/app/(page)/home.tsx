@@ -586,7 +586,7 @@ const styles = StyleSheet.create({
 		width: 250,
 		height: 250,
 		transform: [{ translateX: -125 }],
-		borderRadius: "100%",
+		borderRadius: 125,
 	},
 	slot1: {
 		position: "absolute",
@@ -608,10 +608,10 @@ const styles = StyleSheet.create({
 		position: "absolute",
 		top: 40,
 		left: -45,
-		transform: [{ translateX: "50%" }],
+		transform: [{ translateX: 85 }],
 		width: 170,
 		height: 170,
-		borderRadius: "100%",
+		borderRadius: 85,
 	},
 	slot4: {
 		position: "absolute",
