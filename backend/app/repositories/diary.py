@@ -28,9 +28,14 @@ async def save_image_file(image_data: bytes, filename: str) -> str:
 
 
 async def get_by_diary_id(db, diary_id: int) -> Optional[Diary]:
-    """diary_id로 일기 조회"""
+    """diary_id로 일기 조회 (이미지 정보 포함)"""
     async with db.cursor(aiomysql.DictCursor) as cursor:
-        await cursor.execute("SELECT * FROM diary WHERE diary_id = %s", (diary_id,))
+        await cursor.execute("""
+            SELECT d.*, ia.img_url 
+            FROM diary d 
+            LEFT JOIN img_address ia ON d.diary_id = ia.diary_id 
+            WHERE d.diary_id = %s
+        """, (diary_id,))
         result = await cursor.fetchone()
         return Diary.from_dict(result) if result else None
 
@@ -122,40 +127,40 @@ async def create(
 
 async def patch(
     db,
-    idx: int,
+    diary_id: int,
     **fields,
 ) -> Optional[Diary]:
-    """일기 수정"""
+    """일기 수정 (diary_id 기준)"""
     if not fields:
-        return await get_by_idx(db, idx)
-    
-    # updated_at 필드 자동 추가
-    fields['updated_at'] = 'NOW()'
+        return await get_by_diary_id(db, diary_id)
     
     # 동적으로 UPDATE 쿼리 생성
     set_clauses = []
     values = []
     for key, value in fields.items():
-        if key == 'updated_at':
-            set_clauses.append(f"{key} = {value}")
-        else:
-            set_clauses.append(f"{key} = %s")
-            values.append(value)
+        set_clauses.append(f"{key} = %s")
+        values.append(value)
     
-    values.append(idx)
-    query = f"UPDATE diary SET {', '.join(set_clauses)} WHERE idx = %s"
+    values.append(diary_id)
+    query = f"UPDATE diary SET {', '.join(set_clauses)} WHERE diary_id = %s"
     
     async with db.cursor() as cursor:
         await cursor.execute(query, values)
         
     # 수정된 일기 조회
-    return await get_by_idx(db, idx)
+    return await get_by_diary_id(db, diary_id)
 
 
 async def delete_by_idx(db, idx: int) -> int:
-    """일기 삭제"""
+    """일기 삭제 (idx 기준)"""
     async with db.cursor() as cursor:
         await cursor.execute("DELETE FROM diary WHERE idx = %s", (idx,))
+        return cursor.rowcount
+
+async def delete_by_diary_id(db, diary_id: int) -> int:
+    """일기 삭제 (diary_id 기준)"""
+    async with db.cursor() as cursor:
+        await cursor.execute("DELETE FROM diary WHERE diary_id = %s", (diary_id,))
         return cursor.rowcount
 
 

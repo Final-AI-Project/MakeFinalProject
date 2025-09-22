@@ -7,7 +7,7 @@ from services.auth_service import get_current_user
 from db.pool import get_db_connection
 import aiomysql
 
-router = APIRouter(prefix="/plant-detail", tags=["plant-detail-diary"])
+router = APIRouter(prefix="/diary-plants", tags=["diary-plants"])
 
 @router.get("/my-plants", response_model=UserPlantsResponse)
 async def get_user_plants_for_diary(
@@ -18,38 +18,49 @@ async def get_user_plants_for_diary(
     일기 작성/수정 시 사용할 사용자의 식물 목록을 조회합니다.
     """
     try:
-        conn, cursor = db
-        await cursor.execute(
-            """
-            SELECT 
-                plant_id,
-                plant_name,
-                species,
-                meet_day
-            FROM user_plant 
-            WHERE user_id = %s
-            ORDER BY plant_name ASC
-            """,
-            (user["user_id"],)
-        )
-        results = await cursor.fetchall()
+        print(f"[DEBUG] get_user_plants_for_diary 호출됨 - user_id: {user['user_id']}")
         
-        plants = [
-            UserPlantOption(
-                plant_id=row["plant_id"],
-                plant_name=row["plant_name"],
-                species=row["species"],
-                meet_day=row["meet_day"]
+        async with db as (conn, cursor):
+            print(f"[DEBUG] DB 연결 성공")
+            
+            await cursor.execute(
+                """
+                SELECT 
+                    plant_id,
+                    plant_name,
+                    species,
+                    meet_day
+                FROM user_plant 
+                WHERE user_id = %s
+                ORDER BY plant_name ASC
+                """,
+                (user["user_id"],)
             )
-            for row in results
-        ]
-        
-        return UserPlantsResponse(
-            plants=plants,
-            total_count=len(plants)
-        )
+            results = await cursor.fetchall()
+            print(f"[DEBUG] 쿼리 결과: {results}")
+            
+            plants = [
+                UserPlantOption(
+                    plant_id=row["plant_id"],
+                    plant_name=row["plant_name"],
+                    species=row["species"],
+                    meet_day=row["meet_day"]
+                )
+                for row in results
+            ]
+            print(f"[DEBUG] 변환된 plants: {plants}")
+            
+            response = UserPlantsResponse(
+                plants=plants,
+                total_count=len(plants)
+            )
+            print(f"[DEBUG] 최종 응답: {response}")
+            return response
         
     except Exception as e:
+        print(f"[ERROR] get_user_plants_for_diary 오류: {e}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(
             status_code=500,
             detail=f"사용자 식물 목록 조회 중 오류가 발생했습니다: {str(e)}"

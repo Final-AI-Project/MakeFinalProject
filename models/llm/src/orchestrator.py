@@ -4,7 +4,7 @@ from pydantic import BaseModel
 
 # detect_mode + reflect_mode(리플렉션) 모두 사용
 from .chat_logic import detect_mode, reflect_mode, build_daily, build_plant, build_hybrid
-from .rules import judge_moisture
+from .rules import judge_moisture, judge_moisture_with_none
 from .species_meta import DEFAULT_SPECIES
 from .utils import sanitize
 
@@ -34,22 +34,22 @@ def plant_talk(species: str, user_text: str, moisture: Optional[float] = None) -
         return TalkResult(mode="daily", species=species, reply=reply)
 
     if mode == "plant":
-        m = moisture if moisture is not None else 40.0
-        reply = sanitize(build_plant(species, user_text, m))
+        reply = sanitize(build_plant(species, user_text, moisture))
+        advice = judge_moisture_with_none(moisture)
         return TalkResult(
             mode="plant",
             species=species,
-            state=judge_moisture(m).state,
+            state=advice.state,
             reply=reply,
         )
 
     # hybrid
-    m = moisture if moisture is not None else 40.0
-    reply = sanitize(build_hybrid(species, user_text, m))
+    reply = sanitize(build_hybrid(species, user_text, moisture))
+    advice = judge_moisture_with_none(moisture)
     return TalkResult(
         mode="hybrid",
         species=species,
-        state=judge_moisture(m).state,
+        state=advice.state,
         reply=reply,
     )
 

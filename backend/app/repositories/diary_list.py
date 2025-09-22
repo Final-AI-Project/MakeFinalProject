@@ -29,9 +29,6 @@ async def get_user_diary_list(
             # 정렬 기준 검증 및 매핑
             order_mapping = {
                 "created_at": "d.created_at",
-                "updated_at": "d.updated_at", 
-                "plant_nickname": "d.plant_nickname",
-                "plant_species": "d.plant_species",
                 "user_title": "d.user_title"
             }
             
@@ -48,11 +45,13 @@ async def get_user_diary_list(
                     params.extend([search_term, search_term])
                 
                 if search_request.plant_nickname:
-                    where_conditions.append("d.plant_nickname LIKE %s")
+                    # plant_nickname은 user_plant 테이블에서 조인해서 가져와야 함
+                    where_conditions.append("up.plant_name LIKE %s")
                     params.append(f"%{search_request.plant_nickname}%")
                 
                 if search_request.plant_species:
-                    where_conditions.append("d.plant_species LIKE %s")
+                    # plant_species도 user_plant 테이블에서 조인해서 가져와야 함
+                    where_conditions.append("up.species LIKE %s")
                     params.append(f"%{search_request.plant_species}%")
                 
                 if search_request.start_date:
@@ -69,8 +68,16 @@ async def get_user_diary_list(
             
             where_clause = " AND ".join(where_conditions)
             
-            # 전체 개수 조회
-            count_query = f"SELECT COUNT(*) as total FROM diary d WHERE {where_clause}"
+            # 전체 개수 조회 (user_plant 조인 필요시)
+            if any(cond in where_clause for cond in ["up.plant_name", "up.species"]):
+                count_query = f"""
+                SELECT COUNT(*) as total 
+                FROM diary d 
+                LEFT JOIN user_plant up ON d.plant_id = up.plant_id 
+                WHERE {where_clause}
+                """
+            else:
+                count_query = f"SELECT COUNT(*) as total FROM diary d WHERE {where_clause}"
             
             await cursor.execute(count_query, params)
             count_result = await cursor.fetchone()
@@ -82,20 +89,21 @@ async def get_user_diary_list(
             # 일기 목록 조회
             list_query = f"""
             SELECT 
-                d.idx,
+                d.diary_id as idx,
                 d.user_title,
                 d.user_content,
-                d.plant_nickname,
-                d.plant_species,
-                d.plant_reply,
+                up.plant_name as plant_nickname,
+                up.species as plant_species,
+                d.plant_content as plant_reply,
                 d.weather,
-                d.weather_icon,
+                NULL as weather_icon,
                 d.hashtag,
                 d.created_at,
-                d.updated_at,
+                d.created_at as updated_at,
                 ia.img_url
             FROM diary d
-            LEFT JOIN img_address ia ON d.idx = ia.diary_id
+            LEFT JOIN user_plant up ON d.plant_id = up.plant_id
+            LEFT JOIN img_address ia ON d.diary_id = ia.diary_id
             WHERE {where_clause}
             ORDER BY {order_column} {order_direction.upper()}
             LIMIT %s OFFSET %s
@@ -143,10 +151,10 @@ async def get_diary_stats(user_id: str) -> DiaryStatsResponse:
         stats_query = """
         SELECT 
             COUNT(*) as total_diaries,
-            COUNT(DISTINCT plant_nickname) as total_plants,
-            COUNT(CASE WHEN created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY) THEN 1 END) as recent_diary_count
-        FROM diary 
-        WHERE user_id = %s
+            COUNT(DISTINCT d.plant_id) as total_plants,
+            COUNT(CASE WHEN d.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY) THEN 1 END) as recent_diary_count
+        FROM diary d
+        WHERE d.user_id = %s
         """
         
         await cursor.execute(stats_query, (user_id,))
@@ -155,11 +163,12 @@ async def get_diary_stats(user_id: str) -> DiaryStatsResponse:
         # 가장 활발한 식물 조회
         most_active_query = """
         SELECT 
-            plant_nickname,
+            up.plant_name as plant_nickname,
             COUNT(*) as diary_count
-        FROM diary 
-        WHERE user_id = %s AND plant_nickname IS NOT NULL
-        GROUP BY plant_nickname
+        FROM diary d
+        LEFT JOIN user_plant up ON d.plant_id = up.plant_id
+        WHERE d.user_id = %s AND d.plant_id IS NOT NULL
+        GROUP BY d.plant_id, up.plant_name
         ORDER BY diary_count DESC
         LIMIT 1
         """
@@ -187,14 +196,15 @@ async def get_plant_diary_summary(user_id: str) -> List[Dict[str, Any]]:
         
         query = """
         SELECT 
-            plant_nickname,
-            plant_species,
+            up.plant_name as plant_nickname,
+            up.species as plant_species,
             COUNT(*) as diary_count,
-            MAX(created_at) as last_diary_date,
-            MIN(created_at) as first_diary_date
-        FROM diary 
-        WHERE user_id = %s AND plant_nickname IS NOT NULL
-        GROUP BY plant_nickname, plant_species
+            MAX(d.created_at) as last_diary_date,
+            MIN(d.created_at) as first_diary_date
+        FROM diary d
+        LEFT JOIN user_plant up ON d.plant_id = up.plant_id
+        WHERE d.user_id = %s AND d.plant_id IS NOT NULL
+        GROUP BY d.plant_id, up.plant_name, up.species
         ORDER BY diary_count DESC
         """
         
@@ -218,20 +228,21 @@ async def get_recent_diaries(user_id: str, limit: int = 5) -> List[DiaryListItem
         
         query = """
         SELECT 
-            d.idx,
+            d.diary_id as idx,
             d.user_title,
             d.user_content,
-            d.plant_nickname,
-            d.plant_species,
-            d.plant_reply,
+            up.plant_name as plant_nickname,
+            up.species as plant_species,
+            d.plant_content as plant_reply,
             d.weather,
-            d.weather_icon,
+            NULL as weather_icon,
             d.hashtag,
             d.created_at,
-            d.updated_at,
+            d.created_at as updated_at,
             ia.img_url
         FROM diary d
-        LEFT JOIN img_address ia ON d.idx = ia.diary_id
+        LEFT JOIN user_plant up ON d.plant_id = up.plant_id
+        LEFT JOIN img_address ia ON d.diary_id = ia.diary_id
         WHERE d.user_id = %s
         ORDER BY d.created_at DESC
         LIMIT %s

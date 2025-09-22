@@ -140,7 +140,8 @@ export default function medicalDetail() {
         const token = await getToken();
         if (!token) return;
 
-        const apiUrl = getApiUrl("/home/plants/current");
+        // 의료진단용 전용 API 사용
+        const apiUrl = getApiUrl("/diary-plants/my-plants");
         const response = await fetch(apiUrl, {
           method: "GET",
           headers: {
@@ -151,14 +152,21 @@ export default function medicalDetail() {
 
         if (response.ok) {
           const data = await response.json();
+          console.log("의료진단용 식물 목록 응답:", data);
           if (data.plants && Array.isArray(data.plants)) {
             const plantOptions = data.plants.map((plant: any) => ({
               label: `${plant.plant_name} (${plant.species || "기타"})`,
-              value: plant.plant_name,
+              value: plant.plant_id.toString(), // plant_id를 value로 사용
             }));
             setMyPlants(plantOptions);
             setPlantsData(data.plants); // 원본 데이터 저장
           }
+        } else {
+          console.error(
+            "식물 목록 API 오류:",
+            response.status,
+            response.statusText
+          );
         }
       } catch (error) {
         console.error("식물 목록 가져오기 실패:", error);
@@ -237,14 +245,15 @@ export default function medicalDetail() {
       ) {
         console.log("💾 진단 결과 저장 시작");
         console.log("🌱 선택된 식물:", selectedPlant);
-        console.log("🌱 선택된 식물 ID:", selectedPlant?.id);
-        console.log("🌱 선택된 식물 이름:", selectedPlant?.plant_name);
+        console.log("🌱 선택된 식물 ID:", selectedPlant);
+        // 선택된 식물의 정보 찾기
+        const selectedPlantData = plantsData.find(
+          (p) => p.plant_id.toString() === selectedPlant
+        );
+        console.log("🌱 선택된 식물 이름:", selectedPlantData?.plant_name);
         console.log("🦠 진단 결과:", diagnosisResult.diseasePredictions[0]);
 
-        // 선택된 식물의 ID 찾기
-        const selectedPlantData = plantsData.find(
-          (plant: any) => plant.plant_name === selectedPlant
-        );
+        // selectedPlantData는 이미 위에서 정의됨
         const plantId = selectedPlantData?.plant_id || selectedPlantData?.id;
 
         console.log("🌱 선택된 식물 데이터:", selectedPlantData);
@@ -399,7 +408,9 @@ export default function medicalDetail() {
       console.error("진단 오류:", e);
       Alert.alert(
         "진단 실패",
-        `사진 진단 중 문제가 발생했습니다: ${e.message}`
+        `사진 진단 중 문제가 발생했습니다: ${
+          e instanceof Error ? e.message : String(e)
+        }`
       );
       setDiagnosisResult(null);
     } finally {
@@ -553,7 +564,7 @@ export default function medicalDetail() {
               placeholder={
                 plantsLoading ? "식물 목록 로딩 중..." : "내 식물을 선택하세요"
               }
-              theme={theme}
+              theme={theme as any}
               style={{ marginTop: 0 }}
             />
           </View>
@@ -596,7 +607,7 @@ export default function medicalDetail() {
                         { color: "#2E7D32", opacity: 0.6, fontSize: 12 },
                       ]}
                     >
-                      신뢰도: {(display.confidence * 100).toFixed(1)}%
+                      신뢰도: {((display.confidence || 0) * 100).toFixed(1)}%
                     </Text>
                   </View>
                 </View>

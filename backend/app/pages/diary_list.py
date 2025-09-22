@@ -1,5 +1,7 @@
-from fastapi import APIRouter, HTTPException, Query, Depends
+from fastapi import APIRouter, HTTPException, Query, Depends, Form, File, UploadFile
 from typing import Optional, List, Dict, Any
+import os
+import uuid
 from schemas.diary import (
     DiaryListResponse,
     DiarySearchRequest,
@@ -15,10 +17,36 @@ from repositories.diary_list import (
     get_plant_diary_summary,
     get_recent_diaries
 )
-from repositories.diary import create as create_diary
+from repositories.diary import create as create_diary, get_by_diary_id, patch as update_diary, delete_by_diary_id
 from db.pool import get_db_connection
 from services.auth_service import get_current_user
 from clients.plant_llm import get_plant_reply
+
+async def get_latest_humidity_for_plant(conn, plant_id: int) -> Optional[int]:
+    """특정 식물의 가장 최근 습도 정보를 가져옵니다."""
+    try:
+        async with conn.cursor() as cursor:
+            # device_info를 통해 plant_id로 device_id를 찾고, 
+            # humid_info에서 가장 최근 습도 정보를 가져옵니다
+            await cursor.execute("""
+                SELECT hi.humidity 
+                FROM device_info di 
+                JOIN humid_info hi ON di.device_id = hi.device_id 
+                WHERE di.plant_id = %s 
+                ORDER BY hi.humid_date DESC 
+                LIMIT 1
+            """, (plant_id,))
+            
+            result = await cursor.fetchone()
+            if result:
+                print(f"[DEBUG] 식물 {plant_id}의 최근 습도: {result[0]}%")
+                return result[0]
+            else:
+                print(f"[DEBUG] 식물 {plant_id}의 습도 정보 없음")
+                return None
+    except Exception as e:
+        print(f"[DEBUG] 습도 정보 조회 실패: {e}")
+        return None
 
 router = APIRouter(prefix="/diary-list", tags=["diary-list"])
 
@@ -300,7 +328,18 @@ async def export_diaries(
 
 @router.post("/create", response_model=DiaryWriteResponse)
 async def create_diary_entry(
-    diary_request: DiaryWriteRequest,
+    user_title: str = Form(...),
+    user_content: str = Form(...),
+    plant_id: Optional[str] = Form(None),
+    plant_nickname: Optional[str] = Form(None),
+    plant_species: Optional[str] = Form(None),
+    hashtag: Optional[str] = Form(None),
+    weather: Optional[str] = Form(None),
+    hist_watered: Optional[str] = Form("0"),
+    hist_repot: Optional[str] = Form("0"),
+    hist_pruning: Optional[str] = Form("0"),
+    hist_fertilize: Optional[str] = Form("0"),
+    image: Optional[UploadFile] = File(None),
     user: dict = Depends(get_current_user)
 ):
     """
@@ -308,18 +347,55 @@ async def create_diary_entry(
     """
     try:
         print(f"[DEBUG] 일기 작성 요청 받음 - 사용자: {user.get('user_id', 'unknown')}")
-        print(f"[DEBUG] 요청 데이터: {diary_request}")
+        print(f"[DEBUG] user_title: {user_title}")
+        print(f"[DEBUG] user_content: {user_content[:100]}...")
+        print(f"[DEBUG] plant_id: {plant_id}")
+        print(f"[DEBUG] 이미지 파일: {image.filename if image else 'None'}")
+        
+        # 이미지 저장
+        image_url = None
+        if image and image.filename:
+            try:
+                # 이미지 저장 디렉토리 생성
+                upload_dir = "static/diaries"
+                os.makedirs(upload_dir, exist_ok=True)
+                
+                # 고유한 파일명 생성
+                file_extension = os.path.splitext(image.filename)[1] or ".jpg"
+                unique_filename = f"{uuid.uuid4()}{file_extension}"
+                file_path = os.path.join(upload_dir, unique_filename)
+                
+                # 이미지 파일 저장
+                with open(file_path, "wb") as buffer:
+                    content = await image.read()
+                    buffer.write(content)
+                
+                image_url = f"/static/diaries/{unique_filename}"
+                print(f"[DEBUG] 이미지 저장 성공: {image_url}")
+            except Exception as e:
+                print(f"[DEBUG] 이미지 저장 실패: {e}")
+                # 이미지 저장 실패해도 일기는 계속 진행
         
         async with get_db_connection() as (conn, cursor):
             print("[DEBUG] 데이터베이스 연결 성공")
             
             # AI 모델 호출하여 식물 답변 생성
             print("[DEBUG] AI 모델 호출하여 식물 답변 생성 중...")
+            
+            # 습도 정보 가져오기 (plant_id가 있는 경우에만)
+            moisture = None
+            if plant_id:
+                moisture = await get_latest_humidity_for_plant(conn, int(plant_id))
+                if moisture is not None:
+                    print(f"[DEBUG] 습도 정보 전달: {moisture}%")
+                else:
+                    print("[DEBUG] 습도 정보 없음 - 습도 관련 정보 생략")
+            
             try:
                 plant_reply = await get_plant_reply(
-                    species=diary_request.plant_species or "식물",
-                    user_text=diary_request.user_content,
-                    moisture=None  # 습도 정보가 없으므로 None
+                    species=plant_species or "식물",
+                    user_text=user_content,
+                    moisture=moisture  # DB에서 가져온 습도 정보 또는 None
                 )
                 print(f"[DEBUG] AI 답변 생성 성공: {plant_reply[:50]}...")
             except Exception as e:
@@ -329,36 +405,52 @@ async def create_diary_entry(
             diary = await create_diary(
                 conn,
                 user_id=user["user_id"],
-                user_title=diary_request.user_title,
-                user_content=diary_request.user_content,
-                hashtag=diary_request.hashtag,
-                plant_id=diary_request.plant_id,  # 새로운 diary 테이블 구조에 맞춰 수정
-                plant_content=plant_reply,  # AI 모델에서 생성된 답변을 plant_content로 저장
-                weather=diary_request.weather,
-                hist_watered=None,  # 새로운 필드들
-                hist_repot=None,
-                hist_pruning=None,
-                hist_fertilize=None
+                user_title=user_title,
+                user_content=user_content,
+                hashtag=hashtag,
+                plant_id=int(plant_id) if plant_id else None,
+                plant_content=plant_reply,
+                weather=weather,
+                hist_watered=int(hist_watered) if hist_watered else 0,
+                hist_repot=int(hist_repot) if hist_repot else 0,
+                hist_pruning=int(hist_pruning) if hist_pruning else 0,
+                hist_fertilize=int(hist_fertilize) if hist_fertilize else 0
             )
             
             print(f"[DEBUG] 일기 생성 성공: {diary}")
+            
+            # 이미지가 있으면 img_address 테이블에 저장
+            if image_url and diary.diary_id:
+                try:
+                    await cursor.execute(
+                        "INSERT INTO img_address (diary_id, img_url) VALUES (%s, %s)",
+                        (diary.diary_id, image_url)
+                    )
+                    print(f"[DEBUG] 이미지 URL 저장 성공: {image_url}")
+                except Exception as e:
+                    print(f"[DEBUG] 이미지 URL 저장 실패: {e}")
             
             return DiaryWriteResponse(
                 success=True,
                 message="일기가 성공적으로 작성되었습니다.",
                 diary=DiaryListItemResponse(
-                    idx=getattr(diary, 'idx', None) or 1,  # 기본값 설정
+                    idx=diary.diary_id,
                     user_title=diary.user_title,
                     user_content=diary.user_content,
-                    plant_nickname=getattr(diary, 'plant_nickname', None),
-                    plant_species=getattr(diary, 'plant_species', None),
-                    plant_reply=plant_reply,  # AI 모델에서 생성된 답변
-                    weather=getattr(diary, 'weather', None),
-                    weather_icon=getattr(diary, 'weather_icon', None),
-                    img_url=getattr(diary, 'img_url', None),
-                    hashtag=getattr(diary, 'hashtag', None),
-                    created_at=getattr(diary, 'created_at', None),
-                    updated_at=getattr(diary, 'updated_at', None)
+                    plant_id=diary.plant_id,
+                    plant_nickname=plant_nickname,
+                    plant_species=plant_species,
+                    plant_reply=plant_reply,
+                    weather=weather,
+                    weather_icon=None,
+                    img_url=image_url,
+                    hashtag=hashtag,
+                    created_at=diary.created_at,
+                    updated_at=None,
+                    hist_watered=int(hist_watered) if hist_watered else 0,
+                    hist_repot=int(hist_repot) if hist_repot else 0,
+                    hist_pruning=int(hist_pruning) if hist_pruning else 0,
+                    hist_fertilize=int(hist_fertilize) if hist_fertilize else 0
                 )
             )
             
@@ -366,4 +458,271 @@ async def create_diary_entry(
         raise HTTPException(
             status_code=500,
             detail=f"일기 작성 중 오류가 발생했습니다: {str(e)}"
+        )
+
+@router.get("/{diary_id}", response_model=DiaryListItemResponse)
+async def get_diary_detail(
+    diary_id: int,
+    user: dict = Depends(get_current_user)
+):
+    """
+    특정 일기의 상세 정보를 조회합니다.
+    """
+    try:
+        print(f"[DEBUG] 일기 조회 요청 - diary_id: {diary_id}, user: {user.get('user_id', 'unknown')}")
+        
+        async with get_db_connection() as (conn, cursor):
+            diary = await get_by_diary_id(conn, diary_id)
+            
+            if not diary:
+                raise HTTPException(
+                    status_code=404,
+                    detail="일기를 찾을 수 없습니다."
+                )
+            
+            # 사용자 권한 확인
+            if diary.user_id != user["user_id"]:
+                raise HTTPException(
+                    status_code=403,
+                    detail="이 일기에 접근할 권한이 없습니다."
+                )
+            
+            print(f"[DEBUG] 일기 조회 성공: {diary}")
+            
+            return DiaryListItemResponse(
+                idx=diary.diary_id,
+                user_title=diary.user_title,
+                user_content=diary.user_content,
+                plant_id=diary.plant_id,
+                plant_nickname=getattr(diary, 'plant_nickname', None),
+                plant_species=getattr(diary, 'plant_species', None),
+                plant_reply=diary.plant_content,
+                weather=diary.weather,
+                weather_icon=getattr(diary, 'weather_icon', None),
+                img_url=diary.img_url,
+                hashtag=diary.hashtag,
+                created_at=diary.created_at,
+                updated_at=getattr(diary, 'updated_at', None),
+                hist_watered=diary.hist_watered,
+                hist_repot=diary.hist_repot,
+                hist_pruning=diary.hist_pruning,
+                hist_fertilize=diary.hist_fertilize
+            )
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[DEBUG] 일기 조회 오류: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"일기 조회 중 오류가 발생했습니다: {str(e)}"
+        )
+
+@router.put("/{diary_id}", response_model=DiaryWriteResponse)
+async def update_diary_entry(
+    diary_id: int,
+    user_title: str = Form(...),
+    user_content: str = Form(...),
+    plant_id: Optional[str] = Form(None),
+    plant_nickname: Optional[str] = Form(None),
+    plant_species: Optional[str] = Form(None),
+    hashtag: Optional[str] = Form(None),
+    weather: Optional[str] = Form(None),
+    hist_watered: Optional[str] = Form("0"),
+    hist_repot: Optional[str] = Form("0"),
+    hist_pruning: Optional[str] = Form("0"),
+    hist_fertilize: Optional[str] = Form("0"),
+    image: Optional[UploadFile] = File(None),
+    user: dict = Depends(get_current_user)
+):
+    """
+    기존 일기를 수정합니다.
+    """
+    try:
+        print(f"[DEBUG] 일기 수정 요청 - diary_id: {diary_id}, user: {user.get('user_id', 'unknown')}")
+        print(f"[DEBUG] user_title: {user_title}")
+        print(f"[DEBUG] user_content: {user_content[:100]}...")
+        print(f"[DEBUG] plant_id: {plant_id}")
+        print(f"[DEBUG] 이미지 파일: {image.filename if image else 'None'}")
+        
+        # 이미지 저장
+        image_url = None
+        if image and image.filename:
+            try:
+                # 이미지 저장 디렉토리 생성
+                upload_dir = "static/diaries"
+                os.makedirs(upload_dir, exist_ok=True)
+                
+                # 고유한 파일명 생성
+                file_extension = os.path.splitext(image.filename)[1] or ".jpg"
+                unique_filename = f"{uuid.uuid4()}{file_extension}"
+                file_path = os.path.join(upload_dir, unique_filename)
+                
+                # 이미지 파일 저장
+                with open(file_path, "wb") as buffer:
+                    content = await image.read()
+                    buffer.write(content)
+                
+                image_url = f"/static/diaries/{unique_filename}"
+                print(f"[DEBUG] 이미지 저장 성공: {image_url}")
+            except Exception as e:
+                print(f"[DEBUG] 이미지 저장 실패: {e}")
+                # 이미지 저장 실패해도 일기는 계속 진행
+        
+        async with get_db_connection() as (conn, cursor):
+            # 기존 일기 조회 및 권한 확인
+            existing_diary = await get_by_diary_id(conn, diary_id)
+            if not existing_diary:
+                raise HTTPException(
+                    status_code=404,
+                    detail="일기를 찾을 수 없습니다."
+                )
+            
+            if existing_diary.user_id != user["user_id"]:
+                raise HTTPException(
+                    status_code=403,
+                    detail="이 일기를 수정할 권한이 없습니다."
+                )
+            
+            # AI 모델 호출하여 새로운 식물 답변 생성
+            print("[DEBUG] AI 모델 호출하여 새로운 식물 답변 생성 중...")
+            
+            # 습도 정보 가져오기 (plant_id가 있는 경우에만)
+            moisture = None
+            if plant_id:
+                moisture = await get_latest_humidity_for_plant(conn, int(plant_id))
+                if moisture is not None:
+                    print(f"[DEBUG] 습도 정보 전달: {moisture}%")
+                else:
+                    print("[DEBUG] 습도 정보 없음 - 습도 관련 정보 생략")
+            
+            try:
+                plant_reply = await get_plant_reply(
+                    species=plant_species or "식물",
+                    user_text=user_content,
+                    moisture=moisture
+                )
+                print(f"[DEBUG] AI 답변 생성 성공: {plant_reply[:50]}...")
+            except Exception as e:
+                print(f"[DEBUG] AI 답변 생성 실패: {e}")
+                plant_reply = "안녕! 수정된 일기를 잘 읽었어. 나는 너의 변화를 느낄 수 있어서 기뻐!"  # 기본 답변
+            
+            # 일기 수정
+            updated_diary = await update_diary(
+                conn,
+                diary_id,
+                user_title=user_title,
+                user_content=user_content,
+                hashtag=hashtag,
+                plant_id=int(plant_id) if plant_id else None,
+                plant_content=plant_reply,
+                weather=weather,
+                hist_watered=int(hist_watered) if hist_watered else 0,
+                hist_repot=int(hist_repot) if hist_repot else 0,
+                hist_pruning=int(hist_pruning) if hist_pruning else 0,
+                hist_fertilize=int(hist_fertilize) if hist_fertilize else 0
+            )
+            
+            print(f"[DEBUG] 일기 수정 성공: {updated_diary}")
+            
+            # 이미지가 있으면 img_address 테이블에 저장 (기존 이미지 삭제 후 새로 저장)
+            if image_url:
+                try:
+                    # 기존 이미지 삭제
+                    await cursor.execute(
+                        "DELETE FROM img_address WHERE diary_id = %s",
+                        (diary_id,)
+                    )
+                    # 새 이미지 저장
+                    await cursor.execute(
+                        "INSERT INTO img_address (diary_id, img_url) VALUES (%s, %s)",
+                        (diary_id, image_url)
+                    )
+                    print(f"[DEBUG] 이미지 URL 업데이트 성공: {image_url}")
+                except Exception as e:
+                    print(f"[DEBUG] 이미지 URL 업데이트 실패: {e}")
+            
+            return DiaryWriteResponse(
+                success=True,
+                message="일기가 성공적으로 수정되었습니다.",
+                diary=DiaryListItemResponse(
+                    idx=updated_diary.diary_id,
+                    user_title=updated_diary.user_title,
+                    user_content=updated_diary.user_content,
+                    plant_id=updated_diary.plant_id,
+                    plant_nickname=plant_nickname,
+                    plant_species=plant_species,
+                    plant_reply=plant_reply,
+                    weather=weather,
+                    weather_icon=None,
+                    img_url=image_url or getattr(updated_diary, 'img_url', None),
+                    hashtag=hashtag,
+                    created_at=updated_diary.created_at,
+                    updated_at=None,
+                    hist_watered=int(hist_watered) if hist_watered else 0,
+                    hist_repot=int(hist_repot) if hist_repot else 0,
+                    hist_pruning=int(hist_pruning) if hist_pruning else 0,
+                    hist_fertilize=int(hist_fertilize) if hist_fertilize else 0
+                )
+            )
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[DEBUG] 일기 수정 오류: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"일기 수정 중 오류가 발생했습니다: {str(e)}"
+        )
+
+@router.delete("/{diary_id}")
+async def delete_diary_entry(
+    diary_id: int,
+    user: dict = Depends(get_current_user)
+):
+    """
+    일기를 삭제합니다.
+    """
+    try:
+        print(f"[DEBUG] 일기 삭제 요청 - diary_id: {diary_id}, user: {user.get('user_id', 'unknown')}")
+        
+        async with get_db_connection() as (conn, cursor):
+            # 기존 일기 조회 및 권한 확인
+            existing_diary = await get_by_diary_id(conn, diary_id)
+            if not existing_diary:
+                raise HTTPException(
+                    status_code=404,
+                    detail="일기를 찾을 수 없습니다."
+                )
+            
+            if existing_diary.user_id != user["user_id"]:
+                raise HTTPException(
+                    status_code=403,
+                    detail="이 일기를 삭제할 권한이 없습니다."
+                )
+            
+            # 일기 삭제
+            deleted_count = await delete_by_diary_id(conn, diary_id)
+            
+            if deleted_count == 0:
+                raise HTTPException(
+                    status_code=404,
+                    detail="일기를 찾을 수 없습니다."
+                )
+            
+            print(f"[DEBUG] 일기 삭제 성공 - diary_id: {diary_id}")
+            
+            return {
+                "success": True,
+                "message": "일기가 성공적으로 삭제되었습니다.",
+                "deleted_id": diary_id
+            }
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[DEBUG] 일기 삭제 오류: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"일기 삭제 중 오류가 발생했습니다: {str(e)}"
         )

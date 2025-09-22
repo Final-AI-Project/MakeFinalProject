@@ -20,6 +20,7 @@ class Diary:
     hist_pruning: Optional[int] = None
     hist_fertilize: Optional[int] = None
     created_at: Optional[date] = None
+    img_url: Optional[str] = None
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "Diary":
@@ -38,6 +39,7 @@ class Diary:
             hist_pruning=data.get("hist_pruning"),
             hist_fertilize=data.get("hist_fertilize"),
             created_at=data.get("created_at"),
+            img_url=data.get("img_url"),
         )
 
     def to_dict(self) -> Dict[str, Any]:
@@ -56,4 +58,5 @@ class Diary:
             "hist_pruning": self.hist_pruning,
             "hist_fertilize": self.hist_fertilize,
             "created_at": self.created_at,
+            "img_url": self.img_url,
         }

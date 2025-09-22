@@ -62,6 +62,7 @@ class DiaryListItemResponse(OrmBase):
     idx: int
     user_title: str
     user_content: str
+    plant_id: Optional[int] = None
     plant_nickname: Optional[str] = None
     plant_species: Optional[str] = None
     plant_reply: Optional[str] = None
@@ -71,6 +72,10 @@ class DiaryListItemResponse(OrmBase):
     hashtag: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+    hist_watered: Optional[int] = None
+    hist_repot: Optional[int] = None
+    hist_pruning: Optional[int] = None
+    hist_fertilize: Optional[int] = None
 
 class DiaryListResponse(OrmBase):
     """일기 목록 응답 스키마"""
@@ -107,6 +112,10 @@ class DiaryWriteRequest(OrmBase):
     plant_species: str | None = None   # 식물종류 (호환성을 위해 유지)
     hashtag: str | None = None
     weather: str | None = None
+    hist_watered: int | None = None  # 물주기 여부 (0 또는 1)
+    hist_repot: int | None = None    # 분갈이 여부 (0 또는 1)
+    hist_pruning: int | None = None  # 가지치기 여부 (0 또는 1)
+    hist_fertilize: int | None = None # 비료주기 여부 (0 또는 1)
 
 class DiaryWriteResponse(OrmBase):
     """일기 작성/수정 응답"""

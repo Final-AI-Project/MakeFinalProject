@@ -10,7 +10,7 @@ except Exception:  # pragma: no cover
 
 from .llm import llm
 from .species_meta import SPECIES_META, DEFAULT_SPECIES
-from .rules import judge_moisture
+from .rules import judge_moisture, judge_moisture_with_none
 from .utils import pick_memes, sanitize
 from .config import settings  # noqa: F401  # 향후 플래그/환경값 쓸 때 대비
 
@@ -271,8 +271,8 @@ PLANT_PROMPT = ChatPromptTemplate.from_messages([
     ("human", "Species: {species}\nUser text: {user_text}\nTask: Write in Korean per rules above.")
 ])
 
-def build_plant(species: str, user_text: str, moisture: float) -> str:
-    advice = judge_moisture(moisture)
+def build_plant(species: str, user_text: str, moisture: float = None) -> str:
+    advice = judge_moisture_with_none(moisture)
     meta = SPECIES_META.get(species, SPECIES_META[DEFAULT_SPECIES])
     memes = ", ".join(pick_memes(1))
     raw = (PLANT_PROMPT | llm).invoke({
@@ -324,9 +324,9 @@ def _enforce_hybrid_pov(text: str, species: str) -> str:
     s = (first + ("" if first.endswith(('.', '!', '?')) else ".") + (" " + tail if tail else "")).strip()
     return _tidy_korean(s)
 
-def build_hybrid(species: str, user_text: str, moisture_guess: float = 40.0) -> str:
+def build_hybrid(species: str, user_text: str, moisture_guess: float = None) -> str:
     opening = empathy_opening(user_text)
-    advice = judge_moisture(moisture_guess)
+    advice = judge_moisture_with_none(moisture_guess)
     meta = SPECIES_META.get(species, SPECIES_META[DEFAULT_SPECIES])
     memes = ", ".join(pick_memes(1))
     raw = (HYBRID_PROMPT | llm).invoke({

@@ -8,6 +8,7 @@ from pages.info_room import router as info_room_router
 from features.auth import router as auth_router
 from features.plants import router as plants_router
 from features.diary import router as diary_router
+from features.diary import router as plant_detail_diary_router
 from features.medical import router as medical_router
 from features.disease_diagnosis import router as disease_diagnosis_router
 from features import detail_router, diary_router as plant_diary_router, pest_router, watering_router, images_router
@@ -23,6 +24,7 @@ router.include_router(info_room_router)  # /info-room
 router.include_router(auth_router)  # /auth
 router.include_router(plants_router)  # /plants
 router.include_router(diary_router)  # /diary
+router.include_router(plant_detail_diary_router)  # /diary-plants
 router.include_router(medical_router)  # /medical
 router.include_router(disease_diagnosis_router)  # /disease-diagnosis
 router.include_router(detail_router)  # /plant-detail

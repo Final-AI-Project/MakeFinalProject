@@ -1,5 +1,6 @@
 // app/(page)/diaryList.tsx
 import React, { useMemo, useState, useEffect } from "react";
+import { useFocusEffect } from "@react-navigation/native";
 import {
   View,
   Text,
@@ -99,6 +100,13 @@ export default function DiaryList() {
     fetchDiaries();
   }, []);
 
+  // 페이지 포커스 시 새로고침 (일기 작성/수정/삭제 후 돌아올 때)
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchDiaries();
+    }, [])
+  );
+
   // 정렬 상태: "date" | "plant"
   const [sortBy, setSortBy] = useState<"date" | "plant">("date");
 
@@ -119,7 +127,7 @@ export default function DiaryList() {
   // NOTE: 작성/상세 단일 페이지가 /(page)/diary 라는 전제
   const openDiary = (item: Diary) => {
     router.push({
-      pathname: "/(page)/diary",
+      pathname: "/(page)/(stackless)/diary-edit",
       params: { id: item.idx.toString() },
     });
   };
@@ -245,7 +253,10 @@ export default function DiaryList() {
                   >
                     {[
                       item.plant_nickname,
-                      new Date(item.created_at).toLocaleDateString(),
+                      item.plant_species,
+                      item.created_at
+                        ? new Date(item.created_at).toLocaleDateString("ko-KR")
+                        : "날짜 없음",
                     ]
                       .filter(Boolean)
                       .join(" · ")}

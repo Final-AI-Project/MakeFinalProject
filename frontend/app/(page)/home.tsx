@@ -201,12 +201,17 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ✅ 3-5-1) 홈 탭에 '들어올 때마다' 조용한 새로고침 (CSS 망가짐 방지)
+  // ✅ 3-5-1) 홈 탭에 '들어올 때마다' 조용한 새로고침 (불필요한 호출 방지)
+  const lastFetchTime = React.useRef<number>(0);
   useFocusEffect(
     React.useCallback(() => {
-      // 데이터만 조용히 새로고침 (상태 초기화 없이)
-      refetchUserPlantsSilently();
-    }, [refetchUserPlantsSilently])
+      const now = Date.now();
+      // 최초 로딩이 완료되고, 마지막 호출로부터 5초 이상 지났을 때만 새로고침
+      if (dashboardData && !loading && now - lastFetchTime.current > 60000) {
+        lastFetchTime.current = now;
+        refetchUserPlantsSilently();
+      }
+    }, [refetchUserPlantsSilently, dashboardData, loading])
   );
 
   // 3-6) 백엔드 데이터를 UI 데이터로 변환
@@ -594,8 +599,6 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
     backgroundColor: "#6a9eff",
-    transitionProperty: "transform",
-    transitionDuration: "0.5s",
   },
   slot3: {
     position: "absolute",
