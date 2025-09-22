@@ -127,3 +127,6 @@ backend/app/dev.db
 *.backup
 *.bak
 requirements_backup.txt
+
+# Cursor Rules (개인 설정)
+.cursor/
