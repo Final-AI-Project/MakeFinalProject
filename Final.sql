@@ -1,3 +1,6 @@
+set names utf8mb4;
+set time_zone = '+09:00';
+
 use Final;
 
 create table users (
@@ -11,75 +14,84 @@ create table users (
 );
 
 create table user_plant (
-	idx int auto_increment primary key,
+	plant_id int auto_increment primary key,
     user_id varchar(100) not null,
-    plant_id int not null unique,
     plant_name varchar(100) not null,
+    location varchar(300),
     species varchar(100),
-    pest_id int,
-    meet_day datetime,
+    meet_day date,
     
 	foreign key (user_id) references users(user_id) on delete cascade on update cascade
 );
 
--- pest_id : 병충해 ID
--- meet_day : 만난 날
-
-create table diary (
+create table user_plant_pest (
 	idx int auto_increment primary key,
-    user_id varchar(100) not null,
-    user_title varchar(500) not null,
-    img_url varchar(300),
-    user_content text,
-    hashtag varchar(1000),
-    plant_nickname varchar(100),
-    plant_species varchar(100),
-    plant_reply text,
-    weather varchar(50),
-    weather_icon varchar(300),
-    created_at datetime,
-    updated_at datetime,
+    plant_id int not null unique,
+    pest_id int not null unique,
+    pest_date date,
     
-    foreign key (user_id) references users(user_id) on delete cascade on update cascade
+    foreign key (plant_id) references user_plant(plant_id) on delete cascade on update cascade,
+    foreign key (pest_id) references pest_wiki(pest_id) on delete cascade on update cascade
 );
 
--- user_title : 사용자가 직접 작성하는 일기 제목
--- user_content : 일기 내용
--- hashtag : 해시태그
--- plant_nickname : 식물별명
--- plant_species : 식물종류
--- plant_reply : LLM이 작성하는 식물의 답변
--- weather : 작성일 기준 날씨
--- weather_icon : 날씨 아이콘 URL
--- created_at : 작성일
--- updated_at : 수정일
+create table diary (
+	diary_id int auto_increment primary key,
+    user_id varchar(100) not null,
+    user_title varchar(500) not null,
+    user_content text,
+    hashtag varchar(1000),
+    plant_id int,
+    plant_content text,
+    weather varchar(30),
+    hist_watered tinyint,
+    hist_repot tinyint,
+    hist_pruning tinyint,
+    hist_fertilize tinyint,
+    created_at date,
+    
+    foreign key (user_id) references users(user_id) on delete cascade on update cascade,
+    foreign key (plant_id) references user_plant(plant_id) on delete cascade on update cascade
+);
 
 create table pest_wiki (
-	idx int auto_increment primary key,
-    pest_id int not null,
-    cause varchar(100) not null,
+	pest_id int auto_increment primary key,
+    pest_name varchar(100) not null,
+    pathogen varchar(300),
+    symptom text not null,
+    cause text,
     cure text not null
 );
 
-create table humid_info (
+create table device_info (
 	plant_id int not null,
-    humidity float not null,
-    humid_date datetime not null,
+    device_id int not null unique,
     
     foreign key (plant_id) references user_plant(plant_id) on delete cascade on update cascade
 );
 
+create table humid_info (
+	device_id int not null,
+    humidity varchar(50) not null,
+    sensor_digit int not null,
+    humid_date datetime default now(),
+    
+    foreign key (device_id) references device_info(device_id) on delete cascade on update cascade
+);
+
+alter table humid_info
+modify column humidity int not null;
+
 create table plant_wiki (
-	idx int auto_increment primary key,
+	wiki_plant_id int auto_increment primary key,
+    sci_name varchar(100),
     name_jong varchar(300),
-    name_sok varchar(300),
-    name_gwa varchar(300),
-    name_mok varchar(300),
-    name_gang varchar(300),
-    name_mun varchar(300),
-    wiki_img varchar(300) not null,
+    name_sok varchar(30),
+    name_gwa varchar(30),
+    name_mok varchar(30),
+    name_gang varchar(30),
+    name_mun varchar(30),
     feature text,
-    temp varchar(300),
+    temp varchar(30),
     watering varchar(300),
     flowering varchar(300),
     flower_color varchar(300),
@@ -90,26 +102,50 @@ create table plant_wiki (
     toxic varchar(300)
 );
 
--- watering : 급수 주기
--- flowering : 개화 시기
--- fertilizer : 비료 주기
--- toxic : 사람이나 반려동물에게 유독한 성분의 여부
+create table plant_tips (
+	idx int auto_increment primary key,
+    wiki_plant_id int not null,
+    tip text,
+
+    foreign key (wiki_plant_id) references plant_wiki(wiki_plant_id) on delete cascade on update cascade
+);
 
 create table img_address (
-	idx int auto_increment primary key,
-    diary_id int not null,
-    img_url varchar(300),
+    diary_id int,
+    plant_id int,
+    wiki_plant_id int,
+    pest_id int,
+    pest_plant_idx int,
+    img_url varchar(300) not null,
     
-    foreign key (diary_id) references diary(diary_id) on delete cascade on update cascade
+    foreign key (diary_id) references diary(diary_id) on delete cascade on update cascade,
+    foreign key (plant_id) references user_plant(plant_id) on delete cascade on update cascade,
+    foreign key (wiki_plant_id) references plant_wiki(wiki_plant_id) on delete cascade on update cascade,
+    foreign key (pest_plant_idx)references user_plant_pest(idx) on delete cascade on update cascade,
+    foreign key (pest_id) references pest_wiki(pest_id) on delete cascade on update cascade
 );
+
+select * from users;
+select * from user_plant;
+select * from user_plant_pest;
+select * from diary;
+select * from pest_wiki;
+select * from humid_info;
+select * from plant_wiki;
+select * from plant_tips;
+select * from img_address;
+select * from device_info;
 
 drop table users;
 drop table user_plant;
+drop table user_plant_pest;
 drop table diary;
 drop table pest_wiki;
 drop table humid_info;
 drop table plant_wiki;
+drop table plant_tips;
 drop table img_address;
+drop table device_info;
 
 -- users.user_id 와 user_plant.user_id join으로 사용자의 식물 조회
 select u.user_id, u.nickname, up.plant_id, up.plant_name, up.species, up.meet_day from users u join user_plant up on u.user_id = up.user_id;
