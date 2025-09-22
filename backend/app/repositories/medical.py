@@ -26,10 +26,11 @@ async def get_user_medical_diagnoses(
                 pw.cure,
                 up.species as plant_species,
                 up.meet_day,
-                upp.diagnosis_image_url
+                ia.img_url as diagnosis_image_url
             FROM user_plant_pest upp
             JOIN user_plant up ON upp.plant_id = up.plant_id
             JOIN pest_wiki pw ON upp.pest_id = pw.pest_id
+            LEFT JOIN img_address ia ON upp.idx = ia.pest_plant_idx
             WHERE up.user_id = %s
             ORDER BY upp.pest_date DESC
             LIMIT %s OFFSET %s
@@ -61,10 +62,11 @@ async def get_medical_diagnosis_by_id(
                 pw.cure,
                 up.species as plant_species,
                 up.meet_day,
-                upp.diagnosis_image_url
+                ia.img_url as diagnosis_image_url
             FROM user_plant_pest upp
             JOIN user_plant up ON upp.plant_id = up.plant_id
             JOIN pest_wiki pw ON upp.pest_id = pw.pest_id
+            LEFT JOIN img_address ia ON upp.idx = ia.pest_plant_idx
             WHERE upp.idx = %s AND up.user_id = %s
             """,
             (diagnosis_id, user_id)
@@ -107,7 +109,6 @@ async def create_medical_diagnosis(
                 pw.cure,
                 up.species as plant_species,
                 up.meet_day,
-                upp.diagnosis_image_url
             FROM user_plant_pest upp
             JOIN user_plant up ON upp.plant_id = up.plant_id
             JOIN pest_wiki pw ON upp.pest_id = pw.pest_id

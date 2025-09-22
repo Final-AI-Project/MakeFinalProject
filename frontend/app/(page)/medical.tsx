@@ -17,9 +17,10 @@ import {
   ActivityIndicator,
   useColorScheme,
   SectionList,
+  Alert,
 } from "react-native";
 import Colors from "../../constants/Colors";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect, useLocalSearchParams } from "expo-router";
 import arrowDownW from "../../assets/images/w_arrow_down.png";
 import arrowDownD from "../../assets/images/d_arrow_down.png";
 import { getToken } from "../../libs/auth";
@@ -60,8 +61,8 @@ const API_BASE = process.env.EXPO_PUBLIC_API_BASE_URL;
  *     - USE_DEMO_WHEN_EMPTY = false(원한다면 true 유지해서 빈 응답시 데모로 대체)
  */
 const FORCE_DEMO = false; // true: 항상 DEMO_DATA만 사용 (개발/시연용)
-const USE_DEMO_ON_ERROR = true; // true: API 에러 시 DEMO_DATA로 대체
-const USE_DEMO_WHEN_EMPTY = true; // true: API가 빈 배열이면 DEMO_DATA로 대체
+const USE_DEMO_ON_ERROR = false; // true: API 에러 시 DEMO_DATA로 대체
+const USE_DEMO_WHEN_EMPTY = false; // true: API가 빈 배열이면 DEMO_DATA로 대체
 
 function formatDate(s: string) {
   try {
@@ -106,6 +107,7 @@ export default function MedicalPage() {
   const theme = Colors[scheme === "dark" ? "dark" : "light"];
 
   const router = useRouter();
+  const params = useLocalSearchParams();
 
   const [data, setData] = useState<Diagnosis[]>([]);
   const [loading, setLoading] = useState(true);
@@ -130,14 +132,79 @@ export default function MedicalPage() {
   const getOpen = (id: string) => !!openMap.current[id];
   const setOpen = (id: string, val: boolean) => (openMap.current[id] = val);
 
+  // 진단 결과 삭제 함수
+  const handleDeleteDiagnosis = async (diagnosisId: string) => {
+    try {
+      const token = await getToken();
+      if (!token) {
+        Alert.alert("오류", "로그인이 필요합니다.");
+        return;
+      }
+
+      // 진단 ID에서 실제 idx 추출 (diag_1 -> 1)
+      const actualId = diagnosisId.replace("diag_", "");
+
+      Alert.alert("진단 결과 삭제", "이 진단 결과를 삭제하시겠습니까?", [
+        {
+          text: "취소",
+          style: "cancel",
+        },
+        {
+          text: "삭제",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              const apiUrl = getApiUrl(`/medical/diagnoses/${actualId}`);
+              const response = await fetch(apiUrl, {
+                method: "DELETE",
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  "Content-Type": "application/json",
+                },
+              });
+
+              if (response.ok) {
+                Alert.alert("삭제 완료", "진단 결과가 삭제되었습니다.");
+                // 목록 새로고침
+                fetchData();
+              } else {
+                const errorData = await response.json();
+                Alert.alert(
+                  "삭제 실패",
+                  errorData.error?.message || "삭제 중 오류가 발생했습니다."
+                );
+              }
+            } catch (error) {
+              console.error("삭제 오류:", error);
+              Alert.alert("삭제 실패", "삭제 중 오류가 발생했습니다.");
+            }
+          },
+        },
+      ]);
+    } catch (error) {
+      console.error("삭제 함수 오류:", error);
+      Alert.alert("오류", "삭제 중 문제가 발생했습니다.");
+    }
+  };
+
+  // 페이지 포커스 시 데이터 새로고침
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchData();
+    }, [fetchData])
+  );
+
+  // refresh 파라미터가 있을 때 강제 새로고침
+  useEffect(() => {
+    if (params.refresh) {
+      console.log("🔄 강제 새로고침 요청됨:", params.refresh);
+      fetchData();
+    }
+  }, [params.refresh, fetchData]);
+
   // 데이터 로드
   const fetchData = useCallback(async () => {
-    /**
-     * ▷▷▷ TODO(REAL_API):
-     *  - 운영에서 "데모 먼저 보여주기"가 싫다면, 아래 setData(DEMO_DATA)를 삭제해라.
-     *  - 개발/시연에선 즉시 DEMO 보이게 두는 게 편함.
-     */
-    setData(DEMO_DATA);
+    // 더미 데이터 제거 - 실제 API 데이터만 사용
 
     // 강제 데모 모드
     if (FORCE_DEMO) {
@@ -164,7 +231,9 @@ export default function MedicalPage() {
         throw new Error("로그인이 필요합니다.");
       }
 
-      const res = await fetch(`${API_BASE}/medical/diagnoses`, {
+      const apiUrl = `${API_BASE}/medical/diagnoses`;
+      console.log("🔍 API URL:", apiUrl);
+      const res = await fetch(apiUrl, {
         method: "GET",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -172,36 +241,54 @@ export default function MedicalPage() {
         },
       });
 
+      console.log("🔍 응답 상태:", res.status, res.ok);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
       const raw = await res.json().catch(() => []);
-      const arr: Diagnosis[] = Array.isArray(raw) ? raw : [];
+      const arr: any[] = Array.isArray(raw) ? raw : [];
+
+      console.log("🔍 진단 목록 API 응답:", raw);
+      console.log("🔍 변환된 배열:", arr);
+      console.log("🔍 배열 길이:", arr.length);
 
       if (arr.length === 0) {
-        // 빈 응답 처리
-        if (USE_DEMO_WHEN_EMPTY) {
-          // 데모 유지
-          setError(null);
-        } else {
-          setData([]); // 진짜로 "비어 있음"을 보여주고 싶을 때
-        }
+        // 진단 결과가 없는 경우
+        console.log("🔍 진단 결과가 없음 - 빈 배열 설정");
+        setData([]);
+        setError(null);
       } else {
-        const normalized = arr.map((it, idx) => ({
-          ...it,
-          id: it.id ?? `diag_${idx}`,
-          diagnosedAt: formatDate(it.diagnosedAt),
-        }));
+        // 백엔드 응답을 프론트엔드 Diagnosis 타입으로 변환
+        const normalized: Diagnosis[] = arr.map((it, idx) => {
+          console.log(`🔍 진단 데이터 ${idx}:`, it);
+          console.log(`🔍 plant_species:`, it.plant_species);
+          console.log(`🔍 pest_date:`, it.pest_date);
+          console.log(`🔍 diagnosis_image_url:`, it.diagnosis_image_url);
+          return {
+            id: `diag_${it.idx || idx}`,
+            nickname: `${it.plant_name}${
+              it.plant_species ? `(${it.plant_species})` : ""
+            }`,
+            diagnosedAt: formatDate(it.pest_date),
+            diseaseName: it.pest_name,
+            details: it.symptom || "진단 결과가 저장되었습니다.",
+            photoUri: it.diagnosis_image_url || null, // 진단 이미지 URL
+            candidates: [
+              {
+                id: `cand_${it.pest_id}`,
+                name: it.pest_name,
+                desc: it.symptom || "진단 결과",
+                confidence: 0.8, // 기본값
+              },
+            ],
+          };
+        });
+        console.log("🔍 변환된 진단 데이터:", normalized);
         setData(normalized);
       }
     } catch (e: any) {
       // 에러 처리
-      if (USE_DEMO_ON_ERROR) {
-        setError((e?.message ?? "데이터 로딩 실패") + " (데모 데이터 표시)");
-        // 데모 유지
-      } else {
-        setError(e?.message ?? "데이터 로딩 실패");
-        setData([]); // 진짜 에러면 빈 화면을 원할 때
-      }
+      setError(e?.message ?? "데이터 로딩 실패");
+      setData([]);
     } finally {
       setLoading(false);
     }
@@ -262,12 +349,19 @@ export default function MedicalPage() {
                   <View style={[styles.photo, { borderColor: theme.border }]}>
                     {item.photoUri ? (
                       <Image
-                        source={{ uri: item.photoUri }}
+                        source={{
+                          uri:
+                            item.photoUri.startsWith("http") ||
+                            item.photoUri.startsWith("file://")
+                              ? item.photoUri
+                              : getApiUrl(item.photoUri),
+                        }}
                         style={{
                           width: "100%",
                           height: "100%",
                           borderRadius: 8,
                         }}
+                        resizeMode="cover"
                       />
                     ) : (
                       <View style={styles.placeholder}>
@@ -316,7 +410,13 @@ export default function MedicalPage() {
                 >
                   {item.photoUri ? (
                     <Image
-                      source={{ uri: item.photoUri }}
+                      source={{
+                        uri:
+                          item.photoUri.startsWith("http") ||
+                          item.photoUri.startsWith("file://")
+                            ? item.photoUri
+                            : getApiUrl(item.photoUri),
+                      }}
                       style={{ width: "100%", height: "100%" }}
                       resizeMode="cover"
                     />
@@ -339,23 +439,81 @@ export default function MedicalPage() {
                   </Text>
                 </View>
 
-                {/* 3) 후보 병충해 1~3 */}
-                {(item.candidates ?? []).slice(0, 3).map((d, i) => (
-                  <View
-                    key={d.id}
-                    style={[
-                      styles.accRow,
-                      { borderColor: theme.border, backgroundColor: theme.bg },
+                {/* 3) 후보 병충해 1~3 - 박스 형태로 표시 */}
+                <View
+                  style={[
+                    styles.candidatesContainer,
+                    { backgroundColor: theme.bg },
+                  ]}
+                >
+                  <Text style={[styles.candidatesTitle, { color: theme.text }]}>
+                    진단 결과
+                  </Text>
+                  {(item.candidates ?? []).slice(0, 3).map((d, i) => (
+                    <View
+                      key={d.id}
+                      style={[
+                        styles.candidateBox,
+                        {
+                          borderColor: theme.border,
+                          backgroundColor: theme.bg,
+                          borderLeftColor:
+                            i === 0
+                              ? "#ff6b6b"
+                              : i === 1
+                              ? "#4ecdc4"
+                              : "#45b7d1",
+                          borderLeftWidth: 4,
+                        },
+                      ]}
+                    >
+                      <View style={styles.candidateHeader}>
+                        <Text
+                          style={[styles.candidateRank, { color: theme.text }]}
+                        >
+                          {i + 1}순위
+                        </Text>
+                        {typeof d.confidence === "number" && (
+                          <Text
+                            style={[
+                              styles.candidateConfidence,
+                              { color: theme.text },
+                            ]}
+                          >
+                            {Math.round(d.confidence * 100)}%
+                          </Text>
+                        )}
+                      </View>
+                      <Text
+                        style={[styles.candidateName, { color: theme.text }]}
+                      >
+                        {d.name}
+                      </Text>
+                      <Text
+                        style={[styles.candidateDesc, { color: theme.text }]}
+                      >
+                        {d.desc ?? "상세 정보 없음"}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+
+                {/* 진단 결과 삭제 버튼 */}
+                <View style={[styles.deleteButtonContainer, { marginTop: 12 }]}>
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.deleteButton,
+                      {
+                        backgroundColor: pressed ? "#ff4444" : "#ff6b6b",
+                        borderColor: theme.border,
+                      },
                     ]}
+                    onPress={() => handleDeleteDiagnosis(item.id)}
+                    hitSlop={8}
                   >
-                    <Text style={[styles.accRowText, { color: theme.text }]}>
-                      {i + 1}. {d.name} : {d.desc ?? "-"}
-                      {typeof d.confidence === "number"
-                        ? ` (${Math.round(d.confidence * 100)}%)`
-                        : ""}
-                    </Text>
-                  </View>
-                ))}
+                    <Text style={styles.deleteButtonText}>진단 결과 삭제</Text>
+                  </Pressable>
+                </View>
               </View>
             </Animated.View>
 
@@ -412,7 +570,12 @@ export default function MedicalPage() {
         }
         ListEmptyComponent={
           <View style={[styles.center, { paddingTop: 40 }]}>
-            <Text style={{ color: theme.text }}>표시할 진단이 없습니다.</Text>
+            <Text
+              style={{ color: theme.text, fontSize: 16, textAlign: "center" }}
+            >
+              아직 진단받은 식물이 없습니다.{"\n"}
+              하단의 + 버튼을 눌러 식물을 진단해보세요!
+            </Text>
           </View>
         }
       />
@@ -606,6 +769,70 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   accRowText: { fontSize: 14, lineHeight: 20 },
+
+  // 진단 결과 박스 스타일
+  candidatesContainer: {
+    marginTop: 8,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  candidatesTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    marginBottom: 12,
+    textAlign: "center",
+  },
+  candidateBox: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 8,
+  },
+  candidateHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 6,
+  },
+  candidateRank: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#666",
+  },
+  candidateConfidence: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#007AFF",
+  },
+  candidateName: {
+    fontSize: 16,
+    fontWeight: "700",
+    marginBottom: 4,
+  },
+  candidateDesc: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: "#666",
+  },
+
+  // 삭제 버튼 스타일
+  deleteButtonContainer: {
+    alignItems: "center",
+  },
+  deleteButton: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    minWidth: 120,
+    alignItems: "center",
+  },
+  deleteButtonText: {
+    color: "white",
+    fontSize: 14,
+    fontWeight: "600",
+  },
 
   sectionHeader: {
     borderWidth: 1,

@@ -38,7 +38,6 @@ class MedicalDiagnosisCreate(BaseModel):
     plant_id: int = Field(..., description="식물 ID")
     pest_id: int = Field(..., description="병충해 ID")
     pest_date: date = Field(..., description="진단 날짜")
-    diagnosis_image_url: Optional[str] = Field(None, description="진단 시 찍은 사진 URL")
 
 
 class MedicalDiagnosisUpdate(BaseModel):

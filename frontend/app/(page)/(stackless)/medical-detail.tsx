@@ -14,7 +14,7 @@ import {
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { useColorScheme } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import Colors from "../../../constants/Colors";
 import { fetchSimpleWeather } from "../../../components/common/weatherBox";
 import { getApiUrl } from "../../../config/api";
@@ -132,6 +132,39 @@ export default function medicalDetail() {
   );
   const [plantsData, setPlantsData] = useState<any[]>([]); // 식물 원본 데이터 저장
   const [plantsLoading, setPlantsLoading] = useState(true);
+
+  // 페이지 포커스 시 상태 초기화
+  useFocusEffect(
+    React.useCallback(() => {
+      // 진단 관련 상태 초기화
+      setPhotoUri(null);
+      setBusy(false);
+      setInferBusy(false);
+      setSelectedPlant(null);
+      setWeather(null);
+      setDiagnosisResult({
+        healthStatus: "",
+        healthConfidence: 0,
+        candidates: [],
+      });
+      console.log("🔍 진단 페이지 상태 초기화 완료");
+    }, [])
+  );
+
+  // 컴포넌트 마운트 시에도 초기화
+  useEffect(() => {
+    setPhotoUri(null);
+    setBusy(false);
+    setInferBusy(false);
+    setSelectedPlant(null);
+    setWeather(null);
+    setDiagnosisResult({
+      healthStatus: "",
+      healthConfidence: 0,
+      candidates: [],
+    });
+    console.log("🔍 진단 페이지 컴포넌트 마운트 시 초기화 완료");
+  }, []);
 
   // 식물 목록 가져오기
   useEffect(() => {
@@ -327,7 +360,11 @@ export default function medicalDetail() {
       }
 
       Alert.alert("등록 완료", "진단 결과가 저장되었습니다.");
-      router.back();
+      // 강제 새로고침을 위한 타임스탬프 파라미터 추가
+      router.push({
+        pathname: "/(page)/medical",
+        params: { refresh: Date.now().toString() },
+      });
     } catch (error) {
       console.error("저장 오류:", error);
       Alert.alert("저장 실패", "진단 결과 저장 중 문제가 발생했습니다.");

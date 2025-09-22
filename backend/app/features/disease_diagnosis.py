@@ -212,7 +212,7 @@ async def save_disease_diagnosis(
                 parsed_date = datetime.now().date()
                 print(f"[DEBUG] 날짜 파싱 실패, 오늘 날짜 사용: {parsed_date}")
             
-            # 진단 기록 저장
+            # 진단 기록 저장 (여러 진단 결과 저장 가능)
             await cursor.execute(
                 """
                 INSERT INTO user_plant_pest (
@@ -227,8 +227,33 @@ async def save_disease_diagnosis(
                     parsed_date
                 )
             )
+            
             diagnosis_id = cursor.lastrowid
-            print(f"[DEBUG] 진단 기록 저장 완료 - ID: {diagnosis_id}")
+            print(f"[DEBUG] 진단 기록 저장 완료 - 새 ID: {diagnosis_id}")
+            
+            # TODO: 여러 순위 저장을 위한 diagnosis_ranks 테이블 구현
+            # 현재는 1순위만 저장
+            
+            # 진단 이미지를 img_address 테이블에 저장 (이미지가 있는 경우)
+            if image_url:
+                print(f"[DEBUG] 진단 이미지 URL 저장 중: {image_url}")
+                await cursor.execute(
+                    """
+                    INSERT INTO img_address (
+                        pest_plant_idx,
+                        pest_id,
+                        img_url
+                    ) VALUES (%s, %s, %s)
+                    ON DUPLICATE KEY UPDATE
+                        img_url = VALUES(img_url)
+                    """,
+                    (
+                        diagnosis_id,
+                        pest_id_db,
+                        image_url
+                    )
+                )
+                print(f"[DEBUG] 진단 이미지 URL 저장 완료")
         
         return DiseaseDiagnosisSaveResponse(
             success=True,

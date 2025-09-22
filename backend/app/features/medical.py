@@ -35,9 +35,9 @@ def _to_list_response(diagnosis) -> MedicalDiagnosisListResponse:
         pest_date=diagnosis.pest_date,
         plant_name=diagnosis.plant_name,
         pest_name=diagnosis.pest_name,
-        cause=diagnosis.cause,
+        symptom=diagnosis.symptom,
         cure=diagnosis.cure,
-        diagnosis_image_url=diagnosis.diagnosis_image_url
+        diagnosis_image_url=diagnosis.diagnosis_image_url,
     )
 
 
@@ -51,7 +51,7 @@ def _to_detail_response(diagnosis, related_diagnoses: List = None) -> MedicalDia
         plant_name=diagnosis.plant_name,
         plant_species=diagnosis.plant_species,
         pest_name=diagnosis.pest_name,
-        cause=diagnosis.cause,
+        symptom=diagnosis.symptom,
         cure=diagnosis.cure,
         meet_day=diagnosis.meet_day,
         diagnosis_image_url=diagnosis.diagnosis_image_url,
@@ -73,6 +73,7 @@ async def get_medical_diagnoses(
     - 최신 진단 날짜 순으로 정렬됩니다.
     """
     try:
+        print(f"[DEBUG] 진단 목록 조회 시작 - user_id: {user['user_id']}, limit: {limit}, offset: {offset}")
         async with get_db_connection() as (conn, cursor):
             diagnoses = await get_user_medical_diagnoses(
                 db=(conn, cursor),
@@ -80,7 +81,13 @@ async def get_medical_diagnoses(
                 limit=limit,
                 offset=offset
             )
-        return [_to_list_response(diagnosis) for diagnosis in diagnoses]
+        print(f"[DEBUG] 조회된 진단 수: {len(diagnoses)}")
+        for i, diagnosis in enumerate(diagnoses):
+            print(f"[DEBUG] 진단 {i}: plant_name={diagnosis.plant_name}, plant_species={diagnosis.plant_species}, pest_date={diagnosis.pest_date}, diagnosis_image_url={diagnosis.diagnosis_image_url}")
+        
+        result = [_to_list_response(diagnosis) for diagnosis in diagnoses]
+        print(f"[DEBUG] 변환된 응답 수: {len(result)}")
+        return result
     except Exception as e:
         print(f"[DEBUG] 진단 목록 조회 오류: {e}")
         import traceback
@@ -381,4 +388,72 @@ async def get_plant_medical_diagnoses(
         raise HTTPException(
             status_code=500,
             detail=f"식물별 병충해 진단 기록 조회 중 오류가 발생했습니다: {str(e)}"
+        )
+
+
+@router.delete("/diagnoses/{diagnosis_id}")
+async def delete_medical_diagnosis(
+    diagnosis_id: int,
+    user: dict = Depends(get_current_user)
+):
+    """
+    특정 병충해 진단 기록을 삭제합니다.
+    
+    - **diagnosis_id**: 삭제할 진단 기록 ID
+    - 사용자의 식물에 대한 진단만 삭제 가능합니다.
+    """
+    try:
+        print(f"[DEBUG] 진단 삭제 요청 - diagnosis_id: {diagnosis_id}, user_id: {user['user_id']}")
+        
+        async with get_db_connection() as (conn, cursor):
+            # 먼저 해당 진단이 사용자의 것인지 확인
+            await cursor.execute(
+                """
+                SELECT upp.idx, up.plant_name 
+                FROM user_plant_pest upp
+                JOIN user_plant up ON upp.plant_id = up.plant_id
+                WHERE upp.idx = %s AND up.user_id = %s
+                """,
+                (diagnosis_id, user["user_id"])
+            )
+            diagnosis_info = await cursor.fetchone()
+            
+            if not diagnosis_info:
+                print(f"[DEBUG] 진단 기록을 찾을 수 없음 - diagnosis_id: {diagnosis_id}")
+                raise HTTPException(
+                    status_code=404,
+                    detail="해당 진단 기록을 찾을 수 없거나 삭제 권한이 없습니다."
+                )
+            
+            print(f"[DEBUG] 삭제할 진단 정보: {diagnosis_info}")
+            
+            # 진단 기록 삭제 (CASCADE로 img_address도 자동 삭제됨)
+            await cursor.execute(
+                "DELETE FROM user_plant_pest WHERE idx = %s",
+                (diagnosis_id,)
+            )
+            
+            if cursor.rowcount == 0:
+                print(f"[DEBUG] 삭제된 행이 없음 - diagnosis_id: {diagnosis_id}")
+                raise HTTPException(
+                    status_code=404,
+                    detail="삭제할 진단 기록을 찾을 수 없습니다."
+                )
+            
+            print(f"[DEBUG] 진단 기록 삭제 완료 - diagnosis_id: {diagnosis_id}")
+            
+        return {
+            "success": True,
+            "message": f"진단 기록이 성공적으로 삭제되었습니다. (ID: {diagnosis_id})"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[DEBUG] 진단 삭제 오류: {e}")
+        import traceback
+        print(f"[DEBUG] 트레이스백: {traceback.format_exc()}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"진단 기록 삭제 중 오류가 발생했습니다: {str(e)}"
         )
