@@ -342,7 +342,7 @@ async def create_diary_entry(
                 success=True,
                 message="일기가 성공적으로 작성되었습니다.",
                 diary=DiaryListItemResponse(
-                    idx=getattr(diary, 'idx', None) or getattr(diary, 'diary_id', None) or 1,  # 기본값 설정
+                    diary_id=getattr(diary, 'diary_id', None) or getattr(diary, 'idx', None) or 1,  # 기본값 설정
                     user_title=diary.user_title,
                     user_content=diary.user_content,
                     img_url=getattr(diary, 'img_url', None),
