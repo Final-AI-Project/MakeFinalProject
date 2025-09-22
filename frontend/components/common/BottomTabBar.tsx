@@ -1,4 +1,4 @@
-// app/common/BottomTabBar.tsx
+// app/components/common/BottomTabBar.tsx
 import React from "react";
 import { View, TouchableOpacity, StyleSheet, Platform } from "react-native";
 import { BottomTabBarProps } from "@react-navigation/bottom-tabs";
