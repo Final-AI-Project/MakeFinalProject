@@ -1,0 +1,87 @@
+plants-dataset/
+  ├─ train/
+  │   ├─ mon/   # 몬스테라
+  │   ├─ stk/   # 스투키
+  │   ├─ zz/    # 금전수
+  │   ├─ cac/   # 선인장/다육
+  │   ├─ pha/   # 호접란
+  │   ├─ cha/   # 테이블야자
+  │   ├─ sch/   # 홍콩야자
+  │   ├─ spa/   # 스파티필럼
+  │   ├─ lad/   # 관음죽
+  │   ├─ fic/   # 벵갈고무나무
+  │   ├─ oli/   # 올리브나무
+  │   ├─ die/   # 디펜바키아
+  │   └─ bos/   # 보스턴고사리
+  └─ val/
+      ├─ mon/
+      ├─ stk/
+      ├─ zz/
+      ├─ cac/
+      ├─ pha/
+      ├─ cha/
+      ├─ sch/
+      ├─ spa/
+      ├─ lad/
+      ├─ fic/
+      ├─ oli/
+      ├─ die/
+      └─ bos/
+
+(jpg/png) 만 취급.
+
+train 80%, val 20% 
+
+class_kor = {
+    "mon": "몬스테라",
+    "stk": "스투키",
+    "zz":  "금전수",
+    "cac": "선인장/다육",
+    "pha": "호접란",
+    "cha": "테이블야자",
+    "sch": "홍콩야자",
+    "spa": "스파티필럼",
+    "lad": "관음죽",
+    "fic": "벵갈고무나무",
+    "oli": "올리브나무",
+    "die": "디펜바키아",
+    "bos": "보스턴고사리"
+}
+
+# 예시: 추론 시 사용
+pred_idx = 0  # 예시
+class_en = idx_to_class[pred_idx]   # "mon"
+class_ko = class_kor[class_en]      # "몬스테라"
+print(f"예측 결과: {class_ko} ({class_en})")
+
+# 이미지 네이밍
+plants-dataset/
+  ├─ train/
+  │   ├─ mon/
+  │   │   ├─ mon_001.jpg
+  │   │   ├─ mon_002.jpg
+  │   │   └─ ...
+  │   ├─ stk/
+  │   │   ├─ stk_001.jpg
+  │   │   └─ ...
+  │   └─ ...
+  └─ val/
+      ├─ mon/
+      │   ├─ mon_101.jpg
+      │   └─ mon_102.jpg
+      └─ ...
+
+
+데이터셋 나누기 (8:2)
+python models/classifier/split_dataset.py --root_dir models/plants-dataset --train_ratio 0.8 --move
+
+MobileNet (10 epoch 예시)
+python models/classifier/train_classifier.py --data_root models/plants-dataset --model mobilenet_v3_large --epochs 30 --weighted_sampler
+python models/classifier/infer_classifier.py --weights models/weight/mobilenet_v3_large_best.pth --model mobilenet_v3_large --image D:/hwan/AIFinalProject/models/plants-dataset/val/mon/mon_095.jpg
+
+EfficientNet (10 epoch 예시)
+python models/classifier/train_classifier.py --data_root models/plants-dataset --model efficientnet_b0 --epochs 30 --weighted_sampler
+python models/classifier/infer_classifier.py --weights models/weight/efficientnet_b0_best.pth --model efficientnet_b0 --image D:/hwan/AIFinalProject/models/plants-dataset/val/mon/mon_095.jpg
+
+비교 결과 보기
+python models/classifier/compare_models.py --mobilenet_weights models/weight/mobilenet_v3_large_best.pth --efficientnet_weights models/weight/efficientnet_b0_best.pth --data_root models/plants-dataset
