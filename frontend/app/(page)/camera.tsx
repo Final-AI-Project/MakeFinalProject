@@ -67,7 +67,7 @@ export default function CameraScreen() {
 				name: "species.jpg",
 			} as any);
 
-			const apiUrl = await getApiUrl("/plants/classify-species");
+			const apiUrl = getApiUrl("/plants/classify-species");
 			const response = await fetch(apiUrl, {
 				method: "POST",
 				body: formData,

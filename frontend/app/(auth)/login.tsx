@@ -123,7 +123,7 @@ export default function LoginScreen() {
       };
 
       // 공용 API 설정을 사용하여 URL 생성
-      const loginUrl = await getApiUrl(API_ENDPOINTS.AUTH.LOGIN);
+      const loginUrl = getApiUrl(API_ENDPOINTS.AUTH.LOGIN);
       console.log("Sending login request to:", loginUrl);
       console.log("Request data:", requestData);
 

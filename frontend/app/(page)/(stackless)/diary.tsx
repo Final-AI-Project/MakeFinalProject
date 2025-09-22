@@ -329,6 +329,7 @@ export default function Diary() {
   const [selectedPlant, setSelectedPlant] = useState<string | null>(null);
   const [date] = useState(todayStr());
   const [weather, setWeather] = useState<Weather>(null); // 자동/readonly
+  const [weatherLoading, setWeatherLoading] = useState(true); // 날씨 로딩 상태
   const [body, setBody] = useState("");
 
   // 기타 UI
@@ -359,7 +360,7 @@ export default function Diary() {
         const token = await getToken();
         if (!token) return;
 
-        const apiUrl = await getApiUrl("/home/plants/current");
+        const apiUrl = getApiUrl("/home/plants/current");
         const response = await fetch(apiUrl, {
           method: "GET",
           headers: {
@@ -388,19 +389,53 @@ export default function Diary() {
     fetchMyPlants();
   }, []);
 
-  // 날씨 자동 채움 (WeatherBox 렌더링 없이) — 기존 그대로 유지
+  // 날씨 자동 채움 (WeatherBox 렌더링 없이) — 필수로 받아오기
   useEffect(() => {
-    (async () => {
+    let retryCount = 0;
+    const maxRetries = 3;
+
+    const fetchWeatherWithRetry = async () => {
       try {
-        const w = await fetchSimpleWeather(
+        console.log(`🌤️ 날씨 조회 시도 ${retryCount + 1}/${maxRetries + 1}`);
+
+        // 10초 타임아웃 설정 (더 여유있게)
+        const weatherPromise = fetchSimpleWeather(
           "GTr1cI7Wi0FRbOTFBaUzUCzCDP4OnyyEmHnn11pxCUC5ehG5bQnbyztgeydnOWz1O04tjw1SE5RsX8RNo6XCgQ==",
           { lat: 37.4836, lon: 127.0326, label: "서울시 - 서초구" }
         );
-        if (w) setWeather((prev) => prev ?? w);
+
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Weather fetch timeout")), 10000)
+        );
+
+        const w = await Promise.race([weatherPromise, timeoutPromise]);
+
+        if (w) {
+          console.log("✅ 날씨 조회 성공:", w);
+          setWeather(w);
+          setWeatherLoading(false);
+        } else {
+          throw new Error("날씨 데이터가 null입니다");
+        }
       } catch (e) {
-        console.warn("[weather] fetch failed:", e);
+        console.warn(`❌ 날씨 조회 실패 (시도 ${retryCount + 1}):`, e);
+
+        if (retryCount < maxRetries) {
+          retryCount++;
+          // 2초 후 재시도
+          setTimeout(() => {
+            fetchWeatherWithRetry();
+          }, 2000);
+        } else {
+          console.error("🚨 날씨 조회 최종 실패 - 기본값 설정");
+          // 최종 실패 시에만 기본값 설정
+          setWeather("맑음");
+          setWeatherLoading(false);
+        }
       }
-    })();
+    };
+
+    fetchWeatherWithRetry();
   }, []);
 
   // ✅ 제출 버튼 활성 조건 (모든 입력 완료 판정)
@@ -445,9 +480,13 @@ export default function Diary() {
         plant_nickname: selectedPlant,
         plant_species: selectedPlant, // TODO: 실제 식물 종으로 교체
         hashtag: `#${selectedPlant} #${weather || "일상"}`,
+        weather: weather,
       };
 
-      const apiUrl = await getApiUrl("/diary-list/create");
+      console.log("📝 일기 작성 데이터:", diaryData);
+      console.log("🌐 API URL:", getApiUrl("/diary-list/create"));
+
+      const apiUrl = getApiUrl("/diary-list/create");
       const response = await fetch(apiUrl, {
         method: "POST",
         headers: {
@@ -457,14 +496,21 @@ export default function Diary() {
         body: JSON.stringify(diaryData),
       });
 
+      console.log("📡 응답 상태:", response.status, response.ok);
+
       if (!response.ok) {
         throw new Error(`일기 작성 실패: ${response.status}`);
       }
 
       const result = await response.json();
       console.log("일기 작성 성공:", result);
+      console.log("AI 답변:", result.diary?.plant_reply);
 
-      // TODO: LLM 호출 후 setAiText(resp.message)
+      // AI 답변을 상태에 저장
+      if (result.diary?.plant_reply) {
+        setAiText(result.diary.plant_reply);
+      }
+
       setAiPreviewVisible(true); // 등록 후에만 미리보기 표시
       setSheetVisible(true); // 등록하면 바텀시트 열림
       setIsSubmitted(true); // 이후부터 '수정' 모드
@@ -687,7 +733,7 @@ export default function Diary() {
             <TextInput
               value={weather ?? ""}
               editable={false}
-              placeholder="조회 중…"
+              placeholder={weatherLoading ? "조회 중…" : ""}
               placeholderTextColor="#909090"
               style={[
                 styles.input,
