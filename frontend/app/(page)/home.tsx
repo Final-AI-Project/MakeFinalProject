@@ -638,7 +638,7 @@ const styles = StyleSheet.create({
 	carouselSlideText: { color: "#fff", fontSize: 28, fontWeight: "bold" },
 	carouselDots: {
 		position: "absolute",
-		bottom: -19,
+		bottom: 0,
 		flexDirection: "row",
 		gap: 6,
 	},
