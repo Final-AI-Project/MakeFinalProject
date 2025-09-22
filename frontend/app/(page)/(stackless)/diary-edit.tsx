@@ -1,4 +1,4 @@
-// app/(page)/diary.tsx
+// app/(page)/(stackless)/diary-edit.tsx
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ① Imports
@@ -23,11 +23,12 @@ import {
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { useColorScheme } from "react-native";
-import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import Colors from "../../../constants/Colors";
 import { fetchSimpleWeather } from "../../../components/common/weatherBox";
+import { useFocusEffect } from "@react-navigation/native";
 import { startLoading } from "../../../components/common/loading";
-import { showAlert } from "../../../components/common/appAlert";
+import { Alert } from "react-native";
 import { getToken } from "../../../libs/auth";
 import { getApiUrl } from "../../../config/api";
 
@@ -319,13 +320,15 @@ function BottomSheet({
 // ─────────────────────────────────────────────────────────────────────────────
 // ③ Component
 // ─────────────────────────────────────────────────────────────────────────────
-export default function Diary() {
+export default function DiaryEdit() {
   // Theme & Router
   const scheme = useColorScheme();
   const theme = Colors[scheme === "dark" ? "dark" : "light"];
   const router = useRouter();
 
-  // 새 일기 작성 전용 (수정 모드 제거)
+  // URL 파라미터에서 일기 ID 확인
+  const { id } = useLocalSearchParams();
+  const diaryId = id ? parseInt(id as string) : null;
 
   // 폼 상태
   const [photoUri, setPhotoUri] = useState<string | null>(null);
@@ -354,7 +357,9 @@ export default function Diary() {
   // ✅ 일기 작성 중복 방지
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // 수정 모드 관련 상태 제거 (새 일기 작성 전용)
+  // ✅ 수정 모드 상태
+  const [isLoadingDiary, setIsLoadingDiary] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // 내 식물(별명) - 실제 API에서 가져오기
   const [myPlants, setMyPlants] = useState<{ label: string; value: string }[]>(
@@ -363,32 +368,78 @@ export default function Diary() {
   const [plantsData, setPlantsData] = useState<any[]>([]); // 식물 원본 데이터 저장
   const [plantsLoading, setPlantsLoading] = useState(true);
 
-  // 수정 모드 관련 코드 제거 (새 일기 작성 전용)
+  // 수정 모드일 때 기존 일기 데이터 불러오기
+  useEffect(() => {
+    if (diaryId) {
+      fetchDiaryData();
+    }
+  }, [diaryId]);
 
-  // 폼 초기화 함수
-  const resetForm = () => {
-    setPhotoUri(null);
-    setTitle("");
-    setSelectedPlant(null);
-    setBody("");
-    setWeather(null);
-    setActions([]);
-    setAiText("");
-    setAiPreviewVisible(false);
-    setSheetVisible(false);
-    setIsSubmitted(false);
-    setIsSubmitting(false);
-  };
+  const fetchDiaryData = async () => {
+    if (!diaryId) return;
 
-  // 페이지 포커스 시 폼 초기화 (새 일기 작성 시에만)
-  useFocusEffect(
-    React.useCallback(() => {
-      // 폼이 비어있을 때만 초기화 (재작성 시에는 초기화하지 않음)
-      if (!title && !body && !photoUri && !selectedPlant) {
-        resetForm();
+    setIsLoadingDiary(true);
+    try {
+      const token = await getToken();
+      if (!token) return;
+
+      const apiUrl = getApiUrl(`/diary-list/${diaryId}`);
+      const response = await fetch(apiUrl, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log("일기 데이터 로드:", data);
+        console.log("식물 ID:", data.plant_id);
+        console.log("식물 목록:", plantsData);
+
+        // 폼 데이터 설정
+        setTitle(data.user_title || "");
+        setBody(data.user_content || "");
+        setSelectedPlant(data.plant_id ? data.plant_id.toString() : null);
+        setWeather(data.weather as Weather);
+
+        // 오늘 한 일 체크 상태 복원
+        const newActions: CareAction[] = [];
+        if (data.hist_watered) newActions.push("water");
+        if (data.hist_repot) newActions.push("repot");
+        if (data.hist_pruning) newActions.push("prune");
+        if (data.hist_fertilize) newActions.push("nutrient");
+        setActions(newActions);
+
+        // 이미지 설정
+        if (data.img_url) {
+          setPhotoUri(data.img_url);
+        }
+
+        // AI 답변 설정
+        if (data.plant_reply) {
+          setAiText(data.plant_reply);
+          setAiPreviewVisible(true);
+        }
+
+        // 수정 모드에서는 이미 제출된 상태로 설정
+        setIsSubmitted(true);
+      } else {
+        console.error("일기 데이터 로드 실패:", response.status);
+        Alert.alert("오류", "일기 데이터를 불러올 수 없습니다.", [
+          { text: "확인" },
+        ]);
       }
-    }, [title, body, photoUri, selectedPlant])
-  );
+    } catch (error) {
+      console.error("일기 데이터 로드 오류:", error);
+      Alert.alert("오류", "일기 데이터를 불러오는 중 오류가 발생했습니다.", [
+        { text: "확인" },
+      ]);
+    } finally {
+      setIsLoadingDiary(false);
+    }
+  };
 
   // 식물 목록 가져오기
   useEffect(() => {
@@ -485,17 +536,17 @@ export default function Diary() {
   }, []);
 
   // ✅ 제출 버튼 활성 조건 (모든 입력 완료 판정)
-  const canSubmit = Boolean(title.trim() && selectedPlant && body.trim());
+  const canSubmit = Boolean(
+    !isLoadingDiary && title.trim() && selectedPlant && body.trim()
+  );
 
   // 사진 선택
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {
-      showAlert({
-        title: "권한 필요",
-        message: "앨범 접근 권한을 허용해주세요.",
-        buttons: [{ text: "확인" }],
-      });
+      Alert.alert("권한 필요", "앨범 접근 권한을 허용해주세요.", [
+        { text: "확인" },
+      ]);
       return;
     }
     setBusy(true);
@@ -503,7 +554,7 @@ export default function Diary() {
       const res = await ImagePicker.launchImageLibraryAsync({
         allowsEditing: true,
         quality: 0.9,
-        mediaTypes: MEDIA?.Images ?? ImagePicker.MediaType.Images,
+        mediaTypes: MEDIA?.Images ?? ImagePicker.MediaTypeOptions.Images,
         aspect: [1, 1],
       });
       if (!res.canceled && res.assets?.[0]?.uri) setPhotoUri(res.assets[0].uri);
@@ -529,24 +580,108 @@ export default function Diary() {
     );
   };
 
-  // 등록: 시트는 등록하면 열림
-  const handleSubmit = async () => {
-    if (!canSubmit || isSubmitting) return;
+  // 수정: 오늘의 일기 업데이트 + LLM 재호출 + 알럿 + 시트 오픈
+  const handleUpdate = async () => {
+    if (!canSubmit || isSubmitting || !diaryId) return;
 
     setIsSubmitting(true);
 
-    try {
-      // 실제 일기 작성 로직을 먼저 실행
-      await performDiarySubmission();
+    // 로딩 시작
+    startLoading(router, {
+      message: "식물이 수정된 일기를 읽고 답변중이에요~ 🌱",
+      to: "/diary-edit" as any,
+      task: async () => {
+        await performDiaryUpdate();
+      },
+    });
+  };
 
-      // 성공하면 바텀시트 열기
-      if (aiText) {
-        setAiPreviewVisible(true);
-        setSheetVisible(true);
-        setIsSubmitted(true);
+  // 실제 일기 수정 로직을 별도 함수로 분리
+  const performDiaryUpdate = async () => {
+    try {
+      const token = await getToken();
+      if (!token) {
+        Alert.alert("오류", "로그인이 필요합니다.", [{ text: "확인" }]);
+        return;
       }
+
+      // 선택된 식물의 상세 정보 찾기
+      const selectedPlantData = plantsData.find(
+        (plant) => plant.plant_id.toString() === selectedPlant
+      );
+
+      // FormData 생성 (이미지 포함)
+      const formData = new FormData();
+      formData.append("user_title", title);
+      formData.append("user_content", body);
+      formData.append("plant_id", selectedPlant ? selectedPlant : "");
+      formData.append("plant_nickname", selectedPlantData?.plant_name || "");
+      formData.append("plant_species", selectedPlantData?.species || "");
+      formData.append(
+        "hashtag",
+        `#${selectedPlantData?.plant_name || "식물"} #${weather || "일상"}`
+      );
+      formData.append("weather", weather || "");
+      formData.append("hist_watered", actions.includes("water") ? "1" : "0");
+      formData.append("hist_repot", actions.includes("repot") ? "1" : "0");
+      formData.append("hist_pruning", actions.includes("prune") ? "1" : "0");
+      formData.append(
+        "hist_fertilize",
+        actions.includes("nutrient") ? "1" : "0"
+      );
+
+      // 이미지가 있으면 추가
+      if (photoUri) {
+        formData.append("image", {
+          uri: photoUri,
+          type: "image/jpeg",
+          name: "diary_image.jpg",
+        } as any);
+      }
+
+      console.log("📝 일기 수정 데이터 (FormData):", {
+        user_title: title,
+        user_content: body,
+        plant_id: selectedPlant,
+        hasImage: !!photoUri,
+      });
+
+      const apiUrl = getApiUrl(`/diary-list/${diaryId}`);
+      const response = await fetch(apiUrl, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          // Content-Type은 FormData 사용 시 자동으로 설정됨
+        },
+        body: formData,
+      });
+
+      console.log("📡 응답 상태:", response.status, response.ok);
+
+      if (!response.ok) {
+        throw new Error(`일기 수정 실패: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log("일기 수정 성공:", result);
+      console.log("AI 답변:", result.diary?.plant_reply);
+
+      // AI 답변을 상태에 저장
+      if (result.diary?.plant_reply) {
+        setAiText(result.diary.plant_reply);
+      }
+
+      setAiPreviewVisible(true);
+      setSheetVisible(true);
+
+      Alert.alert("수정 완료", "일기가 성공적으로 수정되었습니다.", [
+        { text: "확인" },
+      ]);
     } catch (error) {
-      console.error("일기 작성 오류:", error);
+      console.error("일기 수정 오류:", error);
+      Alert.alert("수정 실패", "일기 수정 중 문제가 발생했습니다.", [
+        { text: "확인" },
+      ]);
     } finally {
       setIsSubmitting(false);
     }
@@ -557,11 +692,7 @@ export default function Diary() {
     try {
       const token = await getToken();
       if (!token) {
-        showAlert({
-          title: "오류",
-          message: "로그인이 필요합니다.",
-          buttons: [{ text: "확인" }],
-        });
+        Alert.alert("오류", "로그인이 필요합니다.", [{ text: "확인" }]);
         return;
       }
 
@@ -630,29 +761,92 @@ export default function Diary() {
       if (result.diary?.plant_reply) {
         setAiText(result.diary.plant_reply);
       }
-
-      // 서버에서 반환된 이미지 경로로 업데이트 (file:// 경로 → 서버 경로)
-      if (result.diary?.img_url) {
-        setPhotoUri(result.diary.img_url);
-        console.log("이미지 경로 업데이트:", result.diary.img_url);
-      }
     } catch (error) {
       console.error("일기 작성 오류:", error);
-      showAlert({
-        title: "일기 작성 실패",
-        message: "일기 작성 중 문제가 발생했습니다.",
-        buttons: [{ text: "확인" }],
-      });
+      Alert.alert("일기 작성 실패", "일기 작성 중 문제가 발생했습니다.", [
+        { text: "확인" },
+      ]);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // 수정/삭제 관련 함수 제거 (새 일기 작성 전용)
+  // 일기 삭제
+  const handleDelete = async () => {
+    if (!diaryId || isDeleting) return;
 
-  // 버튼 라벨/핸들러 (새 일기 작성 전용)
-  const primaryLabel = isSubmitted ? "수정하기" : "등록하기";
-  const primaryOnPress = isSubmitted ? handleSubmit : handleSubmit;
+    // 선택된 식물의 이름 가져오기
+    const selectedPlantData = plantsData.find(
+      (plant) => plant.plant_id.toString() === selectedPlant
+    );
+    const plantName = selectedPlantData?.plant_name || "식물";
+
+    Alert.alert("일기 삭제", `${plantName}(이)와의 추억을 삭제하시겠습니까?`, [
+      { text: "취소", style: "cancel" },
+      {
+        text: "삭제하기",
+        style: "destructive",
+        onPress: () => {
+          // 한번 더 확인
+          Alert.alert(
+            "정말 삭제하시겠습니까?",
+            "삭제된 일기는 복구할 수 없습니다.",
+            [
+              { text: "취소", style: "cancel" },
+              {
+                text: "삭제",
+                style: "destructive",
+                onPress: async () => {
+                  setIsDeleting(true);
+                  try {
+                    const token = await getToken();
+                    if (!token) return;
+
+                    const apiUrl = getApiUrl(`/diary-list/${diaryId}`);
+                    const response = await fetch(apiUrl, {
+                      method: "DELETE",
+                      headers: {
+                        Authorization: `Bearer ${token}`,
+                        "Content-Type": "application/json",
+                      },
+                    });
+
+                    if (response.ok) {
+                      Alert.alert(
+                        "삭제 완료",
+                        "일기가 성공적으로 삭제되었습니다.",
+                        [
+                          {
+                            text: "확인",
+                            onPress: () => router.push("/(page)/diaryList"),
+                          },
+                        ]
+                      );
+                    } else {
+                      throw new Error(`삭제 실패: ${response.status}`);
+                    }
+                  } catch (error) {
+                    console.error("일기 삭제 오류:", error);
+                    Alert.alert(
+                      "삭제 실패",
+                      "일기 삭제 중 문제가 발생했습니다.",
+                      [{ text: "확인" }]
+                    );
+                  } finally {
+                    setIsDeleting(false);
+                  }
+                },
+              },
+            ]
+          );
+        },
+      },
+    ]);
+  };
+
+  // 버튼 라벨/핸들러 (수정 모드)
+  const primaryLabel = "수정하기";
+  const primaryOnPress = handleUpdate;
 
   // 바텀시트 타이틀 (실제 식물 별명 사용)
   const selectedPlantData = plantsData.find(
@@ -660,6 +854,14 @@ export default function Diary() {
   );
   const plantName = selectedPlantData?.plant_name || "식물";
   const sheetTitle = `${plantName}의 하고픈 말`;
+
+  // 디버깅 로그
+  console.log("🔍 바텀시트 타이틀 디버깅:");
+  console.log("selectedPlant:", selectedPlant);
+  console.log("plantsData:", plantsData);
+  console.log("selectedPlantData:", selectedPlantData);
+  console.log("plantName:", plantName);
+  console.log("sheetTitle:", sheetTitle);
 
   // ✨ 무한 애니메이션 (face, hand)
   const move1 = useRef(new Animated.Value(0)).current;
@@ -727,10 +929,14 @@ export default function Diary() {
     );
   }, []);
 
+  // 페이지가 포커스될 때마다 상태 초기화 (React Navigation 캐싱 문제 해결)
   useFocusEffect(
     React.useCallback(() => {
-      resetDiary();
-    }, [resetDiary])
+      // 식물 목록이 로드된 후에 일기 데이터 새로고침
+      if (diaryId && !plantsLoading) {
+        fetchDiaryData();
+      }
+    }, [diaryId, plantsLoading])
   );
 
   return (
@@ -789,11 +995,11 @@ export default function Diary() {
             )}
           </Pressable>
 
-          {busy && (
+          {(busy || isLoadingDiary) && (
             <View style={styles.busyOverlay}>
               <ActivityIndicator size="large" />
               <Text style={{ color: theme.text, marginTop: 10 }}>
-                처리 중...
+                {isLoadingDiary ? "일기 로딩 중..." : "처리 중..."}
               </Text>
             </View>
           )}
@@ -969,7 +1175,18 @@ export default function Diary() {
               </Text>
             </Pressable>
 
-            {/* 삭제 버튼 제거 (새 일기 작성 전용) */}
+            <Pressable
+              disabled={isDeleting}
+              onPress={handleDelete}
+              style={[
+                styles.deleteBtn,
+                { backgroundColor: isDeleting ? theme.graybg : "#d32f2f" },
+              ]}
+            >
+              <Text style={[styles.deleteText, { color: "#fff" }]}>
+                {isDeleting ? "삭제 중..." : "삭제하기"}
+              </Text>
+            </Pressable>
 
             <Pressable
               disabled={!canSubmit || isSubmitting}

@@ -13,7 +13,7 @@ import {
   Image,
   Alert,
 } from "react-native";
-import { Link, useRouter } from "expo-router";
+import { Link, useRouter, useLocalSearchParams } from "expo-router";
 import Colors from "../../constants/Colors";
 import WeatherBox from "../../components/common/weatherBox";
 import Carousel from "react-native-reanimated-carousel";
@@ -86,6 +86,7 @@ type DashboardResponse = {
 export default function Home() {
   // 3-1) Router & Theme
   const router = useRouter();
+  const params = useLocalSearchParams();
   const scheme = useColorScheme();
   const theme = Colors[scheme === "dark" ? "dark" : "light"];
 
@@ -147,6 +148,12 @@ export default function Home() {
   };
 
   // ✅ 3-4-1) 포커스 시 사용할 '조용한' 리패치 (오버레이 X)
+  const refetchUserPlants = async () => {
+    setLoading(true);
+    await refetchUserPlantsSilently();
+    setLoading(false);
+  };
+
   const refetchUserPlantsSilently = async () => {
     try {
       const token = await getToken();
@@ -206,8 +213,8 @@ export default function Home() {
   useFocusEffect(
     React.useCallback(() => {
       const now = Date.now();
-      // 최초 로딩이 완료되고, 마지막 호출로부터 5초 이상 지났을 때만 새로고침
-      if (dashboardData && !loading && now - lastFetchTime.current > 60000) {
+      // 홈페이지에 들어올 때마다 데이터 새로고침 (간격 제한: 5초)
+      if (dashboardData && !loading && now - lastFetchTime.current > 5000) {
         lastFetchTime.current = now;
         refetchUserPlantsSilently();
       }
@@ -238,7 +245,7 @@ export default function Home() {
     }
 
     return {
-      key: plant.idx.toString(),
+      key: plant.plant_id.toString(),
       label: plant.plant_name,
       bg: theme.bg,
       color: theme.text,
@@ -378,7 +385,16 @@ export default function Home() {
                   <Pressable
                     style={styles.plantCard}
                     onLayout={(e) => setParentW(e.nativeEvent.layout.width)}
-                    onPress={() =>
+                    onPress={() => {
+                      // activeIndex 업데이트
+                      const plantIndex = slides.findIndex(
+                        (slide) => slide.key === item.key
+                      );
+
+                      if (plantIndex !== -1) {
+                        setActiveIndex(plantIndex);
+                      }
+
                       router.push({
                         pathname: "/(page)/(stackless)/plant-detail",
                         params: {
@@ -387,9 +403,10 @@ export default function Home() {
                           nickname: item.label,
                           species: item.species ?? "",
                           startedAt: item.startedAt ?? "",
+                          timestamp: Date.now().toString(), // 캐싱 방지를 위한 타임스탬프
                         },
-                      })
-                    }
+                      });
+                    }}
                   >
                     {/* Gauge slots */}
                     <View style={[styles.slotBox, { left: parentW / 2 }]}>

@@ -12,7 +12,7 @@ class MedicalDiagnosisListResponse(BaseModel):
     pest_date: date = Field(..., description="진단 날짜")
     plant_name: str = Field(..., description="식물 이름")
     pest_name: str = Field(..., description="병충해 이름")
-    cause: Optional[str] = Field(None, description="병충해 원인")
+    symptom: Optional[str] = Field(None, description="병충해 증상")
     cure: Optional[str] = Field(None, description="치료법")
     diagnosis_image_url: Optional[str] = Field(None, description="진단 시 찍은 사진 URL")
 
@@ -26,7 +26,7 @@ class MedicalDiagnosisDetailResponse(BaseModel):
     plant_name: str = Field(..., description="식물 이름")
     plant_species: Optional[str] = Field(None, description="식물 종류")
     pest_name: str = Field(..., description="병충해 이름")
-    cause: Optional[str] = Field(None, description="병충해 원인")
+    symptom: Optional[str] = Field(None, description="병충해 증상")
     cure: Optional[str] = Field(None, description="치료법")
     meet_day: Optional[datetime] = Field(None, description="식물 만난 날")
     diagnosis_image_url: Optional[str] = Field(None, description="진단 시 찍은 사진 URL")

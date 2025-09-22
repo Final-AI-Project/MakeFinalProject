@@ -9,25 +9,7 @@ async def get_user_plants_with_status(user_id: str) -> DashboardResponse:
     사용자의 모든 식물 정보와 상태를 조회합니다.
     습도 정보와 식물 위키 정보, 병해충 정보를 포함합니다.
     """
-    print(f"[DEBUG] get_user_plants_with_status called with user_id: {user_id}")
     async with get_db_connection() as (conn, cursor):
-        # 먼저 user_plant 테이블 구조 확인
-        print("[DEBUG] Checking user_plant table structure...")
-        await cursor.execute("DESCRIBE user_plant")
-        table_structure = await cursor.fetchall()
-        print(f"[DEBUG] user_plant table structure: {table_structure}")
-        
-        # img_address 테이블 구조도 확인
-        print("[DEBUG] Checking img_address table structure...")
-        await cursor.execute("DESCRIBE img_address")
-        img_table_structure = await cursor.fetchall()
-        print(f"[DEBUG] img_address table structure: {img_table_structure}")
-        
-        # 간단한 쿼리로 테스트 (실제 구조에 맞게)
-        print("[DEBUG] Testing simple query...")
-        await cursor.execute("SELECT plant_id, user_id, plant_name FROM user_plant WHERE user_id = %s LIMIT 1", (user_id,))
-        test_result = await cursor.fetchone()
-        print(f"[DEBUG] Test query result: {test_result}")
         
         # 이미지 정보를 포함한 쿼리 (plant_id로 조인)
         # Final.sql에 따르면 img_address 테이블에 plant_id 컬럼이 있음
@@ -40,35 +22,19 @@ async def get_user_plants_with_status(user_id: str) -> DashboardResponse:
             up.meet_day,
             
             -- 사용자 식물 사진 (img_address 테이블의 이미지 - 첫 번째 이미지)
-            ia.img_url as user_plant_image
+            (SELECT ia.img_url 
+             FROM img_address ia 
+             WHERE ia.plant_id = up.plant_id 
+             ORDER BY ia.img_url 
+             LIMIT 1) as user_plant_image
             
         FROM user_plant up
-        LEFT JOIN img_address ia ON up.plant_id = ia.plant_id 
-            AND ia.img_url IS NOT NULL 
-            AND ia.img_url != '' 
-            AND ia.plant_id IS NOT NULL
         WHERE up.user_id = %s
-        GROUP BY up.plant_id, up.user_id, up.plant_name, up.species, up.meet_day, ia.img_url
         ORDER BY up.meet_day DESC
         """
         
-        print(f"[DEBUG] Executing query with user_id: {user_id}")
         await cursor.execute(query, (user_id,))
         results = await cursor.fetchall()
-        print(f"[DEBUG] Query returned {len(results)} results")
-        for i, row in enumerate(results):
-            print(f"[DEBUG] Row {i}: plant_id={row['plant_id']}, plant_name={row['plant_name']}, user_plant_image={row['user_plant_image']}")
-        
-        # img_address 테이블에 실제 데이터가 있는지 확인
-        print("[DEBUG] img_address 테이블 데이터 확인...")
-        await cursor.execute("SELECT COUNT(*) as total FROM img_address WHERE plant_id IS NOT NULL")
-        img_count = await cursor.fetchone()
-        print(f"[DEBUG] img_address 테이블의 plant_id가 있는 레코드 수: {img_count['total']}")
-        
-        if img_count['total'] > 0:
-            await cursor.execute("SELECT plant_id, img_url FROM img_address WHERE plant_id IS NOT NULL LIMIT 5")
-            sample_imgs = await cursor.fetchall()
-            print(f"[DEBUG] img_address 샘플 데이터: {sample_imgs}")
         
         plants = []
         for row in results:

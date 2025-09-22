@@ -1,6 +1,7 @@
 // app/(page)/diaryList.tsx
 import React, { useMemo, useState, useEffect } from "react";
 import { useFocusEffect } from "@react-navigation/native";
+import { getApiUrl } from "../../config/api";
 import {
   View,
   Text,
@@ -15,7 +16,6 @@ import {
 import { useRouter } from "expo-router";
 import Colors from "../../constants/Colors";
 import { Picker } from "@react-native-picker/picker";
-import { getApiUrl } from "../../config/api";
 import { getToken } from "../../libs/auth";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -95,12 +95,12 @@ export default function DiaryList() {
     }
   };
 
-  // 컴포넌트 마운트 시 일기 목록 가져오기
+  // 컴포넌트 마운트 시 일기 목록 가져오기 (즉시 새로고침)
   useEffect(() => {
     fetchDiaries();
   }, []);
 
-  // 페이지 포커스 시 새로고침 (일기 작성/수정/삭제 후 돌아올 때)
+  // 페이지 포커스 시 새로고침 (접속 시 + 일기 작성/수정/삭제 후 돌아올 때)
   useFocusEffect(
     React.useCallback(() => {
       fetchDiaries();
@@ -211,7 +211,11 @@ export default function DiaryList() {
                 {/* 썸네일 */}
                 {item.img_url ? (
                   <Image
-                    source={{ uri: item.img_url }}
+                    source={{
+                      uri: item.img_url.startsWith("http")
+                        ? item.img_url
+                        : getApiUrl(item.img_url),
+                    }}
                     style={styles.thumb}
                     resizeMode="cover"
                   />
@@ -255,7 +259,23 @@ export default function DiaryList() {
                       item.plant_nickname,
                       item.plant_species,
                       item.created_at
-                        ? new Date(item.created_at).toLocaleDateString("ko-KR")
+                        ? (() => {
+                            try {
+                              const date = new Date(item.created_at);
+                              // 유효한 날짜인지 확인
+                              if (isNaN(date.getTime())) {
+                                return "날짜 없음";
+                              }
+                              return date.toLocaleDateString("ko-KR");
+                            } catch (error) {
+                              console.error(
+                                "날짜 파싱 오류:",
+                                error,
+                                item.created_at
+                              );
+                              return "날짜 없음";
+                            }
+                          })()
                         : "날짜 없음",
                     ]
                       .filter(Boolean)

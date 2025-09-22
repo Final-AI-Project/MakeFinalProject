@@ -12,7 +12,7 @@ class MedicalDiagnosis:
     pest_date: Optional[date] = None
     plant_name: Optional[str] = None
     pest_name: Optional[str] = None
-    cause: Optional[str] = None
+    symptom: Optional[str] = None
     cure: Optional[str] = None
     plant_species: Optional[str] = None
     meet_day: Optional[datetime] = None
@@ -28,7 +28,7 @@ class MedicalDiagnosis:
             pest_date=data.get("pest_date"),
             plant_name=data.get("plant_name"),
             pest_name=data.get("pest_name"),
-            cause=data.get("cause"),
+            symptom=data.get("symptom"),
             cure=data.get("cure"),
             plant_species=data.get("plant_species"),
             meet_day=data.get("meet_day"),

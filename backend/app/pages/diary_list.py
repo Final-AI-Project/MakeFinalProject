@@ -1,7 +1,5 @@
 from fastapi import APIRouter, HTTPException, Query, Depends, Form, File, UploadFile
 from typing import Optional, List, Dict, Any
-import os
-import uuid
 from schemas.diary import (
     DiaryListResponse,
     DiarySearchRequest,
@@ -356,21 +354,8 @@ async def create_diary_entry(
         image_url = None
         if image and image.filename:
             try:
-                # 이미지 저장 디렉토리 생성
-                upload_dir = "static/diaries"
-                os.makedirs(upload_dir, exist_ok=True)
-                
-                # 고유한 파일명 생성
-                file_extension = os.path.splitext(image.filename)[1] or ".jpg"
-                unique_filename = f"{uuid.uuid4()}{file_extension}"
-                file_path = os.path.join(upload_dir, unique_filename)
-                
-                # 이미지 파일 저장
-                with open(file_path, "wb") as buffer:
-                    content = await image.read()
-                    buffer.write(content)
-                
-                image_url = f"/static/diaries/{unique_filename}"
+                from services.image_service import save_uploaded_image
+                image_url = await save_uploaded_image(image, "diaries")
                 print(f"[DEBUG] 이미지 저장 성공: {image_url}")
             except Exception as e:
                 print(f"[DEBUG] 이미지 저장 실패: {e}")
@@ -549,21 +534,8 @@ async def update_diary_entry(
         image_url = None
         if image and image.filename:
             try:
-                # 이미지 저장 디렉토리 생성
-                upload_dir = "static/diaries"
-                os.makedirs(upload_dir, exist_ok=True)
-                
-                # 고유한 파일명 생성
-                file_extension = os.path.splitext(image.filename)[1] or ".jpg"
-                unique_filename = f"{uuid.uuid4()}{file_extension}"
-                file_path = os.path.join(upload_dir, unique_filename)
-                
-                # 이미지 파일 저장
-                with open(file_path, "wb") as buffer:
-                    content = await image.read()
-                    buffer.write(content)
-                
-                image_url = f"/static/diaries/{unique_filename}"
+                from services.image_service import save_uploaded_image
+                image_url = await save_uploaded_image(image, "diaries")
                 print(f"[DEBUG] 이미지 저장 성공: {image_url}")
             except Exception as e:
                 print(f"[DEBUG] 이미지 저장 실패: {e}")

@@ -160,6 +160,35 @@ def get_species_korean_name(english_name: str) -> str:
     
     return species_mapping.get(english_name, english_name)
 
+def get_english_species_name(korean_name: str) -> str:
+    """
+    한국어 품종명을 영어로 변환합니다.
+    
+    Args:
+        korean_name: 한국어 품종명
+        
+    Returns:
+        str: 영어 품종명
+    """
+    # 한국어에서 영어로 역변환
+    korean_to_english = {
+        "몬스테라": "monstera",
+        "스투키": "stuckyi_sansevieria", 
+        "금전수": "zz_plant",
+        "선인장/다육": "cactus_succulent",
+        "호접란": "phalaenopsis",
+        "테이블야자": "chamaedorea",
+        "홍콩야자": "schefflera",
+        "스파티필럼": "spathiphyllum",
+        "관음죽": "lady_palm",
+        "벵갈고무나무": "ficus_audrey",
+        "올리브나무": "olive_tree",
+        "디펜바키아": "dieffenbachia",
+        "보스턴고사리": "boston_fern"
+    }
+    
+    return korean_to_english.get(korean_name, korean_name)
+
 def get_species_info(species_name: str) -> Dict[str, Any]:
     """
     품종명에 대한 추가 정보를 반환합니다.

@@ -25,7 +25,8 @@ from repositories.plant_registration import (
 from clients.species_classification import (
     classify_plant_species,
     get_species_korean_name,
-    get_species_info
+    get_species_info,
+    get_english_species_name
 )
 from services.image_service import save_uploaded_image
 from services.auth_service import get_current_user
@@ -44,15 +45,22 @@ async def classify_species_from_image(
     - **image**: 분류할 식물 이미지 파일
     """
     try:
+        print(f"[DEBUG] 품종 분류 API 호출 - 파일명: {image.filename}, 크기: {image.size}")
+        
         # 파일 유효성 검사
         if not image.filename:
             raise HTTPException(status_code=400, detail="파일명이 없습니다.")
         
         # 이미지 데이터 읽기
         image_data = await image.read()
+        print(f"[DEBUG] 이미지 데이터 크기: {len(image_data)} bytes")
+        print(f"[DEBUG] 이미지 파일명: {image.filename}")
+        print(f"[DEBUG] 이미지 Content-Type: {image.content_type}")
         
         # 품종 분류 수행
+        print(f"[DEBUG] 모델 서버로 품종 분류 요청 시작")
         result = await classify_plant_species(image_data)
+        print(f"[DEBUG] 품종 분류 결과: {result}")
         
         if result.success and result.species:
             # 한국어 품종명 추가
@@ -74,6 +82,9 @@ async def classify_species_from_image(
             )
             
     except Exception as e:
+        print(f"[ERROR] 품종 분류 중 오류: {e}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(
             status_code=500,
             detail=f"품종 분류 중 오류가 발생했습니다: {str(e)}"
@@ -296,7 +307,8 @@ async def update_plant_info(
                 classification_result = await classify_plant_species(image_data)
                 
                 if classification_result.success and classification_result.species:
-                    species = classification_result.species
+                    # 영어 품종명을 한글로 변환
+                    species = get_species_korean_name(classification_result.species)
             
             # 이미지 저장
             image_url = await save_uploaded_image(image, "plants")
@@ -422,4 +434,63 @@ async def reclassify_plant_species(
         raise HTTPException(
             status_code=500,
             detail=f"품종 재분류 중 오류가 발생했습니다: {str(e)}"
+        )
+
+
+@router.get("/{plant_idx}/wiki-info")
+async def get_plant_wiki_info(
+    plant_idx: int,
+    user: dict = Depends(get_current_user)
+):
+    """
+    식물의 위키 정보를 조회합니다.
+    """
+    try:
+        from repositories.plant_registration import get_plant_by_id
+        from repositories.plant_wiki import get_plant_wiki_by_species
+        
+        print(f"[DEBUG] 위키 정보 조회 시작 - plant_idx: {plant_idx}, user: {user.get('user_id', 'unknown')}")
+        
+        # 식물 정보 조회
+        plant = await get_plant_by_id(plant_idx, user["user_id"])
+        if not plant:
+            print(f"[DEBUG] 식물을 찾을 수 없음 - plant_idx: {plant_idx}")
+            raise HTTPException(
+                status_code=404,
+                detail="식물을 찾을 수 없습니다."
+            )
+        
+        print(f"[DEBUG] 식물 정보: {plant.plant_name}, 품종: {plant.species}")
+        
+        # 위키 정보 조회 (한글 이름으로 먼저 시도)
+        print(f"[DEBUG] 한글 품종명으로 위키 정보 조회: {plant.species}")
+        wiki_info = await get_plant_wiki_by_species(plant.species)
+        print(f"[DEBUG] 한글 품종명 조회 결과: {wiki_info}")
+        
+        # 한글 이름으로 찾지 못했으면 영어 이름으로 시도
+        if not wiki_info:
+            # 영어 이름으로 변환해서 다시 시도
+            english_species = get_english_species_name(plant.species)
+            print(f"[DEBUG] 영어 품종명으로 변환: {english_species}")
+            if english_species:
+                wiki_info = await get_plant_wiki_by_species(english_species)
+                print(f"[DEBUG] 영어 품종명 조회 결과: {wiki_info}")
+        
+        return {
+            "success": True,
+            "plant_info": {
+                "plant_id": plant.plant_id,
+                "plant_name": plant.plant_name,
+                "species": plant.species
+            },
+            "wiki_info": wiki_info
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[DEBUG] 식물 위키 정보 조회 오류: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"식물 위키 정보 조회 중 오류가 발생했습니다: {str(e)}"
         )

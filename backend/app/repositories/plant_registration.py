@@ -439,18 +439,38 @@ async def search_plants(
         raise e
 
 async def save_plant_image_to_db(plant_idx: int, image_url: str) -> bool:
-    """식물 이미지를 img_address 테이블에 저장합니다."""
+    """식물 이미지를 img_address 테이블에 저장합니다. (기존 이미지가 있으면 업데이트)"""
     try:
         async with get_db_connection() as (conn, cursor):
-            # Final.sql에 따르면 img_address 테이블에 plant_id 컬럼이 있음
+            # 기존 이미지가 있는지 확인
             await cursor.execute(
-                """
-                INSERT INTO img_address (plant_id, img_url)
-                VALUES (%s, %s)
-                """,
-                (plant_idx, image_url)
+                "SELECT COUNT(*) as count FROM img_address WHERE plant_id = %s",
+                (plant_idx,)
             )
-            print(f"[DEBUG] 식물 이미지 저장 성공: plant_id={plant_idx}, img_url={image_url}")
+            result = await cursor.fetchone()
+            
+            if result['count'] > 0:
+                # 기존 이미지 업데이트
+                await cursor.execute(
+                    """
+                    UPDATE img_address 
+                    SET img_url = %s 
+                    WHERE plant_id = %s
+                    """,
+                    (image_url, plant_idx)
+                )
+                print(f"[DEBUG] 식물 이미지 업데이트 성공: plant_id={plant_idx}, img_url={image_url}")
+            else:
+                # 새 이미지 삽입
+                await cursor.execute(
+                    """
+                    INSERT INTO img_address (plant_id, img_url)
+                    VALUES (%s, %s)
+                    """,
+                    (plant_idx, image_url)
+                )
+                print(f"[DEBUG] 식물 이미지 새로 저장 성공: plant_id={plant_idx}, img_url={image_url}")
+            
             return True
     except Exception as e:
         print(f"Error in save_plant_image_to_db: {e}")
