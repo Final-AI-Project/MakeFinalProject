@@ -3,7 +3,7 @@ from typing import Optional, List, Dict, Any
 import aiomysql
 import os
 import uuid
-from datetime import datetime
+from datetime import datetime, date
 
 from models.diary import Diary
 

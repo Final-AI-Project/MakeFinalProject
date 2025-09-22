@@ -494,3 +494,137 @@ async def get_plant_wiki_info(
             status_code=500,
             detail=f"식물 위키 정보 조회 중 오류가 발생했습니다: {str(e)}"
         )
+
+
+@router.get("/{plant_idx}/pest-records")
+async def get_plant_pest_records(
+    plant_idx: int,
+    user: dict = Depends(get_current_user)
+):
+    """
+    특정 식물의 병충해 기록을 조회합니다.
+    
+    - **plant_idx**: 식물 ID
+    - 가장 최근 병충해 기록만 반환합니다.
+    """
+    try:
+        async with get_db_connection() as (conn, cursor):
+            # 사용자의 식물인지 확인
+            await cursor.execute(
+                "SELECT plant_id FROM user_plant WHERE plant_id = %s AND user_id = %s",
+                (plant_idx, user["user_id"])
+            )
+            if not await cursor.fetchone():
+                raise HTTPException(
+                    status_code=403,
+                    detail="해당 식물에 대한 권한이 없습니다."
+                )
+            
+            # 가장 최근 병충해 기록 조회
+            await cursor.execute(
+                """
+                SELECT 
+                    upp.pest_date,
+                    pw.pest_name
+                FROM user_plant_pest upp
+                JOIN pest_wiki pw ON upp.pest_id = pw.pest_id
+                WHERE upp.plant_id = %s
+                ORDER BY upp.pest_date DESC
+                LIMIT 1
+                """,
+                (plant_idx,)
+            )
+            result = await cursor.fetchone()
+            
+            if result:
+                return {
+                    "has_pest_record": True,
+                    "pest_name": result["pest_name"],
+                    "pest_date": result["pest_date"].strftime("%Y-%m-%d") if result["pest_date"] else None
+                }
+            else:
+                return {
+                    "has_pest_record": False,
+                    "pest_name": None,
+                    "pest_date": None
+                }
+                
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[ERROR] 병충해 기록 조회 중 오류: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"병충해 기록 조회 중 오류가 발생했습니다: {str(e)}"
+        )
+
+
+@router.get("/{plant_idx}/diaries")
+async def get_plant_diaries(
+    plant_idx: int,
+    user: dict = Depends(get_current_user)
+):
+    """
+    특정 식물과 관련된 일기 목록을 조회합니다.
+    
+    - **plant_idx**: 식물 ID
+    - 일기 제목과 작성 날짜만 반환합니다.
+    """
+    try:
+        async with get_db_connection() as (conn, cursor):
+            # 사용자의 식물인지 확인
+            await cursor.execute(
+                "SELECT plant_id FROM user_plant WHERE plant_id = %s AND user_id = %s",
+                (plant_idx, user["user_id"])
+            )
+            if not await cursor.fetchone():
+                raise HTTPException(
+                    status_code=403,
+                    detail="해당 식물에 대한 권한이 없습니다."
+                )
+            
+            # 해당 식물과 관련된 일기 목록 조회
+            await cursor.execute(
+                """
+                SELECT 
+                    diary_id,
+                    user_title,
+                    created_at
+                FROM diary
+                WHERE plant_id = %s
+                ORDER BY created_at DESC
+                """,
+                (plant_idx,)
+            )
+            results = await cursor.fetchall()
+            print(f"[DEBUG] 일기 목록 조회 결과: {results}")
+            
+            diaries = []
+            for result in results:
+                # created_at이 datetime 객체인지 확인하고 변환
+                created_at_str = None
+                if result["created_at"]:
+                    if hasattr(result["created_at"], 'strftime'):
+                        created_at_str = result["created_at"].strftime("%Y-%m-%d")
+                    else:
+                        created_at_str = str(result["created_at"])
+                
+                diaries.append({
+                    "diary_id": result["diary_id"],
+                    "title": result["user_title"],
+                    "created_at": created_at_str
+                })
+            
+            return {
+                "diaries": diaries,
+                "count": len(diaries)
+            }
+                
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[ERROR] 일기 목록 조회 중 오류: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"일기 목록 조회 중 오류가 발생했습니다: {str(e)}"
+        )

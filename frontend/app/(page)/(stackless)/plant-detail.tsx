@@ -72,9 +72,27 @@ export default function PlantDetail() {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  // 컴포넌트 마운트 시 위키 정보 가져오기
+  // 병충해 기록과 일기 목록 상태
+  const [pestRecord, setPestRecord] = useState<{
+    has_pest_record: boolean;
+    pest_name: string | null;
+    pest_date: string | null;
+  } | null>(null);
+  const [diaryList, setDiaryList] = useState<
+    {
+      diary_id: number;
+      title: string;
+      created_at: string;
+    }[]
+  >([]);
+  const [loadingPestRecord, setLoadingPestRecord] = useState(false);
+  const [loadingDiaryList, setLoadingDiaryList] = useState(false);
+
+  // 컴포넌트 마운트 시 위키 정보, 병충해 기록, 일기 목록 가져오기
   useEffect(() => {
     fetchWikiInfo();
+    fetchPestRecord();
+    fetchDiaryList();
   }, [params.id]); // params.id가 변경될 때마다 실행
 
   // 페이지가 포커스될 때마다 상태 초기화 (React Navigation 캐싱 문제 해결)
@@ -91,8 +109,10 @@ export default function PlantDetail() {
       setSpecies(params.species ?? "");
       setStartedAt(params.startedAt ?? "");
 
-      // 위키 정보 새로고침
+      // 위키 정보, 병충해 기록, 일기 목록 새로고침
       fetchWikiInfo();
+      fetchPestRecord();
+      fetchDiaryList();
     }, [
       params.id,
       params.imageUri,
@@ -126,6 +146,61 @@ export default function PlantDetail() {
       console.error("위키 정보 조회 오류:", error);
     } finally {
       setLoadingWiki(false);
+    }
+  }
+
+  // 병충해 기록 가져오기
+  async function fetchPestRecord() {
+    const plantId = params.id || params.plantId;
+    if (!plantId) return;
+
+    try {
+      setLoadingPestRecord(true);
+      const token = await getToken();
+      const apiUrl = getApiUrl(`/plants/${plantId}/pest-records`);
+
+      const response = await fetch(apiUrl, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setPestRecord(data);
+      }
+    } catch (error) {
+      console.error("병충해 기록 조회 오류:", error);
+    } finally {
+      setLoadingPestRecord(false);
+    }
+  }
+
+  // 일기 목록 가져오기
+  async function fetchDiaryList() {
+    const plantId = params.id || params.plantId;
+    if (!plantId) return;
+
+    try {
+      setLoadingDiaryList(true);
+      const token = await getToken();
+      const apiUrl = getApiUrl(`/plants/${plantId}/diaries`);
+
+      const response = await fetch(apiUrl, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log("🔍 일기 목록 API 응답:", data);
+        setDiaryList(data.diaries || []);
+      }
+    } catch (error) {
+      console.error("일기 목록 조회 오류:", error);
+    } finally {
+      setLoadingDiaryList(false);
     }
   }
 
@@ -529,19 +604,19 @@ export default function PlantDetail() {
               <Text style={styles.smallBtnText}>기록 추가</Text>
             </TouchableOpacity>
           </View>
-          {pestLogs.length === 0 ? (
-            <Text style={{ color: "#888" }}>기록이 없어요.</Text>
+          {loadingPestRecord ? (
+            <Text style={{ color: "#888" }}>로딩 중...</Text>
+          ) : pestRecord && pestRecord.has_pest_record ? (
+            <View style={styles.listRow}>
+              <Text style={[styles.listDate, { color: theme.text }]}>
+                {pestRecord.pest_date}
+              </Text>
+              <Text style={[styles.listText, { color: theme.text }]}>
+                {pestRecord.pest_name}
+              </Text>
+            </View>
           ) : (
-            pestLogs.map((log) => (
-              <View key={log.id} style={styles.listRow}>
-                <Text style={[styles.listDate, { color: theme.text }]}>
-                  {log.createdAt}
-                </Text>
-                <Text style={[styles.listText, { color: theme.text }]}>
-                  {log.note}
-                </Text>
-              </View>
-            ))
+            <Text style={{ color: "#888" }}>기록이 없어요.</Text>
           )}
         </View>
 
@@ -558,16 +633,18 @@ export default function PlantDetail() {
               <Text style={styles.smallBtnText}>일기 작성</Text>
             </TouchableOpacity>
           </View>
-          {diaryLogs.length === 0 ? (
+          {loadingDiaryList ? (
+            <Text style={{ color: "#888" }}>로딩 중...</Text>
+          ) : diaryList.length === 0 ? (
             <Text style={{ color: "#888" }}>작성한 일기가 없어요.</Text>
           ) : (
-            diaryLogs.map((log) => (
-              <View key={log.id} style={styles.listRow}>
+            diaryList.map((diary) => (
+              <View key={diary.diary_id} style={styles.listRow}>
                 <Text style={[styles.listDate, { color: theme.text }]}>
-                  {log.createdAt}
+                  {diary.created_at}
                 </Text>
                 <Text style={[styles.listText, { color: theme.text }]}>
-                  {log.text}
+                  {diary.title}
                 </Text>
               </View>
             ))

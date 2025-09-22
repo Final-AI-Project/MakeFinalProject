@@ -387,6 +387,10 @@ async def create_diary_entry(
                 print(f"[DEBUG] AI 답변 생성 실패: {e}")
                 plant_reply = "안녕! 오늘도 잘 지내고 있어? 나는 너의 일기를 들을 수 있어서 기뻐!"  # 기본 답변
             
+            # 현재 날짜를 created_at으로 설정
+            from datetime import date
+            current_date = date.today()
+            
             diary = await create_diary(
                 conn,
                 user_id=user["user_id"],
@@ -399,7 +403,8 @@ async def create_diary_entry(
                 hist_watered=int(hist_watered) if hist_watered else 0,
                 hist_repot=int(hist_repot) if hist_repot else 0,
                 hist_pruning=int(hist_pruning) if hist_pruning else 0,
-                hist_fertilize=int(hist_fertilize) if hist_fertilize else 0
+                hist_fertilize=int(hist_fertilize) if hist_fertilize else 0,
+                created_at=current_date
             )
             
             print(f"[DEBUG] 일기 생성 성공: {diary}")
