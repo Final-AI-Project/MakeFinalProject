@@ -1,4 +1,4 @@
-// app/common/BottomTabBar.tsx
+// app/components/common/BottomTabBar.tsx
 import React from "react";
 import { View, TouchableOpacity, StyleSheet, Platform } from "react-native";
 import { BottomTabBarProps } from "@react-navigation/bottom-tabs";
@@ -6,9 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useColorScheme } from "react-native";
 import Colors from "../../constants/Colors";
-
 type RouteKey = "home" | "camera" | "diaryList" | "menu" | "medical";
-
 const ICONS: Record<
   RouteKey,
   {
@@ -22,7 +20,6 @@ const ICONS: Record<
   diaryList: { active: "create", inactive: "create-outline" },
   menu: { active: "grid", inactive: "grid-outline" },
 };
-
 export default function BottomTabBar({
   state,
   descriptors,
@@ -38,16 +35,10 @@ export default function BottomTabBar({
     ((activeOpts as any)?.tabBarStyle &&
       (activeOpts as any).tabBarStyle.display === "none");
   if (shouldHideBar) return null;
-
   const visibleRoutes = state.routes.filter((route) => {
     const opts = descriptors[route.key]?.options ?? {};
-    return !(
-      route.name.startsWith("(") ||
-      (opts as any).href === null ||
-      route.name === "diaryList"
-    );
+    return !(route.name.startsWith("(") || (opts as any).href === null);
   });
-
   const onPress = (index: number) => {
     const route = state.routes[index];
     const event = navigation.emit({
@@ -57,7 +48,6 @@ export default function BottomTabBar({
     });
     if (!event.defaultPrevented) navigation.navigate(route.name);
   };
-
   return (
     <View pointerEvents="box-none" style={styles.wrap}>
       <View style={[styles.bar, { backgroundColor: theme.bg }]}>
@@ -69,14 +59,11 @@ export default function BottomTabBar({
             options.title ??
             route.name.charAt(0).toUpperCase() + route.name.slice(1);
           const key = (route.name as RouteKey) || "home";
-
-          const color = isFocused ? theme.primary : "#9aa0a6";
+          const color = isFocused ? theme.primary : "#9AA0A6";
           const iconName = isFocused
             ? ICONS[key]?.active
             : ICONS[key]?.inactive;
-
           const isFab = key === "camera";
-
           return (
             <TouchableOpacity
               key={route.key}
@@ -118,7 +105,6 @@ export default function BottomTabBar({
     </View>
   );
 }
-
 const styles = StyleSheet.create({
   wrap: {
     position: "absolute",
