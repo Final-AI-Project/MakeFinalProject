@@ -1,22 +1,31 @@
+
+# 실행 (가상환경에서):
+(.venv) D:\hwan\AIFinalProject\models\classifier\cascade> pip install fastapi uvicorn pillow torch torchvision
+(.venv) D:\hwan\AIFinalProject\models\classifier\cascade> uvicorn server:app --host 0.0.0.0 --port 4000
+
+
 # plants-dataset/train, val 에 실제 식물 이미지 넣은 뒤
 python models/classifier/cascade/cascade.py --data_root models/plants-dataset --model mobilenet_v3_large --epochs 10 --weighted_sampler
 
 
 
-# 추론
-python models/classifier/infer_classifier.py --weights models/weight/mobilenet_v3_large_best.pth --model mobilenet_v3_large --image myplant.jpg
+# Python 단일 명령어 추론
+python infer_classifier.py --model mobilenet_v3_large --weights weight/mobilenet_v3_large_best.pth --image plants-dataset/val/mon/mon_102.jpg
+
+# 프론트 연결용 추론 서버 실행
+uvicorn server:app --host 0.0.0.0 --port 4000
+
+# 모바일 온디바이스 실행 준비 (TorchScript)
+python export_mobile.py
 
 
 
-# 실행 디렉터리 위치
-## 루트(MakeFinalProject)에서 실행하는 경우
-python models/classifier/infer_classifier.py --weights models/weight/mobilenet_v3_large_best.pth --model mobilenet_v3_large --image myplant.jpg
 
-## models/classifier 폴더 안에서 실행하는 경우
-python infer_classifier.py --weights ../weight/mobilenet_v3_large_best.pth --model mobilenet_v3_large --image ../../myplant.jpg
 
-## models/classifier/cascade 폴더 안에서 실행하는 경우
-python ../infer_classifier.py --weights ../../weight/mobilenet_v3_large_best.pth --model mobilenet_v3_large --image ../../../myplant.jpg
+
+
+
+
 
 
 ### 그 밖에 모델 테스트
