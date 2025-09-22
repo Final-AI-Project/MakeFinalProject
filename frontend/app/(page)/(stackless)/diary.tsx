@@ -28,11 +28,9 @@ import { useRouter } from "expo-router";
 import Colors from "../../../constants/Colors";
 import { fetchSimpleWeather } from "../../../components/common/weatherBox";
 import { useFocusEffect } from "@react-navigation/native";
-import * as SecureStore from "expo-secure-store";
-import Constants from "expo-constants";
 
 // ✅ 데코 이미지 (RN는 default import/require 사용)
-import LLMDecoImage from "../../../assets/images/LLM_setting.png";        // 고정
+import LLMDecoImage from "../../../assets/images/LLM_setting.png";				// 고정
 import LLMDecoImageFace from "../../../assets/images/LLM_setting_face.png"; // 애니메 #1
 import LLMDecoImageHand from "../../../assets/images/LLM_setting_hand.png"; // 애니메 #2
 
@@ -53,24 +51,6 @@ const todayStr = () => {
 	return `${yyyy}-${mm}-${dd}`;
 };
 
-const API_BASE_URL =
-	(process.env.EXPO_PUBLIC_API_BASE_URL as string) ||
-	((Constants.expoConfig?.extra as any)?.API_BASE_URL as string) ||
-	"http://localhost:3000";
-
-const getApiUrl = (path: string) =>
-	`${API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
-
-const getToken = async () => {
-	try {
-		// SecureStore에 저장된 토큰 키 이름은 "authorization" 기준
-		return await SecureStore.getItemAsync("authorization");
-	} catch (e) {
-		console.warn("토큰 읽기 실패:", e);
-		return null;
-	}
-};
-
 // 한글 조사 자동(이/가, 을/를 등 지원 확장 가능)
 function withJosa(word: string, type: "이가" | "을를" = "이가") {
 	const code = word.charCodeAt(word.length - 1);
@@ -84,18 +64,6 @@ function withJosa(word: string, type: "이가" | "을를" = "이가") {
 	if (type === "이가") return `${word}${hasJong ? "이" : "가"}`;
 	return `${word}${hasJong ? "을" : "를"}`;
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// ②-1 Care Actions (분갈이/가지치기/물주기/영양제)
-// ─────────────────────────────────────────────────────────────────────────────
-type CareAction = "repot" | "prune" | "water" | "nutrient";
-
-const CARE_ACTIONS: { key: CareAction; label: string; emoji: string }[] = [
-	{ key: "repot",    label: "분갈이했음",    emoji: "🪴" },
-	{ key: "prune",    label: "가지치기 했음", emoji: "✂️" },
-	{ key: "water",    label: "물줬음",        emoji: "💧" },
-	{ key: "nutrient", label: "영양제 줬음",   emoji: "🧪" },
-];
 
 /** 인라인 드롭다운(모달 없이) */
 function InlineSelect<T extends string>({
@@ -364,14 +332,6 @@ export default function Diary() {
 	const [weatherLoading, setWeatherLoading] = useState(true); // 날씨 로딩 상태
 	const [body, setBody] = useState("");
 
-	// ✅ 오늘 한 일(체크박스 대용 Pill)
-	const [actions, setActions] = useState<CareAction[]>([]);
-	const toggleAction = (k: CareAction) => {
-		setActions(prev => (
-			prev.includes(k) ? prev.filter(v => v !== k) : [...prev, k]
-		));
-	};
-
 	// 기타 UI
 	const [busy, setBusy] = useState(false);
 	const [sheetVisible, setSheetVisible] = useState(false);
@@ -398,10 +358,7 @@ export default function Diary() {
 		const fetchMyPlants = async () => {
 			try {
 				const token = await getToken();
-				if (!token) {
-					console.warn("⚠️ 토큰이 없어 식물 목록을 불러오지 못했습니다.");
-					return;
-				}
+				if (!token) return;
 
 				const apiUrl = getApiUrl("/home/plants/current");
 				const response = await fetch(apiUrl, {
@@ -412,22 +369,15 @@ export default function Diary() {
 					},
 				});
 
-				if (!response.ok) {
-					console.warn("⚠️ 식물 목록 응답 오류:", response.status, apiUrl);
-					return;
-				}
-
-				const data = await response.json();
-				// 서버가 data.plants 또는 data.data?.plants 형태일 가능성 방어
-				const plants = data?.plants ?? data?.data?.plants ?? [];
-				if (Array.isArray(plants)) {
-					const plantOptions = plants.map((plant: any) => ({
-						label: `${plant.plant_name ?? plant.nickname ?? "이름없음"} (${plant.species || "기타"})`,
-						value: plant.plant_name ?? plant.nickname ?? "",
-					})).filter(p => p.value);
-					setMyPlants(plantOptions);
-				} else {
-					console.warn("⚠️ 예상과 다른 식물 목록 구조:", data);
+				if (response.ok) {
+					const data = await response.json();
+					if (data.plants && Array.isArray(data.plants)) {
+						const plantOptions = data.plants.map((plant: any) => ({
+							label: `${plant.plant_name} (${plant.species || "기타"})`,
+							value: plant.plant_name,
+						}));
+						setMyPlants(plantOptions);
+					}
 				}
 			} catch (error) {
 				console.error("식물 목록 가져오기 실패:", error);
@@ -523,23 +473,14 @@ export default function Diary() {
 				return;
 			}
 
-			// 선택 액션을 해시태그로 변환
-			const actionTags = actions.map(a => (
-				a === "repot"    ? "#분갈이"   :
-				a === "prune"    ? "#가지치기" :
-				a === "water"    ? "#물주기"   :
-				a === "nutrient" ? "#영양제"   : ""
-			)).filter(Boolean).join(" ");
-
 			// 일기 작성 API 호출
 			const diaryData = {
 				user_title: title,
 				user_content: body,
 				plant_nickname: selectedPlant,
 				plant_species: selectedPlant, // TODO: 실제 식물 종으로 교체
-				hashtag: `#${selectedPlant} #${weather || "일상"} ${actionTags}`.trim(),
+				hashtag: `#${selectedPlant} #${weather || "일상"}`,
 				weather: weather,
-				actions, // ← 배열 그대로도 보냄
 			};
 
 			console.log("📝 일기 작성 데이터:", diaryData);
@@ -571,8 +512,8 @@ export default function Diary() {
 			}
 
 			setAiPreviewVisible(true); // 등록 후에만 미리보기 표시
-			setSheetVisible(true);     // 등록하면 바텀시트 열림
-			setIsSubmitted(true);      // 이후부터 '수정' 모드
+			setSheetVisible(true); // 등록하면 바텀시트 열림
+			setIsSubmitted(true); // 이후부터 '수정' 모드
 		} catch (error) {
 			console.error("일기 작성 오류:", error);
 			Alert.alert("일기 작성 실패", "일기 작성 중 문제가 발생했습니다.");
@@ -610,7 +551,7 @@ export default function Diary() {
 
 	// ✨ 무한 애니메이션 (face, hand)
 	const move1 = useRef(new Animated.Value(0)).current;
-  	const move2 = useRef(new Animated.Value(0)).current;
+	const move2 = useRef(new Animated.Value(0)).current;
 
 	useEffect(() => {
 		const loop1 = Animated.loop(
@@ -672,7 +613,6 @@ export default function Diary() {
 		setAiText(
 			"오늘은 통풍만 잘 시켜주세요. 물은 내일 추천! 🌤️오늘은 통풍만 잘 시켜주세요. 물은 내일 추천! 🌤️오늘은 통풍만 잘 시켜주세요. 물은 내일 추천! 🌤️오늘은 통풍만 잘 시켜주세요. 물은 내일 추천! 🌤️"
 		);
-		setActions([]); // ✅ 액션도 리셋
 	}, []);
 
 	useFocusEffect(
@@ -802,54 +742,6 @@ export default function Diary() {
 						/>
 					</View>
 
-					{/* 오늘 한 일 (체크박스 스타일 토글) */}
-					<View style={styles.field}>
-						<Text style={[styles.sectionLabel, { color: theme.text }]}>오늘 한 일</Text>
-
-						<View style={styles.actionsWrap}>
-							{CARE_ACTIONS.map(act => {
-								const active = actions.includes(act.key);
-								return (
-									<Pressable
-										key={act.key}
-										onPress={() => toggleAction(act.key)}
-										style={[
-											styles.actionPill,
-											{ borderColor: theme.border, backgroundColor: theme.bg },
-											active && [styles.actionPillActive, { backgroundColor: theme.primary }]
-										]}
-										hitSlop={6}
-										android_ripple={{ color: (theme as any).graybg }}
-									>
-										<Text
-											style={[
-												styles.actionEmoji,
-												{ opacity: active ? 1 : 0.95 }
-											]}
-										>
-											{act.emoji}
-										</Text>
-										<Text
-											style={[
-												styles.actionText,
-												{ color: active ? "#fff" : theme.text }
-											]}
-											numberOfLines={1}
-										>
-											{act.label}
-										</Text>
-										{/* 체크 마크 (선택 시만 보임) */}
-										{active && <Text style={styles.actionCheck}>✓</Text>}
-									</Pressable>
-								);
-							})}
-						</View>
-
-						<Text style={[styles.actionsHint, { color: theme.text }]}>
-							선택한 항목은 일기와 함께 기록돼요.
-						</Text>
-					</View>
-
 					{/* 일기 내용 */}
 					<View style={styles.field}>
 						<Text style={[styles.sectionLabel, { color: theme.text }]}>
@@ -899,11 +791,11 @@ export default function Diary() {
 					{/* 하단 버튼 */}
 					<View style={[styles.bottomBar, { backgroundColor: theme.bg }]}>
 						<Pressable
-							onPress={goToDiaryList}
+							onPress={() => router.back()}
 							style={[styles.cancelBtn, { borderColor: theme.border }]}
 						>
 							<Text style={[styles.cancelText, { color: theme.text }]}>
-								목록으로
+								취소
 							</Text>
 						</Pressable>
 						<Pressable
@@ -957,11 +849,6 @@ export default function Diary() {
 		</KeyboardAvoidingView>
 	);
 }
-
-const goToDiaryList = () => {
-	Keyboard.dismiss();
-	router.replace("/(page)/diaryList");
-};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ④ Styles (plant-new.tsx 톤과 동일 스케일)
@@ -1127,43 +1014,5 @@ const styles = StyleSheet.create({
 		height: 42,
 		right: 50,
 		top: 46,
-	},
-
-	// ── 오늘 한 일 (체크박스 토글)
-	actionsWrap: {
-		flexDirection: "row",
-		flexWrap: "wrap",
-		gap: 8,
-	},
-	actionPill: {
-		flexDirection: "row",
-		alignItems: "center",
-		paddingHorizontal: 12,
-		paddingVertical: 10,
-		borderWidth: 1,
-		borderRadius: 999,
-	},
-	actionPillActive: {
-		borderColor: "transparent",
-	},
-	actionEmoji: {
-		fontSize: 16,
-		marginRight: 6,
-	},
-	actionText: {
-		fontSize: 14,
-		fontWeight: "700",
-		maxWidth: 160,
-	},
-	actionCheck: {
-		marginLeft: 6,
-		fontSize: 14,
-		fontWeight: "800",
-		color: "#fff",
-	},
-	actionsHint: {
-		fontSize: 12,
-		opacity: 0.7,
-		marginTop: 8,
 	},
 });
