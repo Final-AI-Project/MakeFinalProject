@@ -8,11 +8,9 @@ import {
 	Text,
 	StyleSheet,
 	Image,
-	Alert,
 	useColorScheme,
 	TouchableOpacity,
 	ActivityIndicator,
-	Platform,
 	AccessibilityInfo,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
@@ -54,7 +52,7 @@ const SPECIES = [
 	"보스턴고사리",
 ];
 
-function mockClassify(_uri: string): ClassifyResult {
+function mockClassify(): ClassifyResult {
 	const species = SPECIES[Math.floor(Math.random() * SPECIES.length)];
 	const confidence = Math.round(70 + Math.random() * 29); // 70~99%
 	return { species, confidence };
@@ -63,6 +61,52 @@ function mockClassify(_uri: string): ClassifyResult {
 function fileNameFromUri(uri: string, fallback = "species.jpg") {
 	const last = uri.split("/").pop() || fallback;
 	return last.split("?")[0];
+}
+
+// 신뢰도(0~1 또는 0~100)를 0~100 정수로 정규화
+function toPct(v: any) {
+	const n = Number(v);
+	const p = !isFinite(n) ? 0 : n <= 1 ? n * 100 : n;
+	return Math.max(0, Math.min(100, Math.round(p)));
+}
+
+// 다양한 서버 응답 스키마를 유연하게 파싱
+function pickResult(data: any): { species?: string; confidence?: number } {
+	if (!data || typeof data !== "object") return {};
+
+	// 1) 권장 스키마 { success, species, confidence }
+	if (data.success && data.species) {
+		return {
+			species: String(data.species),
+			confidence: toPct(data.confidence ?? 85),
+		};
+	}
+
+	// 2) { label, prob/confidence }
+	if (data.label) {
+		return {
+			species: String(data.label),
+			confidence: toPct(data.prob ?? data.confidence ?? 85),
+		};
+	}
+
+	// 3) { top | topk } 배열
+	const top = data.top || data.topk;
+	if (Array.isArray(top) && top.length) {
+		// [{label/class/name, prob/confidence}, ...]
+		if (typeof top[0] === "object") {
+			return {
+				species: String(top[0].label ?? top[0].class ?? top[0].name),
+				confidence: toPct(top[0].prob ?? top[0].confidence ?? 85),
+			};
+		}
+		// [[label, prob], ...]
+		if (Array.isArray(top[0])) {
+			return { species: String(top[0][0]), confidence: toPct(top[0][1] ?? 85) };
+		}
+	}
+
+	return {};
 }
 
 type ModalMode = "result" | null;
@@ -103,8 +147,9 @@ export default function CameraScreen() {
 		setUri(pickedUri);
 		setResult(null);
 		setBusy(true);
-		
+
 		const apiUrl = getApiUrl(API_ENDPOINTS.AI.CLASSIFY);
+		console.log("[infer] apiUrl =", apiUrl);
 
 		// 전역 로딩 오버레이 시작: 네비게이션 목적 없음 → to를 빈 문자열로 전달
 		startLoading(router, {
@@ -114,7 +159,7 @@ export default function CameraScreen() {
 					const token = await getToken();
 					if (!token) {
 						showAlert({ title: "오류", message: "로그인이 필요합니다." });
-						setResult(mockClassify(pickedUri));
+						setResult(mockClassify());
 						return;
 					}
 
@@ -124,9 +169,6 @@ export default function CameraScreen() {
 						type: "image/jpeg",
 						name: fileNameFromUri(pickedUri),
 					} as any);
-
-					const apiUrl = getApiUrl("/plants/classify-species");
-					console.log("[infer] apiUrl =", apiUrl);
 
 					const response = await fetch(apiUrl, {
 						method: "POST",
@@ -141,13 +183,15 @@ export default function CameraScreen() {
 					const data = await response.json();
 					console.log("[infer] api raw =", data);
 
-					if (data?.success && data?.species) {
+					const picked = pickResult(data);
+					if (picked.species) {
 						setResult({
-							species: String(data.species),
-							confidence: Math.round(Number(data.confidence ?? 85)),
+							species: picked.species,
+							confidence: picked.confidence ?? 85,
 						});
 					} else {
-						setResult(mockClassify(pickedUri));
+						// 서버 응답은 왔지만 스키마가 예측과 다를 때 → 임시 폴백
+						setResult(mockClassify());
 					}
 				} catch (err) {
 					console.error("[infer] error -> mock fallback:", err);
@@ -155,7 +199,7 @@ export default function CameraScreen() {
 						title: "분류 실패",
 						message: "식물 분류 중 문제가 발생했습니다. (임시 결과 표시)",
 					});
-					setResult(mockClassify(pickedUri));
+					setResult(mockClassify());
 				} finally {
 					if (!mountedRef.current) return;
 					setModalMode("result");
@@ -190,8 +234,7 @@ export default function CameraScreen() {
 
 	const askGallery = async () => {
 		if (busy) return;
-		const { status } =
-			await ImagePicker.requestMediaLibraryPermissionsAsync();
+		const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
 		if (status !== "granted") {
 			return showAlert({
 				title: "권한 필요",

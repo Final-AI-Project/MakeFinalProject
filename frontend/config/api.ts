@@ -59,7 +59,7 @@ export const API_ENDPOINTS = {
 
 	// AI 관련
 	AI: {
-		CLASSIFY: "/plants/classify-species", // ← 기존 "/ai/classify"를 이걸로 교체
+    	CLASSIFY: "/plants/classify-species", // ← 여기를 실제 서버 라우트로 고정
 		DIAGNOSE: "/ai/diagnose",
 	},
 
