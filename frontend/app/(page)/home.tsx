@@ -201,11 +201,12 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ✅ 3-5-1) 홈 탭에 '들어올 때마다' 전체 새로고침
+  // ✅ 3-5-1) 홈 탭에 '들어올 때마다' 조용한 새로고침 (CSS 망가짐 방지)
   useFocusEffect(
     React.useCallback(() => {
-      resetHome();
-    }, [resetHome])
+      // 데이터만 조용히 새로고침 (상태 초기화 없이)
+      refetchUserPlantsSilently();
+    }, [refetchUserPlantsSilently])
   );
 
   // 3-6) 백엔드 데이터를 UI 데이터로 변환

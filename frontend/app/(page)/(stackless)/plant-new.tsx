@@ -205,11 +205,14 @@ export default function PlantNew() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ✅ 추가: 화면에 '진입/재진입'할 때마다 완전 초기화
+  // ✅ 추가: 화면에 '진입/재진입'할 때마다 완전 초기화 (첫 진입시에만)
   useFocusEffect(
     useCallback(() => {
-      resetForm();
-    }, [resetForm])
+      // 첫 진입시에만 초기화 (메인페이지 CSS 망가짐 방지)
+      if (!imageUri && !species && !nickname && !startedAt) {
+        resetForm();
+      }
+    }, [resetForm, imageUri, species, nickname, startedAt])
   );
 
   // Validation
