@@ -32,9 +32,9 @@ import { getToken } from "../../../libs/auth";
 import { getApiUrl } from "../../../config/api";
 
 // ✅ 데코 이미지 (RN는 default import/require 사용)
-import LLMDecoImage from "../../../assets/images/LLM_setting.png"; // 고정
-import LLMDecoImageFace from "../../../assets/images/LLM_setting_face.png"; // 애니메 #1
-import LLMDecoImageHand from "../../../assets/images/LLM_setting_hand.png"; // 애니메 #2
+// import LLMDecoImage from "../../../assets/images/LLM_setting.png"; // 고정
+// import LLMDecoImageFace from "../../../assets/images/LLM_setting_face.png"; // 애니메 #1
+// import LLMDecoImageHand from "../../../assets/images/LLM_setting_hand.png"; // 애니메 #2
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ② Helpers & Types
@@ -448,7 +448,7 @@ export default function Diary() {
 
         if (w) {
           console.log("✅ 날씨 조회 성공:", w);
-          setWeather(w);
+          setWeather(w as Weather);
           setWeatherLoading(false);
         } else {
           throw new Error("날씨 데이터가 null입니다");
@@ -465,7 +465,7 @@ export default function Diary() {
         } else {
           console.error("🚨 날씨 조회 최종 실패 - 기본값 설정");
           // 최종 실패 시에만 기본값 설정
-          setWeather("맑음");
+          setWeather("맑음" as Weather);
           setWeatherLoading(false);
         }
       }
@@ -601,6 +601,12 @@ export default function Diary() {
 
   // 바텀시트 타이틀
   const sheetTitle = `${selectedPlant ?? "식물"}의 하고픈 말`;
+
+  // 일기 목록으로 이동
+  const goToDiaryList = () => {
+    Keyboard.dismiss();
+    router.replace("/(page)/diaryList");
+  };
 
   // ✨ 무한 애니메이션 (face, hand)
   const move1 = useRef(new Animated.Value(0)).current;
@@ -934,33 +940,24 @@ export default function Diary() {
       >
         <View style={styles.LLMDecoBox}>
           {/* 고정 이미지 */}
-          <Image
-            source={LLMDecoImage}
-            style={styles.LLMDecoImage}
-            resizeMode="contain"
-          />
+          <Text style={{ fontSize: 40 }}>🌱</Text>
           {/* 움직이는 얼굴 */}
-          <Animated.Image
-            source={LLMDecoImageFace}
+          <Animated.Text
             style={[styles.LLMDecoFace, { transform: [{ translateX: tx1 }] }]}
-            resizeMode="contain"
-          />
+          >
+            😊
+          </Animated.Text>
           {/* 움직이는 손 */}
-          <Animated.Image
-            source={LLMDecoImageHand}
+          <Animated.Text
             style={[styles.LLMDecoHand, { transform: [{ translateX: tx2 }] }]}
-            resizeMode="contain"
-          />
+          >
+            👋
+          </Animated.Text>
         </View>
       </BottomSheet>
     </KeyboardAvoidingView>
   );
 }
-
-const goToDiaryList = () => {
-  Keyboard.dismiss();
-  router.replace("/(page)/diaryList");
-};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ④ Styles (plant-new.tsx 톤과 동일 스케일)
