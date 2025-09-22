@@ -71,7 +71,7 @@ class Settings(BaseSettings):
     MQTT_USER: str = Field(default="", validation_alias="MQTT_USER")
     MQTT_PASS: str = Field(default="", validation_alias="MQTT_PASS")
     MQTT_TOPICS: str = Field(default="", validation_alias="MQTT_TOPICS")
-    MQTT_CA_PATH: str = Field(default=str((APP_DIR/"certs"/"emqxsl-ca.pem").resolve()), validation_alias="MQTT_CA_PATH",)
+    MQTT_CA_PATH: str = "certs/emqxsl-ca.pem"
    
 
     @property

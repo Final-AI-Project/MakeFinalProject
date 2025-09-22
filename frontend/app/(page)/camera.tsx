@@ -5,102 +5,115 @@
 import React, { useState, useEffect, useRef } from "react";
 import { View, Text, StyleSheet, Image, Alert, useColorScheme, TouchableOpacity, ActivityIndicator } from "react-native";
 import * as ImagePicker from "expo-image-picker";
+import { useRouter } from "expo-router";
 import Colors from "../../constants/Colors";
-import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, withSequence, withDelay, Easing } from "react-native-reanimated";
+import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, withSequence, Easing } from "react-native-reanimated";
 import { getApiUrl } from "../../config/api";
 import { getToken } from "../../libs/auth";
 
-// 공통 모달
+// 전역 로딩 오버레이 API
+import { startLoading } from "../../components/common/loading";
+import type { Href } from "expo-router";
+
+// 결과 모달
 import ClassifierResultModal, { ClassifyResult } from "../../components/common/ClassifierResultModal";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ② Constants & Mock
+// ② Constants & Helpers
 // ─────────────────────────────────────────────────────────────────────────────
 const SPECIES = [
 	"몬스테라","스투키","금전수","선인장","호접란","테이블야자",
 	"홍콩야자","스파티필럼","관음죽","벵갈고무나무","올리브나무","디펜바키아","보스턴고사리",
 ];
 
-// (모델 미연동) 가짜 분류기
 function mockClassify(_uri: string): ClassifyResult {
 	const species = SPECIES[Math.floor(Math.random() * SPECIES.length)];
 	const confidence = Math.round(70 + Math.random() * 29); // 70~99%
 	return { species, confidence };
 }
 
+function fileNameFromUri(uri: string, fallback = "species.jpg") {
+	const last = uri.split("/").pop() || fallback;
+	return last.split("?")[0];
+}
+
+type ModalMode = "result" | null; // 로딩은 전역 오버레이로 대체
+
 // ─────────────────────────────────────────────────────────────────────────────
 // ③ Component
 // ─────────────────────────────────────────────────────────────────────────────
 export default function CameraScreen() {
+	const router = useRouter();
+
 	// 3-1) Theme & Animated shared values
 	const scheme = useColorScheme();
 	const theme = Colors[scheme === "dark" ? "dark" : "light"];
-	const weaponAngle = useSharedValue(0);
 	const handY = useSharedValue(0);
-	const W = 75, H = 70;
 
 	// 3-2) Local States (UI & data)
 	const [uri, setUri] = useState<string | null>(null);
 	const [busy, setBusy] = useState(false);
 
-	// 결과 모달 상태
-	const [resultVisible, setResultVisible] = useState(false);
+	// 결과 + 모달 모드
 	const [result, setResult] = useState<ClassifyResult | null>(null);
+	const [modalMode, setModalMode] = useState<ModalMode>(null);
 
-	// 3-3) Handlers: 이미지 선택/초기화/카메라·갤러리 권한
+	// 3-3) Handlers
 	const handlePicked = async (pickedUri: string) => {
 		setUri(pickedUri);
+		setResult(null);
 		setBusy(true);
-		
-		try {
-			// 실제 백엔드 API 호출
-			const token = await getToken();
-			if (!token) {
-				Alert.alert("오류", "로그인이 필요합니다.");
-				return;
-			}
 
-			const formData = new FormData();
-			formData.append("image", {
-				uri: pickedUri,
-				type: "image/jpeg",
-				name: "species.jpg",
-			} as any);
+		// 전역 로딩 오버레이 시작: 네비게이션 목적 없음 → to를 빈 문자열로 전달
+		startLoading(router, {
+			to: "" as Href,
+			// message를 비우면 loading.tsx가 랜덤 메시지를 순환해서 보여줌
+			task: async () => {
+				try {
+					const token = await getToken();
+					if (!token) {
+						Alert.alert("오류", "로그인이 필요합니다.");
+						setResult(mockClassify(pickedUri));
+						return;
+					}
 
-			const apiUrl = await getApiUrl("/plants/classify-species");
-			const response = await fetch(apiUrl, {
-				method: "POST",
-				body: formData,
-				headers: {
-					Authorization: `Bearer ${token}`,
-					"Content-Type": "multipart/form-data",
-				},
-			});
+					const formData = new FormData();
+					formData.append("image", {
+						uri: pickedUri,
+						type: "image/jpeg",
+						name: fileNameFromUri(pickedUri),
+					} as any);
 
-			if (!response.ok) {
-				throw new Error(`분류 실패: ${response.status}`);
-			}
+					const apiUrl = getApiUrl("/plants/classify-species");
+					const response = await fetch(apiUrl, {
+						method: "POST",
+						headers: { Authorization: `Bearer ${token}` }, // ⚠ Content-Type X
+						body: formData,
+					});
 
-			const result = await response.json();
-			if (result.success && result.species) {
-				setResult({
-					species: result.species,
-					confidence: result.confidence || 85,
-				});
-				setResultVisible(true);
-			} else {
-				throw new Error("분류 결과를 받을 수 없습니다.");
-			}
-		} catch (error) {
-			console.error("분류 오류:", error);
-			Alert.alert("분류 실패", "식물 분류 중 문제가 발생했습니다.");
-			// 실패 시 모의 분류 결과 사용
-			const r = mockClassify(pickedUri);
-			setResult(r);
-			setResultVisible(true);
-		} finally {
-			setBusy(false);
-		}
+					if (!response.ok) throw new Error(`분류 실패: ${response.status}`);
+
+					const data = await response.json();
+					if (data?.success && data?.species) {
+						setResult({
+							species: data.species,
+							confidence: Math.round(data.confidence ?? 85),
+						});
+					} else {
+						setResult(mockClassify(pickedUri));
+					}
+				} catch (err) {
+					console.error("[infer] error:", err);
+					Alert.alert("분류 실패", "식물 분류 중 문제가 발생했습니다. (임시 결과 표시)");
+					setResult(mockClassify(pickedUri));
+				} finally {
+					// 전역 로딩은 startLoading 내부 finally에서 자동으로 꺼짐
+					setModalMode("result"); // 결과 모달 표시
+					setBusy(false);
+				}
+			},
+			// timeoutMs: 0  // 필요 시 강제 종료 및 네비게이션에 사용
+		});
 	};
 
 	const askCamera = async () => {
@@ -138,7 +151,7 @@ export default function CameraScreen() {
 	const clearImage = () => {
 		setUri(null);
 		setResult(null);
-		setResultVisible(false);
+		setModalMode(null);
 	};
 
 	// 3-4) Effects: 최초 진입 시 카메라 자동 실행(1회)
@@ -149,22 +162,18 @@ export default function CameraScreen() {
 		setTimeout(() => { askCamera().catch(() => {}); }, 0);
 	}, []);
 
-	// 3-5) Animations (페이지 내 요소 용도이면 유지 — 여기서는 스타일만 남겨둠)
+	// 3-5) Small animation (optional)
 	useEffect(() => {
-		// 페이지의 다른 요소용 애니가 있었다면 유지
 		handY.value = withRepeat(
 			withSequence(
 				withTiming(-2, { duration: 250, easing: Easing.inOut(Easing.quad) }),
-				withTiming(0,	{ duration: 600, easing: Easing.inOut(Easing.quad) }),
-				withTiming(0,	{ duration: 250, easing: Easing.inOut(Easing.quad) }),
+				withTiming(0,  { duration: 600, easing: Easing.inOut(Easing.quad) }),
+				withTiming(0,  { duration: 250, easing: Easing.inOut(Easing.quad) }),
 			),
 			-1, false
 		);
 	}, []);
-
-	const handAnimatedStyle = useAnimatedStyle(() => ({
-		transform: [{ translateY: handY.value }],
-	}));
+	const handAnimatedStyle = useAnimatedStyle(() => ({ transform: [{ translateY: handY.value }] }));
 
 	// 3-6) Render
 	return (
@@ -195,14 +204,17 @@ export default function CameraScreen() {
 				)}
 			</View>
 
-			{/* Result Modal (공통 컴포넌트) */}
+			{/* 결과 모달 */}
 			<ClassifierResultModal
-				visible={resultVisible}
+				visible={modalMode === "result"}
 				theme={theme}
 				result={result}
-				onClose={() => setResultVisible(false)}
+				onClose={() => setModalMode(null)}
 				onRetake={askCamera}
 			/>
+
+			{/* (예시) 페이지 내 작은 데코 요소에 사용할 수 있음 */}
+			<Animated.View style={[{ height: 2 }, handAnimatedStyle]} />
 		</View>
 	);
 }

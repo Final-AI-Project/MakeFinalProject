@@ -29,6 +29,8 @@ async def diagnose_disease_from_upload(
     - **image**: 진단할 식물 이미지 파일
     """
     try:
+        print(f"[DEBUG] 진단 요청 받음 - 사용자: {user.get('user_id', 'unknown')}")
+        
         # 파일 유효성 검사
         if not image.filename:
             raise HTTPException(status_code=400, detail="파일명이 없습니다.")
@@ -45,8 +47,18 @@ async def diagnose_disease_from_upload(
         print(f"[DEBUG] 저장된 이미지 URL: {img_url}")
         
         # 병충해 진단 수행
+        print("[DEBUG] 모델 서버 호출 시작...")
         result = await diagnose_disease_from_image(image_data)
         print(f"[DEBUG] 진단 결과: {result}")
+        
+        # DiseasePrediction 객체를 딕셔너리로 변환
+        disease_predictions_dict = []
+        for pred in result.disease_predictions:
+            disease_predictions_dict.append({
+                "class_name": pred.class_name,
+                "confidence": pred.confidence,
+                "rank": pred.rank
+            })
         
         response = DiseaseDiagnosisResponse(
             success=result.success,
@@ -55,7 +67,7 @@ async def diagnose_disease_from_upload(
             health_confidence=result.health_confidence,
             message=result.message,
             recommendation=result.recommendation,
-            disease_predictions=result.disease_predictions,
+            disease_predictions=disease_predictions_dict,  # 딕셔너리 리스트로 전달
             image_url=img_url
         )
         print(f"[DEBUG] 최종 응답: {response}")
@@ -124,9 +136,12 @@ async def get_user_plants_for_diagnosis(
 
 @router.post("/save", response_model=DiseaseDiagnosisSaveResponse)
 async def save_disease_diagnosis(
-    save_request: DiseaseDiagnosisSaveRequest,
-    user: dict = Depends(get_current_user),
-    db: tuple = Depends(get_db_connection)
+    plant_id: int = Form(...),
+    disease_name: str = Form(...),
+    confidence: float = Form(...),
+    diagnosis_date: str = Form(...),
+    image: Optional[UploadFile] = File(None),
+    user: dict = Depends(get_current_user)
 ):
     """
     병충해 진단 결과를 저장합니다.
@@ -138,43 +153,53 @@ async def save_disease_diagnosis(
     - **image_url**: 진단 이미지 URL
     """
     try:
-        # plant_id가 제공된 경우에만 저장
-        if save_request.plant_id is None:
-            return DiseaseDiagnosisSaveResponse(
-                success=True,
-                message="식물을 선택하지 않아 저장하지 않았습니다.",
-                diagnosis_id=None,
-                saved_to_my_plants=False
-            )
+        print(f"[DEBUG] 진단 결과 저장 요청 받음 - 사용자: {user.get('user_id', 'unknown')}")
+        print(f"[DEBUG] 저장 데이터: plant_id={plant_id}, disease_name={disease_name}, confidence={confidence}, diagnosis_date={diagnosis_date}")
         
-        # 사용자의 식물인지 확인
-        async with db.cursor(aiomysql.DictCursor) as cursor:
+        # 이미지 저장 (있는 경우)
+        image_url = None
+        if image and image.filename:
+            print(f"[DEBUG] 이미지 저장 중: {image.filename}")
+            image_url = await save_uploaded_image(image, "disease_diagnosis_save")
+            print(f"[DEBUG] 저장된 이미지 URL: {image_url}")
+        
+        # DB 연결 및 사용자의 식물인지 확인
+        async with get_db_connection() as (conn, cursor):
             await cursor.execute(
                 "SELECT plant_id FROM user_plant WHERE plant_id = %s AND user_id = %s",
-                (save_request.plant_id, user["user_id"])
+                (plant_id, user["user_id"])
             )
             if not await cursor.fetchone():
                 raise HTTPException(
                     status_code=403,
                     detail="해당 식물에 대한 권한이 없습니다."
                 )
-        
-        # 병충해 ID 조회 (pest_wiki 테이블에서)
-        async with db.cursor(aiomysql.DictCursor) as cursor:
+            
+            # 병충해 ID 조회 (pest_wiki 테이블에서)
             await cursor.execute(
                 "SELECT pest_id FROM pest_wiki WHERE pest_name = %s LIMIT 1",
-                (save_request.disease_name,)
+                (disease_name,)
             )
             pest_result = await cursor.fetchone()
             
             if pest_result:
-                pest_id = pest_result["pest_id"]
+                pest_id_db = pest_result["pest_id"]
+                print(f"[DEBUG] 병충해 ID 찾음: {pest_id_db}")
             else:
                 # 병충해가 DB에 없는 경우 기본값 사용
-                pest_id = 1  # 기본 병충해 ID
-        
-        # 진단 기록 저장
-        async with db.cursor(aiomysql.DictCursor) as cursor:
+                pest_id_db = 1  # 기본 병충해 ID
+                print(f"[DEBUG] 병충해 ID 없음, 기본값 사용: {pest_id_db}")
+            
+            # 날짜 문자열을 date 객체로 변환
+            from datetime import datetime
+            try:
+                parsed_date = datetime.strptime(diagnosis_date, "%Y-%m-%d").date()
+            except ValueError:
+                # 날짜 형식이 잘못된 경우 오늘 날짜 사용
+                parsed_date = datetime.now().date()
+                print(f"[DEBUG] 날짜 파싱 실패, 오늘 날짜 사용: {parsed_date}")
+            
+            # 진단 기록 저장
             await cursor.execute(
                 """
                 INSERT INTO user_plant_pest (
@@ -185,13 +210,14 @@ async def save_disease_diagnosis(
                 ) VALUES (%s, %s, %s, %s)
                 """,
                 (
-                    save_request.plant_id,
-                    pest_id,
-                    save_request.diagnosis_date,
-                    save_request.image_url
+                    plant_id,
+                    pest_id_db,
+                    parsed_date,
+                    image_url
                 )
             )
             diagnosis_id = cursor.lastrowid
+            print(f"[DEBUG] 진단 기록 저장 완료 - ID: {diagnosis_id}")
         
         return DiseaseDiagnosisSaveResponse(
             success=True,

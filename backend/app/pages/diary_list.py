@@ -18,6 +18,7 @@ from repositories.diary_list import (
 from repositories.diary import create as create_diary
 from db.pool import get_db_connection
 from services.auth_service import get_current_user
+from clients.plant_llm import get_plant_reply
 
 router = APIRouter(prefix="/diary-list", tags=["diary-list"])
 
@@ -302,7 +303,25 @@ async def create_diary_entry(
     새 일기를 작성합니다.
     """
     try:
+        print(f"[DEBUG] 일기 작성 요청 받음 - 사용자: {user.get('user_id', 'unknown')}")
+        print(f"[DEBUG] 요청 데이터: {diary_request}")
+        
         async with get_db_connection() as (conn, cursor):
+            print("[DEBUG] 데이터베이스 연결 성공")
+            
+            # AI 모델 호출하여 식물 답변 생성
+            print("[DEBUG] AI 모델 호출하여 식물 답변 생성 중...")
+            try:
+                plant_reply = await get_plant_reply(
+                    species=diary_request.plant_species or "식물",
+                    user_text=diary_request.user_content,
+                    moisture=None  # 습도 정보가 없으므로 None
+                )
+                print(f"[DEBUG] AI 답변 생성 성공: {plant_reply[:50]}...")
+            except Exception as e:
+                print(f"[DEBUG] AI 답변 생성 실패: {e}")
+                plant_reply = "안녕! 오늘도 잘 지내고 있어? 나는 너의 일기를 들을 수 있어서 기뻐!"  # 기본 답변
+            
             diary = await create_diary(
                 conn,
                 user_id=user["user_id"],
@@ -312,10 +331,12 @@ async def create_diary_entry(
                 hashtag=diary_request.hashtag,
                 plant_nickname=diary_request.plant_nickname,
                 plant_species=diary_request.plant_species,
-                plant_reply=None,  # DiaryWriteRequest에 plant_reply가 없으므로 None으로 설정
-                weather=None,  # DiaryWriteRequest에 weather가 없으므로 None으로 설정
+                plant_reply=plant_reply,  # AI 모델에서 생성된 답변
+                weather=diary_request.weather,  # DiaryWriteRequest에서 weather 받기
                 weather_icon=None  # DiaryWriteRequest에 weather_icon이 없으므로 None으로 설정
             )
+            
+            print(f"[DEBUG] 일기 생성 성공: {diary}")
             
             return DiaryWriteResponse(
                 success=True,
@@ -328,7 +349,7 @@ async def create_diary_entry(
                     hashtag=getattr(diary, 'hashtag', None),
                     plant_nickname=getattr(diary, 'plant_nickname', None),
                     plant_species=getattr(diary, 'plant_species', None),
-                    plant_reply=getattr(diary, 'plant_reply', None),
+                    plant_reply=plant_reply,  # AI 모델에서 생성된 답변
                     weather=getattr(diary, 'weather', None),
                     weather_icon=getattr(diary, 'weather_icon', None),
                     created_at=getattr(diary, 'created_at', None).strftime("%Y-%m-%d %H:%M:%S") if getattr(diary, 'created_at', None) else "2024-01-01 00:00:00",
