@@ -36,6 +36,12 @@ app = FastAPI(
 register_error_handlers(app)
 
 app.mount("/static", StaticFiles(directory="../static"), name="static")
+# Static 파일 서빙 설정
+import os
+static_dir = os.path.join(os.path.dirname(__file__), "..", "static")
+app.mount("/static", StaticFiles(directory=static_dir), name="static")
+
+# 라우터 등록
 app.include_router(router)
 
 # CORS (모바일/프론트 개발 편의) - 모든 오리진 허용
@@ -72,6 +78,7 @@ def version():
         "app": "Pland API", 
         "api_v": "0.1.0"
     }
+
 
 @app.get("/mqtt/last")
 def mqtt_last():

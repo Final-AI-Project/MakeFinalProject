@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from core.config import settings
 
 # 모델 서버 설정
-MODEL_SERVER_URL = "http://localhost:5000"
+MODEL_SERVER_URL = settings.MODEL_SERVER_URL
 
 class TalkResult(BaseModel):
     mode: Literal["daily", "plant", "hybrid"]

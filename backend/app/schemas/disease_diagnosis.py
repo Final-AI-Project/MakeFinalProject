@@ -6,18 +6,20 @@ from schemas.common import OrmBase
 
 class DiseasePrediction(BaseModel):
     """병충해 예측 결과 스키마"""
-    disease_name: str = Field(..., description="병충해 이름")
+    class_name: str = Field(..., description="병충해 이름")
     confidence: float = Field(..., description="신뢰도 (0.0 ~ 1.0)")
-    description: str = Field(..., description="병충해 설명")
-    treatment: str = Field(..., description="치료법")
-    prevention: str = Field(..., description="예방법")
+    rank: int = Field(..., description="순위")
 
 
 class DiseaseDiagnosisResponse(BaseModel):
     """병충해 진단 응답 스키마"""
     success: bool = Field(..., description="진단 성공 여부")
+    health_check: bool = Field(..., description="건강 상태 확인 여부")
+    health_status: str = Field(..., description="건강 상태 (healthy/unhealthy/diseased)")
+    health_confidence: float = Field(..., description="건강 상태 신뢰도")
     message: str = Field(..., description="진단 결과 메시지")
-    predictions: List[DiseasePrediction] = Field(..., description="상위 3개 예측 결과")
+    recommendation: str = Field(..., description="권장사항")
+    disease_predictions: List[DiseasePrediction] = Field(..., description="병충해 예측 결과")
     image_url: Optional[str] = Field(None, description="업로드된 이미지 URL")
 
 

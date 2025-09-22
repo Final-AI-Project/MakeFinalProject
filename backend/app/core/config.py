@@ -39,7 +39,7 @@ class Settings(BaseSettings):
     # JWT
     JWT_SECRET: str = Field(default='dev-only-change-me', validation_alias='JWT_SECRET')  # 개발용 기본값
     JWT_ALG: str = Field(default='HS256', validation_alias='JWT_ALG')
-    ACCESS_EXPIRES: int = Field(default=900, validation_alias='ACCESS_EXPIRES')                # 15m
+    ACCESS_EXPIRES: int = Field(default=7200, validation_alias='ACCESS_EXPIRES')               # 2h
     REFRESH_EXPIRES: int = Field(default=60 * 60 * 24 * 7, validation_alias='REFRESH_EXPIRES') # 7d
 
     # Media

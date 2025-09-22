@@ -13,6 +13,7 @@ IMAGES_PATH = BASE_STATIC_PATH / "images"
 PLANT_IMAGES_PATH = IMAGES_PATH / "plants"
 DIARY_IMAGES_PATH = IMAGES_PATH / "diaries"
 USER_IMAGES_PATH = IMAGES_PATH / "users"
+MEDICAL_IMAGES_PATH = IMAGES_PATH / "medical"
 TEMP_IMAGES_PATH = IMAGES_PATH / "temp"
 
 # 허용된 이미지 확장자
@@ -23,7 +24,7 @@ MAX_FILE_SIZE = 5 * 1024 * 1024
 
 def ensure_directories():
     """필요한 디렉토리들을 생성합니다."""
-    for path in [PLANT_IMAGES_PATH, DIARY_IMAGES_PATH, USER_IMAGES_PATH, TEMP_IMAGES_PATH]:
+    for path in [PLANT_IMAGES_PATH, DIARY_IMAGES_PATH, USER_IMAGES_PATH, MEDICAL_IMAGES_PATH, TEMP_IMAGES_PATH]:
         path.mkdir(parents=True, exist_ok=True)
 
 def is_allowed_file(filename: str) -> bool:
@@ -53,9 +54,14 @@ def get_image_path(image_type: str, filename: str) -> Path:
     """이미지 타입에 따른 경로를 반환합니다."""
     type_mapping = {
         "plant": PLANT_IMAGES_PATH,
+        "plants": PLANT_IMAGES_PATH,  # 복수형도 추가
         "diary": DIARY_IMAGES_PATH,
+        "diaries": DIARY_IMAGES_PATH,  # 복수형도 추가
         "user": USER_IMAGES_PATH,
-        "temp": TEMP_IMAGES_PATH
+        "users": USER_IMAGES_PATH,  # 복수형도 추가
+        "medical": MEDICAL_IMAGES_PATH,  # 의료 진단 이미지
+        "temp": TEMP_IMAGES_PATH,
+        "disease_diagnosis": MEDICAL_IMAGES_PATH  # 진단 이미지는 medical 폴더에
     }
     
     base_path = type_mapping.get(image_type, TEMP_IMAGES_PATH)

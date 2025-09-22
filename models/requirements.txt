@@ -24,8 +24,15 @@ pandas==2.2.3
 albumentations==1.4.24
 timm==1.0.12
 
+# LangChain dependencies for LLM functionality
+langchain==0.3.7
+langchain-community==0.3.7
+langchain-core==0.3.21
+langchain-openai==0.2.8
+
 # Notes:
 # - torch, torchvision maintain minimum version requirements (>=2.5.0, >=0.20.0)
 # - ultralytics updated to latest version for YOLO models
 # - Added additional ML libraries for data processing and augmentation
+# - Added LangChain packages for plant LLM functionality
 # - All packages tested for compatibility with plant classification models

@@ -3,6 +3,8 @@ from __future__ import annotations
 import uuid
 from typing import Optional, Tuple, Dict, Any
 import aiomysql
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 from models.user import User
 from schemas.user import UserCreate
@@ -18,6 +20,9 @@ from utils.security import (
 )
 from core.config import get_settings
 from utils import token_blacklist
+
+# JWT 토큰 검증을 위한 보안 스키마
+security = HTTPBearer()
 
 
 def _normalize_email(email: str) -> str:
@@ -205,3 +210,39 @@ async def get_user_for_sub(db, *, sub: str) -> User:
     if not user:
         raise http_error("user_not_found", "사용자를 찾을 수 없습니다.", 404)
     return user
+
+
+async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> Dict[str, Any]:
+    """
+    FastAPI 의존성 주입을 위한 현재 사용자 조회 함수.
+    JWT 토큰을 검증하고 사용자 정보를 반환합니다.
+    """
+    try:
+        # Bearer 토큰에서 실제 토큰 추출
+        token = credentials.credentials
+        
+        # 토큰 디코딩 및 검증
+        payload = decode_token(token, refresh=False)
+        
+        # 토큰에서 사용자 정보 추출
+        user_id = payload.get("sub")
+        if not user_id:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="토큰에 사용자 정보가 없습니다.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        
+        # 사용자 정보 반환 (DB 조회 없이 토큰에서 추출한 정보 사용)
+        return {
+            "user_id": user_id,
+            "uid": payload.get("uid"),
+            "nickname": payload.get("nickname"),
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="유효하지 않은 토큰입니다.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )

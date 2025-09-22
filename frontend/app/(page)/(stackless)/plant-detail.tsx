@@ -12,6 +12,9 @@ import { useRouter, type Href } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import { useColorScheme } from "react-native";
 import Colors from "../../../constants/Colors";
+import { getApiUrl } from "../../../config/api";
+import { getToken } from "../../../libs/auth";
+import { API_ENDPOINTS } from "../../../config/api";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ② Types & Constants
@@ -91,16 +94,50 @@ export default function PlantDetail() {
 	}
 
 	// 3-5) Delete / Edit / Back
-	function onDelete() {
+	async function onDelete() {
 		Alert.alert("삭제 확인", "정말 이 식물을 삭제할까요?", [
 			{ text: "취소", style: "cancel" },
 			{
 				text: "삭제",
 				style: "destructive",
-				onPress: () => {
-					// 실제 삭제 로직 연동 시 여기에 작성
-					Alert.alert("삭제됨", "식물이 삭제되었습니다.");
-					router.back();
+				onPress: async () => {
+					try {
+						setBusy(true);
+						
+						// 토큰 가져오기
+						const token = await getToken();
+						if (!token) {
+							Alert.alert("오류", "로그인이 필요합니다.");
+							return;
+						}
+
+						// API URL 생성
+						const apiUrl = await getApiUrl(API_ENDPOINTS.PLANTS.DELETE(Number(params.id)));
+						
+						// 삭제 요청
+						const response = await fetch(apiUrl, {
+							method: "DELETE",
+							headers: {
+								Authorization: `Bearer ${token}`,
+								"Content-Type": "application/json",
+							},
+						});
+
+						if (!response.ok) {
+							const errorData = await response.json().catch(() => ({}));
+							throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+						}
+
+						const result = await response.json();
+						Alert.alert("삭제 완료", result.message || "식물이 성공적으로 삭제되었습니다.");
+						router.back();
+						
+					} catch (error) {
+						console.error("식물 삭제 실패:", error);
+						Alert.alert("삭제 실패", error instanceof Error ? error.message : "식물 삭제 중 오류가 발생했습니다.");
+					} finally {
+						setBusy(false);
+					}
 				},
 			},
 		]);
@@ -228,39 +265,7 @@ export default function PlantDetail() {
 						))
 					)}
 				</View>
-
-				{/* 물 주기 기록(습도 증가 기준) */}
-				<View style={styles.card}>
-					<Text style={[styles.cardTitle, { color: theme.text }]}>물 주기 기록</Text>
-					<Text style={{ color: theme.text, marginBottom: 8 }}>
-						습도계 지수가 n% 증가하면 물 준 날로 기록(수동)
-					</Text>
-					<View style={styles.row}>
-						<TextInput
-							placeholder="예: 10"
-							placeholderTextColor="#909090"
-							keyboardType="number-pad"
-							value={humidityRise}
-							onChangeText={setHumidityRise}
-							style={[styles.input, styles.inputSmall, { color: theme.text, borderColor: theme.border }]}
-						/>
-						<Text style={[styles.unit, { color: theme.text }]}>%</Text>
-						<TouchableOpacity style={[styles.smallBtn, { backgroundColor: theme.primary }]} onPress={markWateringByHumidity}>
-							<Text style={styles.smallBtnText}>기록하기</Text>
-						</TouchableOpacity>
-					</View>
-					{waterLogs.length === 0 ? (
-						<Text style={{ color: "#888", marginTop: 8 }}>기록이 없어요.</Text>
-					) : (
-						waterLogs.map(log => (
-							<View key={log.id} style={styles.listRow}>
-								<Text style={[styles.listDate, { color: theme.text }]}>{log.createdAt}</Text>
-								<Text style={[styles.listText, { color: theme.text }]}>{log.reason}</Text>
-							</View>
-						))
-					)}
-				</View>
-
+				
 				{/* 내 식물 품종 정보 (BD 연동 전 비움) */}
 				<View style={styles.card}>
 					<Text style={[styles.cardTitle, { color: theme.text }]}>내 식물 품종 정보</Text>

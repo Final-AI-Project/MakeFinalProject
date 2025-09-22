@@ -8,21 +8,23 @@ from core.config import settings
 from utils.errors import http_error
 
 # 모델 서버 설정
-MODEL_SERVER_URL = "http://localhost:5000"
+MODEL_SERVER_URL = settings.MODEL_SERVER_URL
 
 class DiseasePrediction(BaseModel):
     """병충해 예측 결과"""
-    disease_name: str
+    class_name: str
     confidence: float
-    description: str
-    treatment: str
-    prevention: str
+    rank: int
 
 class DiseaseDiagnosisResult(BaseModel):
     """병충해 진단 결과"""
     success: bool
+    health_check: bool
+    health_status: str
+    health_confidence: float
     message: str
-    predictions: List[DiseasePrediction] = []
+    recommendation: str
+    disease_predictions: List[DiseasePrediction] = []
     image_url: Optional[str] = None
 
 async def diagnose_disease_from_image(image_data: bytes) -> DiseaseDiagnosisResult:
@@ -36,59 +38,50 @@ async def diagnose_disease_from_image(image_data: bytes) -> DiseaseDiagnosisResu
         DiseaseDiagnosisResult: 진단 결과 (상위 3개 예측)
     """
     try:
+        print(f"[DEBUG] 모델 서버 URL: {MODEL_SERVER_URL}")
+        print(f"[DEBUG] 이미지 데이터 크기: {len(image_data)} bytes")
+        
         async with httpx.AsyncClient(timeout=settings.MODEL_SERVER_TIMEOUT) as client:
             # 이미지를 파일로 전송
             files = {
                 'image': ('disease_image.jpg', image_data, 'image/jpeg')
             }
             
+            print(f"[DEBUG] 모델 서버에 요청 전송 중...")
+            print(f"[DEBUG] 파일 정보: {files['image'][0]}, 크기: {len(files['image'][1])} bytes")
+            
             response = await client.post(
                 f"{MODEL_SERVER_URL}/disease",
                 files=files
             )
+            print(f"[DEBUG] 모델 서버 응답 상태: {response.status_code}")
+            print(f"[DEBUG] 모델 서버 응답 내용: {response.text}")
             
             if response.status_code == 200:
                 data = response.json()
                 if data.get("success"):
-                    # 상위 3개 예측 결과 처리
-                    predictions = []
+                    # 새로운 응답 구조에 맞게 처리
+                    disease_predictions = []
                     
-                    # all_predictions에서 상위 3개 추출
-                    all_predictions = data.get("all_predictions", [])
-                    for i, pred in enumerate(all_predictions[:3]):
-                        disease_name = pred.get("class_name", f"Unknown Disease {i+1}")
-                        confidence = pred.get("confidence", 0.0)
-                        
-                        # 병충해 정보 생성 (실제로는 DB에서 가져와야 함)
-                        description = f"{disease_name} 병충해가 감지되었습니다."
-                        treatment = "식물 전문가에게 상담하거나 적절한 치료제를 사용하세요."
-                        prevention = "정기적인 관찰과 관리, 적절한 환경 조성을 통해 예방하세요."
-                        
-                        predictions.append(DiseasePrediction(
-                            disease_name=disease_name,
-                            confidence=confidence,
-                            description=description,
-                            treatment=treatment,
-                            prevention=prevention
+                    # disease_predictions에서 데이터 추출
+                    for pred in data.get("disease_predictions", []):
+                        disease_predictions.append(DiseasePrediction(
+                            class_name=pred.get("class_name", "Unknown Disease"),
+                            confidence=pred.get("confidence", 0.0),
+                            rank=pred.get("rank", 1)
                         ))
                     
-                    # 예측 결과가 없는 경우 더미 데이터 생성
-                    if not predictions:
-                        predictions = [
-                            DiseasePrediction(
-                                disease_name="Unknown Disease",
-                                confidence=0.5,
-                                description="병충해가 감지되었지만 정확한 종류를 식별할 수 없습니다.",
-                                treatment="식물 전문가에게 상담하세요.",
-                                prevention="정기적인 관찰과 관리가 필요합니다."
-                            )
-                        ]
-                    
-                    return DiseaseDiagnosisResult(
+                    result = DiseaseDiagnosisResult(
                         success=True,
-                        message=data.get("message", "병충해 진단이 완료되었습니다."),
-                        predictions=predictions
+                        health_check=data.get("health_check", False),
+                        health_status=data.get("health_status", "unknown"),
+                        health_confidence=data.get("health_confidence", 0.0),
+                        message=data.get("message", "진단이 완료되었습니다."),
+                        recommendation=data.get("recommendation", "정기적인 관찰을 계속하세요."),
+                        disease_predictions=disease_predictions
                     )
+                    print(f"[DEBUG] 최종 결과: {result}")
+                    return result
                 else:
                     raise http_error(
                         "disease_diagnosis_failed",

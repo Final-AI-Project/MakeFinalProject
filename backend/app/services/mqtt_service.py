@@ -1,17 +1,19 @@
-# services/mqtt_service.py
 from __future__ import annotations
 
 import asyncio
 import json
-import re
 import ssl
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta, date
+
 from typing import Any, Dict, Optional
 
 import paho.mqtt.client as mqtt
 
 from core.config import settings         
 from db.transaction import get_cursor   
+
+# UTC <> KST
+KST = timezone(timedelta(hours=9))
 
 
 class MQTTService:
@@ -21,7 +23,7 @@ class MQTTService:
     - payload 예:
       {"ts":1758176544,"deviceId":"1","moisture_raw":823,"moisture_pct":48}
     - humid_info 테이블 컬럼:
-      idx(PK, AUTO_INCREMENT), plant_id(INT), humidity(FLOAT), humid_date(DATETIME)
+      device_id(INT), humidity(varchar(50)), sensor_digit(INT), humid_date(DATETIME)
     """
 
     def __init__(self) -> None:
@@ -29,7 +31,7 @@ class MQTTService:
         self._client = mqtt.Client(client_id="plant-mqtt-sub", protocol=mqtt.MQTTv311)
         self._client.username_pw_set(settings.MQTT_USER, settings.MQTT_PASS)
 
-        # TLS (CA 검증 권장)
+        # TLS (CA 검증)
         ctx = ssl.create_default_context()
         ctx.load_verify_locations(settings.MQTT_CA_PATH)
         self._client.tls_set_context(ctx)
@@ -44,6 +46,10 @@ class MQTTService:
 
         # 디버그/상태 확인용
         self.last: Optional[Dict[str, Any]] = None
+
+
+
+
 
     # ---------- FastAPI lifespan에서 호출 ----------
     async def start(self, loop: asyncio.AbstractEventLoop) -> None:
@@ -77,15 +83,37 @@ class MQTTService:
                 client.subscribe(t, qos=1)
 
     def _on_message(self, client, userdata, msg):
-        # payload 파싱
+        parsed_ok = False
+        payload_text = None
         try:
             payload_text = msg.payload.decode("utf-8")
             data = json.loads(payload_text)
+            parsed_ok = True
         except Exception:
-            data = {"raw": msg.payload.decode("utf-8", "ignore")}
+            payload_text = msg.payload.decode("utf-8", "ignore")
+            data = {"raw": payload_text}
 
-        # 디버그/상태
         self.last = {"topic": msg.topic, **data}
+
+        # payload 콘솔 출력
+        now = datetime.now(KST).strftime("%Y-%m-%d %H:%M:%S")
+        if parsed_ok:
+            print(f"[{now}] [MQTT] topic={msg.topic} payload={payload_text}", flush=True)
+        else:
+            print(f"[{now}] [MQTT] topic={msg.topic} (non-JSON) payload={payload_text}", flush=True)
+
+        if not self._loop:
+            print("[MQTT] WARNING: _loop is None; did you call mqtt_service.start(loop)?", flush=True)
+            return
+
+        try:
+            self._loop.call_soon_threadsafe(
+                self._queue.put_nowait,
+                {"topic": msg.topic, "data": data, "received_at": datetime.now(timezone.utc)},
+            )
+        except asyncio.QueueFull:
+            print("[MQTT] ERROR: queue full; dropping message", flush=True)
+
 
         # 스레드 → asyncio 루프에 안전하게 enqueue
         if self._loop:
@@ -115,47 +143,72 @@ class MQTTService:
                 self._queue.task_done()
 
     async def _save_row(self, item: Dict[str, Any]) -> None:
-        """
-        humid_info INSERT
-        - plant_id: deviceId
-        - humidity: moisture_pct(없으면 humidity) 사용
-        - humid_date: ts(UTC epoch) → UTC naive DATETIME
-        """
         data: Dict[str, Any] = item["data"]
 
-        # 1) humidity
-        hv = data.get("moisture_pct", data.get("humidity"))
+        # 1. device_id → INT
+        dv = data.get("deviceId")
+        if isinstance(dv, int):
+            device_id = dv
+        elif isinstance(dv, str) and dv.strip().isdigit():
+            device_id = int(dv.strip())
+        else:
+            print("[MQTT→DB] skip: deviceId not numeric:", dv)
+            return
+        
+
+        # 2. humidity → INT(0~100)
+        hv = data.get("moisture_pct")
         if hv is None:
             return
-        humidity = float(hv)
-
-        # 2) plant_id: deviceId를 그대로 정수로 사용
-        device_id_val = data.get("deviceId", None)
-        plant_id: Optional[int] = None
-        if isinstance(device_id_val, int):
-            plant_id = device_id_val
-        elif isinstance(device_id_val, str):
-            s = device_id_val.strip()
-            if s.isdigit():
-                plant_id = int(s)
-
-        if plant_id is None:
-            # INT NOT NULL 제약: 숫자 아님 → 저장 스킵(원하면 기본값 0으로 변경 가능)
-            print("[MQTT→DB] skip: deviceId is not numeric:", device_id_val)
+        try:
+            humidity = max(0, min(100, int(round(float(hv)))))
+        except Exception:
             return
+        
+        # 3. sensor_digit → INT
+        sv_raw = data.get("moisture_raw")
+        sensor_digit: int | None
+        if sv_raw is None:
+            sensor_digit = None
+        else:
+            try:
+                sensor_digit = int(float(sv_raw))  # 숫자/문자 모두 시도
+            except (TypeError, ValueError):
+                sensor_digit = None
 
-        # 3) humid_date
+
+        # 4. humid_date → DATETIME (KST 기준)
+        # 지금은 DATE로 저장 중 (추후 수정 가능성 있음)
         ts = data.get("ts")
         if isinstance(ts, (int, float)):
             dt_utc = datetime.fromtimestamp(int(ts), tz=timezone.utc)
         else:
-            dt_utc = item["received_at"]  # 수신시각(UTC)
-        dt_naive = dt_utc.replace(tzinfo=None)  # MySQL DATETIME은 naive
+            dt_utc = item["received_at"]
+        dt_date = dt_utc.astimezone(KST).date()
+        # datetime 수정 시 .date() 삭제
 
-        sql = "INSERT INTO humid_info (plant_id, humidity, humid_date) VALUES (%s, %s, %s)"
-        # 당신 프로젝트의 커서 컨텍스트(= 같은 DB 풀 재사용)
+
+        # INSERT
+        sensor_digit_for_db = 0 if sensor_digit is None else sensor_digit
+
         async with get_cursor() as cursor:
-            await cursor.execute(sql, (plant_id, humidity, dt_naive))
+
+            print(f"[MQTT→DB] insert try: device_id={device_id}, humidity={humidity}, " f"sensor_digit={sensor_digit_for_db}, humid_date={dt_date}", flush=True)
+
+            await cursor.execute(
+                """
+                INSERT INTO humid_info (device_id, humidity, sensor_digit, humid_date)
+                VALUES (%s, %s, %s, %s)
+                """,
+                (device_id, humidity, sensor_digit_for_db, dt_date)
+            )
+            conn = getattr(cursor, "connection", None) or getattr(cursor, "_connection", None)
+            if conn is not None and hasattr(conn, "commit"):
+                await conn.commit()
+                print("[MQTT→DB] commit ok", flush=True)
+            else:
+                await cursor.execute("COMMIT")
+                print("[MQTT→DB] commit via SQL ok", flush=True)
 
 
 # 싱글톤 인스턴스

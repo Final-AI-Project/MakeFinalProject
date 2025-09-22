@@ -4,7 +4,9 @@ from schemas.diary import (
     DiaryListResponse,
     DiarySearchRequest,
     DiaryStatsResponse,
-    DiaryListItemResponse
+    DiaryListItemResponse,
+    DiaryWriteRequest,
+    DiaryWriteResponse
 )
 from repositories.diary_list import (
     get_user_diary_list,
@@ -13,7 +15,9 @@ from repositories.diary_list import (
     get_plant_diary_summary,
     get_recent_diaries
 )
-from utils.security import get_current_user
+from repositories.diary import create as create_diary
+from db.pool import get_db_connection
+from services.auth_service import get_current_user
 
 router = APIRouter(prefix="/diary-list", tags=["diary-list"])
 
@@ -287,4 +291,53 @@ async def export_diaries(
         raise HTTPException(
             status_code=500,
             detail=f"일기 내보내기 중 오류가 발생했습니다: {str(e)}"
+        )
+
+@router.post("/create", response_model=DiaryWriteResponse)
+async def create_diary_entry(
+    diary_request: DiaryWriteRequest,
+    user: dict = Depends(get_current_user)
+):
+    """
+    새 일기를 작성합니다.
+    """
+    try:
+        async with get_db_connection() as (conn, cursor):
+            diary = await create_diary(
+                conn,
+                user_id=user["user_id"],
+                user_title=diary_request.user_title,
+                user_content=diary_request.user_content,
+                img_url=None,  # DiaryWriteRequest에 img_url이 없으므로 None으로 설정
+                hashtag=diary_request.hashtag,
+                plant_nickname=diary_request.plant_nickname,
+                plant_species=diary_request.plant_species,
+                plant_reply=None,  # DiaryWriteRequest에 plant_reply가 없으므로 None으로 설정
+                weather=None,  # DiaryWriteRequest에 weather가 없으므로 None으로 설정
+                weather_icon=None  # DiaryWriteRequest에 weather_icon이 없으므로 None으로 설정
+            )
+            
+            return DiaryWriteResponse(
+                success=True,
+                message="일기가 성공적으로 작성되었습니다.",
+                diary=DiaryListItemResponse(
+                    idx=getattr(diary, 'idx', None) or getattr(diary, 'diary_id', None) or 1,  # 기본값 설정
+                    user_title=diary.user_title,
+                    user_content=diary.user_content,
+                    img_url=getattr(diary, 'img_url', None),
+                    hashtag=getattr(diary, 'hashtag', None),
+                    plant_nickname=getattr(diary, 'plant_nickname', None),
+                    plant_species=getattr(diary, 'plant_species', None),
+                    plant_reply=getattr(diary, 'plant_reply', None),
+                    weather=getattr(diary, 'weather', None),
+                    weather_icon=getattr(diary, 'weather_icon', None),
+                    created_at=getattr(diary, 'created_at', None).strftime("%Y-%m-%d %H:%M:%S") if getattr(diary, 'created_at', None) else "2024-01-01 00:00:00",
+                    updated_at=getattr(diary, 'updated_at', None).strftime("%Y-%m-%d %H:%M:%S") if getattr(diary, 'updated_at', None) else "2024-01-01 00:00:00"
+                )
+            )
+            
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"일기 작성 중 오류가 발생했습니다: {str(e)}"
         )

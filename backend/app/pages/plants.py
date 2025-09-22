@@ -1,14 +1,40 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from typing import List
 from schemas.dashboard import DashboardResponse, PlantStatusResponse
 from repositories.dashboard import get_user_plants_with_status, get_plant_humidity_history, get_plant_diary_count
+from services.auth_service import get_current_user
 
 router = APIRouter(prefix="/home", tags=["home"])
+
+@router.get("/plants/current", response_model=DashboardResponse)
+async def get_current_user_plants(user: dict = Depends(get_current_user)):
+    """
+    현재 로그인한 사용자의 모든 식물 정보와 상태를 조회합니다.
+    습도, 식물 위키, 병해충 정보를 포함합니다.
+    """
+    try:
+        user_id = user.get("user_id")
+        print(f"[DEBUG] User ID: {user_id}")
+        if not user_id:
+            raise HTTPException(status_code=401, detail="사용자 정보를 찾을 수 없습니다.")
+        
+        print(f"[DEBUG] Calling get_user_plants_with_status for user: {user_id}")
+        result = await get_user_plants_with_status(user_id)
+        print(f"[DEBUG] Result: {result}")
+        return result
+    except Exception as e:
+        print(f"[ERROR] Exception in get_current_user_plants: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=500,
+            detail=f"식물 정보 조회 중 오류가 발생했습니다: {str(e)}"
+        )
 
 @router.get("/plants/{user_id}", response_model=DashboardResponse)
 async def get_user_plants(user_id: str):
     """
-    사용자의 모든 식물 정보와 상태를 조회합니다.
+    특정 사용자의 모든 식물 정보와 상태를 조회합니다.
     습도, 식물 위키, 병해충 정보를 포함합니다.
     """
     try:
