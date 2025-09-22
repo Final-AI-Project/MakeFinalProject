@@ -28,6 +28,7 @@ import { useRouter } from "expo-router";
 import Colors from "../../../constants/Colors";
 import { fetchSimpleWeather } from "../../../components/common/weatherBox";
 import { useFocusEffect } from "@react-navigation/native";
+import { startLoading } from "../../../components/common/loading";
 
 // ✅ 데코 이미지 (RN는 default import/require 사용)
 import LLMDecoImage from "../../../assets/images/LLM_setting.png";				// 고정
@@ -462,6 +463,23 @@ export default function Diary() {
 		}
 	};
 
+	// Care Actions
+	type CareAction = "repot" | "prune" | "water" | "nutrient";
+
+	const CARE_ACTIONS: { key: CareAction; label: string; emoji: string }[] = [
+		{ key: "repot", label: "분갈이했음", emoji: "🪴" },
+		{ key: "prune", label: "가지치기 했음", emoji: "✂️" },
+		{ key: "water", label: "물줬음", emoji: "💧" },
+		{ key: "nutrient", label: "영양제 줬음", emoji: "🧪" },
+	];
+
+	const [actions, setActions] = useState<CareAction[]>([]);
+	const toggleAction = (k: CareAction) => {
+		setActions((prev) =>
+			prev.includes(k) ? prev.filter((v) => v !== k) : [...prev, k]
+		);
+	};
+
 	// 등록: 시트는 등록하면 열림
 	const handleSubmit = async () => {
 		if (!canSubmit) return;
@@ -742,6 +760,38 @@ export default function Diary() {
 						/>
 					</View>
 
+					{/* 오늘 한 일 (체크박스 스타일 토글) */}
+					<View style={styles.field}>
+						<Text style={[styles.sectionLabel, { color: theme.text }]}>오늘 한 일</Text>
+
+						<View style={styles.actionsWrap}>
+							{CARE_ACTIONS.map((act) => {
+								const active = actions.includes(act.key);
+								return (
+									<Pressable
+										key={act.key}
+										onPress={() => toggleAction(act.key)}
+										style={[
+											styles.actionPill,
+											{ borderColor: theme.border, backgroundColor: theme.bg },
+											active && [styles.actionPillActive, { backgroundColor: theme.primary }],
+										]}
+									>
+										<Text style={[styles.actionEmoji]}>{act.emoji}</Text>
+										<Text style={[styles.actionText, { color: active ? "#fff" : theme.text }]}>
+											{act.label}
+										</Text>
+										{active && <Text style={styles.actionCheck}>✓</Text>}
+									</Pressable>
+								);
+							})}
+						</View>
+
+						<Text style={[styles.actionsHint, { color: theme.text }]}>
+							선택한 항목은 일기와 함께 기록돼요.
+						</Text>
+					</View>
+
 					{/* 일기 내용 */}
 					<View style={styles.field}>
 						<Text style={[styles.sectionLabel, { color: theme.text }]}>
@@ -791,12 +841,17 @@ export default function Diary() {
 					{/* 하단 버튼 */}
 					<View style={[styles.bottomBar, { backgroundColor: theme.bg }]}>
 						<Pressable
-							onPress={() => router.back()}
+							onPress={() =>
+								startLoading(router, {
+									delay: 400,
+									to: "/(page)/diaryList",
+									replace: true,
+									timeoutMs: 0,
+								})
+							}
 							style={[styles.cancelBtn, { borderColor: theme.border }]}
 						>
-							<Text style={[styles.cancelText, { color: theme.text }]}>
-								취소
-							</Text>
+							<Text style={[styles.cancelText, { color: theme.text }]}>목록으로</Text>
 						</Pressable>
 						<Pressable
 							disabled={!canSubmit}
@@ -1014,5 +1069,41 @@ const styles = StyleSheet.create({
 		height: 42,
 		right: 50,
 		top: 46,
+	},
+	actionsWrap: {
+		flexDirection: "row",
+		flexWrap: "wrap",
+		gap: 8,
+	},
+	actionPill: {
+		flexDirection: "row",
+		alignItems: "center",
+		paddingHorizontal: 12,
+		paddingVertical: 10,
+		borderWidth: 1,
+		borderRadius: 999,
+	},
+	actionPillActive: {
+		borderColor: "transparent",
+	},
+	actionEmoji: {
+		fontSize: 16,
+		marginRight: 6,
+	},
+	actionText: {
+		fontSize: 14,
+		fontWeight: "700",
+		maxWidth: 160,
+	},
+	actionCheck: {
+		marginLeft: 6,
+		fontSize: 14,
+		fontWeight: "800",
+		color: "#fff",
+	},
+	actionsHint: {
+		fontSize: 12,
+		opacity: 0.7,
+		marginTop: 8,
 	},
 });
