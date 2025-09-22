@@ -18,9 +18,7 @@ async def get_user_diary_list(
     search_request: Optional[DiarySearchRequest] = None
 ) -> DiaryListResponse:
     """사용자의 일기 목록을 조회합니다."""
-    connection = None
-    try:
-        connection = await get_db_connection()
+    async with get_db_connection() as (conn, cursor):
         
         # 정렬 방향 검증
         if order_direction.lower() not in ["asc", "desc"]:
@@ -114,13 +112,6 @@ async def get_user_diary_list(
                 limit=limit,
                 has_more=(offset + limit) < total_count
             )
-            
-    except Exception as e:
-        print(f"Error in get_user_diary_list: {e}")
-        raise e
-    finally:
-        if connection:
-            connection.close()
 
 async def search_user_diaries(
     user_id: str,
@@ -139,9 +130,7 @@ async def search_user_diaries(
 
 async def get_diary_stats(user_id: str) -> DiaryStatsResponse:
     """사용자의 일기 통계를 조회합니다."""
-    connection = None
-    try:
-        connection = await get_db_connection()
+    async with get_db_connection() as (conn, cursor):
         
         # 기본 통계 조회
         stats_query = """
@@ -185,19 +174,10 @@ async def get_diary_stats(user_id: str) -> DiaryStatsResponse:
                 most_active_plant=most_active_plant,
                 average_diaries_per_plant=round(average_diaries_per_plant, 2)
             )
-            
-    except Exception as e:
-        print(f"Error in get_diary_stats: {e}")
-        raise e
-    finally:
-        if connection:
-            connection.close()
 
 async def get_plant_diary_summary(user_id: str) -> List[Dict[str, Any]]:
     """식물별 일기 요약을 조회합니다."""
-    connection = None
-    try:
-        connection = await get_db_connection()
+    async with get_db_connection() as (conn, cursor):
         
         query = """
         SELECT 
@@ -226,19 +206,10 @@ async def get_plant_diary_summary(user_id: str) -> List[Dict[str, Any]]:
                 }
                 for row in results
             ]
-            
-    except Exception as e:
-        print(f"Error in get_plant_diary_summary: {e}")
-        raise e
-    finally:
-        if connection:
-            connection.close()
 
 async def get_recent_diaries(user_id: str, limit: int = 5) -> List[DiaryListItemResponse]:
     """사용자의 최근 일기를 조회합니다."""
-    connection = None
-    try:
-        connection = await get_db_connection()
+    async with get_db_connection() as (conn, cursor):
         
         query = """
         SELECT 
@@ -260,15 +231,7 @@ async def get_recent_diaries(user_id: str, limit: int = 5) -> List[DiaryListItem
         LIMIT %s
         """
         
-        async with connection.cursor(aiomysql.DictCursor) as cursor:
-            await cursor.execute(query, (user_id, limit))
-            results = await cursor.fetchall()
-            
-            return [DiaryListItemResponse(**result) for result in results]
-            
-    except Exception as e:
-        print(f"Error in get_recent_diaries: {e}")
-        raise e
-    finally:
-        if connection:
-            connection.close()
+        await cursor.execute(query, (user_id, limit))
+        results = await cursor.fetchall()
+        
+        return [DiaryListItemResponse(**result) for result in results]

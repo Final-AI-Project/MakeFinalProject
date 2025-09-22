@@ -18,7 +18,7 @@ class DiaryCreate(OrmBase):
     hashtag: str | None = None
     plant_nickname: str | None = Field(None, max_length=100)  # 식물별명
     plant_species: str | None = Field(None, max_length=100)   # 식물종류
-    plant_reply: str | None = None     # 식물의 답변 (자동생성)
+    plant_content: str | None = None   # 식물의 답변 (자동생성)
     weather: str | None = None
     weather_icon: str | None = None    # 날씨 아이콘 URL
 
@@ -29,12 +29,12 @@ class DiaryUpdate(OrmBase):
     hashtag: str | None = None
     plant_nickname: str | None = Field(None, max_length=100)
     plant_species: str | None = Field(None, max_length=100)
-    plant_reply: str | None = None  # 수정시 재생성
+    plant_content: str | None = None  # 수정시 재생성
     weather: str | None = None
     weather_icon: str | None = None
 
 class DiaryOut(OrmBase):
-    idx: int
+    diary_id: int
     user_id: str
     user_title: str
     img_url: str | None
@@ -42,7 +42,7 @@ class DiaryOut(OrmBase):
     hashtag: str | None
     plant_nickname: str | None
     plant_species: str | None
-    plant_reply: str | None
+    plant_content: str | None
     weather: str | None
     weather_icon: str | None
     created_at: datetime
@@ -60,12 +60,12 @@ class DiaryListOut(OrmBase):
 # 일기 목록 페이지용 스키마
 class DiaryListItemResponse(OrmBase):
     """일기 목록 아이템 응답 스키마"""
-    idx: int
+    diary_id: int
     user_title: str
     user_content: str
     plant_nickname: Optional[str] = None
     plant_species: Optional[str] = None
-    plant_reply: Optional[str] = None
+    plant_content: Optional[str] = None
     weather: Optional[str] = None
     weather_icon: Optional[str] = None
     img_url: Optional[str] = None

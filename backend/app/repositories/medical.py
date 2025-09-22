@@ -11,7 +11,8 @@ async def get_user_medical_diagnoses(
     offset: int = 0
 ) -> List[MedicalDiagnosis]:
     """사용자의 모든 병충해 진단 기록을 조회합니다. (기존 테이블 기반)"""
-    async with db.cursor(aiomysql.DictCursor) as cursor:
+    conn, cursor = db
+    async with cursor:
         await cursor.execute(
             """
             SELECT 
@@ -45,7 +46,8 @@ async def get_medical_diagnosis_by_id(
     user_id: str
 ) -> Optional[MedicalDiagnosis]:
     """특정 병충해 진단 기록을 조회합니다."""
-    async with db.cursor(aiomysql.DictCursor) as cursor:
+    conn, cursor = db
+    async with cursor:
         await cursor.execute(
             """
             SELECT 
@@ -80,7 +82,8 @@ async def create_medical_diagnosis(
     diagnosis_image_url: Optional[str] = None,
 ) -> MedicalDiagnosis:
     """새로운 병충해 진단 기록을 생성합니다."""
-    async with db.cursor(aiomysql.DictCursor) as cursor:
+    conn, cursor = db
+    async with cursor:
         await cursor.execute(
             """
             INSERT INTO user_plant_pest (plant_id, pest_id, pest_date, diagnosis_image_url)
@@ -145,7 +148,8 @@ async def update_medical_diagnosis(
     
     update_values.extend([diagnosis_id, user_id])
     
-    async with db.cursor(aiomysql.DictCursor) as cursor:
+    conn, cursor = db
+    async with cursor:
         # 먼저 해당 진단이 사용자의 식물인지 확인
         await cursor.execute(
             """
@@ -201,7 +205,8 @@ async def delete_medical_diagnosis(
     user_id: str
 ) -> bool:
     """병충해 진단 기록을 삭제합니다."""
-    async with db.cursor(aiomysql.DictCursor) as cursor:
+    conn, cursor = db
+    async with cursor:
         await cursor.execute(
             """
             DELETE upp FROM user_plant_pest upp
@@ -218,7 +223,8 @@ async def get_medical_stats(
     user_id: str
 ) -> Dict[str, Any]:
     """사용자의 병충해 진단 통계를 조회합니다."""
-    async with db.cursor(aiomysql.DictCursor) as cursor:
+    conn, cursor = db
+    async with cursor:
         # 총 진단 수
         await cursor.execute(
             """
@@ -291,7 +297,8 @@ async def get_related_diagnoses(
     limit: int = 5
 ) -> List[MedicalDiagnosis]:
     """같은 식물의 관련 진단 기록을 조회합니다."""
-    async with db.cursor(aiomysql.DictCursor) as cursor:
+    conn, cursor = db
+    async with cursor:
         query = """
             SELECT 
                 upp.idx,

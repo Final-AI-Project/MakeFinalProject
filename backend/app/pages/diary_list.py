@@ -331,7 +331,7 @@ async def create_diary_entry(
                 hashtag=diary_request.hashtag,
                 plant_nickname=diary_request.plant_nickname,
                 plant_species=diary_request.plant_species,
-                plant_reply=plant_reply,  # AI 모델에서 생성된 답변
+                plant_content=plant_reply,  # AI 모델에서 생성된 답변
                 weather=diary_request.weather,  # DiaryWriteRequest에서 weather 받기
                 weather_icon=None  # DiaryWriteRequest에 weather_icon이 없으므로 None으로 설정
             )
@@ -349,7 +349,7 @@ async def create_diary_entry(
                     hashtag=getattr(diary, 'hashtag', None),
                     plant_nickname=getattr(diary, 'plant_nickname', None),
                     plant_species=getattr(diary, 'plant_species', None),
-                    plant_reply=plant_reply,  # AI 모델에서 생성된 답변
+                    plant_content=plant_reply,  # AI 모델에서 생성된 답변
                     weather=getattr(diary, 'weather', None),
                     weather_icon=getattr(diary, 'weather_icon', None),
                     created_at=getattr(diary, 'created_at', None).strftime("%Y-%m-%d %H:%M:%S") if getattr(diary, 'created_at', None) else "2024-01-01 00:00:00",

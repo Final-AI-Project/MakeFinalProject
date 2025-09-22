@@ -28,9 +28,11 @@ import { useRouter } from "expo-router";
 import Colors from "../../../constants/Colors";
 import { fetchSimpleWeather } from "../../../components/common/weatherBox";
 import { useFocusEffect } from "@react-navigation/native";
+import { getToken } from "../../../libs/auth";
+import { getApiUrl } from "../../../config/api";
 
 // ✅ 데코 이미지 (RN는 default import/require 사용)
-import LLMDecoImage from "../../../assets/images/LLM_setting.png";        // 고정
+import LLMDecoImage from "../../../assets/images/LLM_setting.png"; // 고정
 import LLMDecoImageFace from "../../../assets/images/LLM_setting_face.png"; // 애니메 #1
 import LLMDecoImageHand from "../../../assets/images/LLM_setting_hand.png"; // 애니메 #2
 

@@ -130,6 +130,7 @@ export default function medicalDetail() {
   const [myPlants, setMyPlants] = useState<{ label: string; value: string }[]>(
     []
   );
+  const [plantsData, setPlantsData] = useState<any[]>([]); // 식물 원본 데이터 저장
   const [plantsLoading, setPlantsLoading] = useState(true);
 
   // 식물 목록 가져오기
@@ -156,6 +157,7 @@ export default function medicalDetail() {
               value: plant.plant_name,
             }));
             setMyPlants(plantOptions);
+            setPlantsData(data.plants); // 원본 데이터 저장
           }
         }
       } catch (error) {
@@ -235,10 +237,26 @@ export default function medicalDetail() {
       ) {
         console.log("💾 진단 결과 저장 시작");
         console.log("🌱 선택된 식물:", selectedPlant);
+        console.log("🌱 선택된 식물 ID:", selectedPlant?.id);
+        console.log("🌱 선택된 식물 이름:", selectedPlant?.plant_name);
         console.log("🦠 진단 결과:", diagnosisResult.diseasePredictions[0]);
 
+        // 선택된 식물의 ID 찾기
+        const selectedPlantData = plantsData.find(
+          (plant: any) => plant.plant_name === selectedPlant
+        );
+        const plantId = selectedPlantData?.plant_id || selectedPlantData?.id;
+
+        console.log("🌱 선택된 식물 데이터:", selectedPlantData);
+        console.log("🌱 식물 ID:", plantId);
+
+        if (!plantId) {
+          Alert.alert("오류", "선택된 식물의 ID를 찾을 수 없습니다.");
+          return;
+        }
+
         const formData = new FormData();
-        formData.append("plant_id", (selectedPlant?.id || 1).toString()); // 선택된 식물 ID 사용
+        formData.append("plant_id", plantId.toString()); // 선택된 식물 ID 사용
         formData.append(
           "disease_name",
           diagnosisResult.diseasePredictions[0].class_name
@@ -260,6 +278,23 @@ export default function medicalDetail() {
 
         const apiUrl = getApiUrl("/disease-diagnosis/save");
         console.log("🌐 저장 API URL:", apiUrl);
+        console.log("🔑 토큰 존재:", !!token);
+        console.log("📤 FormData 내용:", formData);
+
+        // 네트워크 연결 테스트
+        try {
+          const testUrl = getApiUrl("/healthcheck");
+          console.log("🔍 연결 테스트 URL:", testUrl);
+          const testResponse = await fetch(testUrl, {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+          console.log("✅ 연결 테스트 성공:", testResponse.status);
+        } catch (testError) {
+          console.error("❌ 연결 테스트 실패:", testError);
+        }
 
         const response = await fetch(apiUrl, {
           method: "POST",
@@ -313,6 +348,22 @@ export default function medicalDetail() {
       console.log("🔍 진단 API URL:", apiUrl);
       console.log("🔑 토큰 존재:", !!token);
       console.log("📤 FormData 내용:", formData);
+      console.log("📤 이미지 URI:", uri);
+
+      // 네트워크 연결 테스트
+      try {
+        const testUrl = getApiUrl("/healthcheck");
+        console.log("🔍 연결 테스트 URL:", testUrl);
+        const testResponse = await fetch(testUrl, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        console.log("✅ 연결 테스트 성공:", testResponse.status);
+      } catch (testError) {
+        console.error("❌ 연결 테스트 실패:", testError);
+      }
 
       const response = await fetch(apiUrl, {
         method: "POST",
@@ -360,7 +411,12 @@ export default function medicalDetail() {
   const getDiagnosisDisplay = () => {
     if (!photoUri)
       return { type: "empty", title: "사진을 등록하세요", desc: "" };
-    if (inferBusy) return { type: "loading", title: "진단 중…", desc: "" };
+    if (inferBusy)
+      return {
+        type: "loading",
+        title: "진단 중…",
+        desc: "AI가 분석하고 있습니다",
+      };
 
     if (!diagnosisResult)
       return { type: "empty", title: "병충해 진단", desc: "" };
@@ -573,33 +629,62 @@ export default function medicalDetail() {
                   </View>
                 </View>
               ));
-            } else {
-              // 기본 상태 (사진 없음, 로딩 중 등)
-              return (
+            } else if (display.type === "loading") {
+              // 로딩 중 - 의심 병충해 3순위 박스 표시
+              return [1, 2, 3].map((rank) => (
                 <View
+                  key={rank}
                   style={[
                     styles.rowBox,
                     { borderColor: theme.border, marginBottom: 8 },
                   ]}
                 >
-                  <Text style={[styles.rank, { color: theme.text }]}>1.</Text>
+                  <Text style={[styles.rank, { color: theme.text }]}>
+                    {rank}.
+                  </Text>
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.diseaseName, { color: theme.text }]}>
-                      {display.title}
+                      의심 병충해 {rank}순위
                     </Text>
-                    {!!display.desc && (
-                      <Text
-                        style={[
-                          styles.diseaseDesc,
-                          { color: theme.text, opacity: 0.8 },
-                        ]}
-                      >
-                        {display.desc}
-                      </Text>
-                    )}
+                    <Text
+                      style={[
+                        styles.diseaseDesc,
+                        { color: theme.text, opacity: 0.8 },
+                      ]}
+                    >
+                      {display.desc}
+                    </Text>
                   </View>
                 </View>
-              );
+              ));
+            } else {
+              // 진단 전 - 의심 병충해 3순위 박스 표시
+              return [1, 2, 3].map((rank) => (
+                <View
+                  key={rank}
+                  style={[
+                    styles.rowBox,
+                    { borderColor: theme.border, marginBottom: 8 },
+                  ]}
+                >
+                  <Text style={[styles.rank, { color: theme.text }]}>
+                    {rank}.
+                  </Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.diseaseName, { color: theme.text }]}>
+                      진단 병충해 {rank}번
+                    </Text>
+                    <Text
+                      style={[
+                        styles.diseaseDesc,
+                        { color: theme.text, opacity: 0.8 },
+                      ]}
+                    >
+                      사진을 등록하고 진단을 실행하세요
+                    </Text>
+                  </View>
+                </View>
+              ));
             }
           })()}
         </View>

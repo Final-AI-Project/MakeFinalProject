@@ -153,8 +153,11 @@ async def save_disease_diagnosis(
     - **image_url**: 진단 이미지 URL
     """
     try:
-        print(f"[DEBUG] 진단 결과 저장 요청 받음 - 사용자: {user.get('user_id', 'unknown')}")
+        print(f"[DEBUG] ===== 진단 결과 저장 요청 시작 =====")
+        print(f"[DEBUG] 사용자: {user.get('user_id', 'unknown')}")
         print(f"[DEBUG] 저장 데이터: plant_id={plant_id}, disease_name={disease_name}, confidence={confidence}, diagnosis_date={diagnosis_date}")
+        print(f"[DEBUG] 이미지 파일: {image.filename if image else 'None'}")
+        print(f"[DEBUG] ======================================")
         
         # 이미지 저장 (있는 경우)
         image_url = None
@@ -165,14 +168,24 @@ async def save_disease_diagnosis(
         
         # DB 연결 및 사용자의 식물인지 확인
         async with get_db_connection() as (conn, cursor):
+            print(f"[DEBUG] 권한 확인: plant_id={plant_id}, user_id={user['user_id']}")
             await cursor.execute(
-                "SELECT plant_id FROM user_plant WHERE plant_id = %s AND user_id = %s",
+                "SELECT plant_id, plant_name FROM user_plant WHERE plant_id = %s AND user_id = %s",
                 (plant_id, user["user_id"])
             )
-            if not await cursor.fetchone():
+            plant_result = await cursor.fetchone()
+            print(f"[DEBUG] 권한 확인 결과: {plant_result}")
+            if not plant_result:
+                # 사용자의 모든 식물 목록도 출력
+                await cursor.execute(
+                    "SELECT plant_id, plant_name FROM user_plant WHERE user_id = %s",
+                    (user["user_id"],)
+                )
+                user_plants = await cursor.fetchall()
+                print(f"[DEBUG] 사용자의 모든 식물: {user_plants}")
                 raise HTTPException(
                     status_code=403,
-                    detail="해당 식물에 대한 권한이 없습니다."
+                    detail=f"해당 식물(ID: {plant_id})에 대한 권한이 없습니다."
                 )
             
             # 병충해 ID 조회 (pest_wiki 테이블에서)
@@ -205,15 +218,13 @@ async def save_disease_diagnosis(
                 INSERT INTO user_plant_pest (
                     plant_id, 
                     pest_id, 
-                    pest_date, 
-                    diagnosis_image_url
-                ) VALUES (%s, %s, %s, %s)
+                    pest_date
+                ) VALUES (%s, %s, %s)
                 """,
                 (
                     plant_id,
                     pest_id_db,
-                    parsed_date,
-                    image_url
+                    parsed_date
                 )
             )
             diagnosis_id = cursor.lastrowid

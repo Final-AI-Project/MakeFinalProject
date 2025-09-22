@@ -347,17 +347,21 @@ async def classify_disease(
 # -------------------------- LLM 처리 API
 from llm.src.orchestrator import plant_talk
 
+from pydantic import BaseModel
+from typing import Optional
+
+class LLMRequest(BaseModel):
+    species: str
+    user_text: str
+    moisture: Optional[float] = None
+
 @app.post("/llm")
-async def process_with_llm(
-    species: str,
-    user_text: str,
-    moisture: float = None
-):
+async def process_with_llm(request: LLMRequest):
     """
     LLM을 사용한 식물 대화 처리
     """
     try:
-        result = plant_talk(species, user_text, moisture)
+        result = plant_talk(request.species, request.user_text, request.moisture)
         
         return JSONResponse(content={
             'success': True,

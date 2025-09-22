@@ -23,7 +23,7 @@ async def create(
     hashtag: Optional[str] = None,
     plant_nickname: Optional[str] = None,
     plant_species: Optional[str] = None,
-    plant_reply: Optional[str] = None,
+    plant_content: Optional[str] = None,
     weather: Optional[str] = None,
     weather_icon: Optional[str] = None,
 ) -> Diary:
@@ -34,13 +34,19 @@ async def create(
     async with db.cursor(aiomysql.DictCursor) as cursor:
         # 1. diary 테이블에 일기 생성
         print("[DEBUG] diary 테이블에 INSERT 시도")
+        
+        # 테이블 구조 확인
+        await cursor.execute("DESCRIBE diary")
+        table_structure = await cursor.fetchall()
+        print(f"[DEBUG] diary 테이블 구조: {table_structure}")
+        
         try:
             await cursor.execute(
                 """
-                INSERT INTO diary (user_id, user_title, user_content, hashtag, plant_nickname, plant_species, plant_reply, weather, weather_icon)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                INSERT INTO diary (user_id, user_title, user_content, hashtag, plant_content, weather)
+                VALUES (%s, %s, %s, %s, %s, %s)
                 """,
-                (user_id, user_title, user_content, hashtag, plant_nickname, plant_species, plant_reply, weather, weather_icon)
+                (user_id, user_title, user_content, hashtag, plant_content, weather)
             )
             diary_id = cursor.lastrowid
             print(f"[DEBUG] diary INSERT 성공 - diary_id: {diary_id}")
@@ -61,14 +67,14 @@ async def create(
             )
             print("[DEBUG] img_address INSERT 성공")
         
-        # 3. 생성된 일기 조회 (idx 사용)
-        print(f"[DEBUG] 생성된 일기 조회 시도 - idx: {diary_id}")
-        await cursor.execute("SELECT * FROM diary WHERE idx = %s", (diary_id,))
+        # 3. 생성된 일기 조회 (diary_id 사용)
+        print(f"[DEBUG] 생성된 일기 조회 시도 - diary_id: {diary_id}")
+        await cursor.execute("SELECT * FROM diary WHERE diary_id = %s", (diary_id,))
         result = await cursor.fetchone()
         if not result:
-            print("[DEBUG] idx로 조회 실패, 최신 일기로 조회 시도")
-            # idx가 없으면 다른 방법으로 조회
-            await cursor.execute("SELECT * FROM diary ORDER BY idx DESC LIMIT 1")
+            print("[DEBUG] diary_id로 조회 실패, 최신 일기로 조회 시도")
+            # diary_id가 없으면 다른 방법으로 조회
+            await cursor.execute("SELECT * FROM diary ORDER BY diary_id DESC LIMIT 1")
             result = await cursor.fetchone()
         
         if result:
