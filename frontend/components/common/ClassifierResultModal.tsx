@@ -28,9 +28,9 @@ type ThemeLike = {
 type Props = {
 	visible: boolean;
 	theme: ThemeLike;
-	result: ClassifyResult | null;	 // 결과 없으면 로더 노출
-	onClose: () => void;						 // "확인" 클릭
-	onRetake: () => void;						// "다시 촬영" 클릭
+	result: ClassifyResult | null;   // 결과 없으면 로더 노출
+	onClose: () => void;              // "확인" 클릭
+	onRetake: () => void;             // "다시 촬영" 클릭
 };
 
 export default function ClassifierResultModal({
@@ -83,12 +83,20 @@ export default function ClassifierResultModal({
 			weaponAngle.value = 0;
 			handY.value = 0;
 		}
+
+		// 언마운트 안전장치
+		return () => {
+			cancelAnimation(weaponAngle);
+			cancelAnimation(handY);
+			weaponAngle.value = 0;
+			handY.value = 0;
+		};
 	}, [visible]);
 
 	const weaponAnimatedStyle = useAnimatedStyle(() => ({
 		transform: [
-			{ translateX:	(W / 2) + 10 },
-			{ translateY:	(H / 2) + 10 },
+			{ translateX: (W / 2) + 10 },
+			{ translateY: (H / 2) + 10 },
 			{ rotate: `${weaponAngle.value}deg` },
 			{ translateX: -(W / 2) + 10 },
 			{ translateY: -(H / 2) + 10 },
@@ -99,8 +107,10 @@ export default function ClassifierResultModal({
 		transform: [{ translateY: handY.value }],
 	}));
 
+	const isLoading = !result;
+
 	return (
-		<Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+		<Modal visible={visible} transparent animationType="fade" onRequestClose={onClose} statusBarTranslucent>
 			<View style={styles.modalBackdrop}>
 				<View style={[styles.modalCard, { backgroundColor: theme.bg }]}>
 					<Text style={[styles.modalTitle, { color: theme.text }]}>분류 결과</Text>
@@ -114,7 +124,7 @@ export default function ClassifierResultModal({
 						<ActivityIndicator />
 					)}
 
-					{/* 캐릭터 데코 + 애니메이션 (카메라와 동일 스타일) */}
+					{/* 캐릭터 데코 + 애니메이션 */}
 					<View style={styles.imageDecoBox}>
 						<Image source={classifiercharacter} style={styles.imageDeco} resizeMode="contain" />
 						<Animated.Image
@@ -132,15 +142,17 @@ export default function ClassifierResultModal({
 					{/* actions */}
 					<View style={styles.modalRow}>
 						<TouchableOpacity
-							style={[styles.btn, { backgroundColor: "#5f6368" }]}
+							style={[styles.btn, { backgroundColor: "#5f6368", opacity: isLoading ? 0.6 : 1 }]}
 							onPress={onRetake}
 							activeOpacity={0.9}
+							disabled={isLoading}
 						>
 							<Text style={styles.btnText}>다시 촬영</Text>
 						</TouchableOpacity>
 						<Pressable
-							style={[styles.btn, { backgroundColor: theme.primary || "#6a9eff", flex: 1 }]}
+							style={[styles.btn, { backgroundColor: theme.primary || "#6a9eff", flex: 1, opacity: isLoading ? 0.6 : 1 }]}
 							onPress={onClose}
+							disabled={isLoading}
 						>
 							<Text style={styles.btnText}>확인</Text>
 						</Pressable>
@@ -152,7 +164,7 @@ export default function ClassifierResultModal({
 }
 
 const styles = StyleSheet.create({
-	// Modal: layout & text (카메라와 동일)
+	// Modal: layout & text
 	modalBackdrop: {
 		flex: 1,
 		backgroundColor: "rgba(0,0,0,0.4)",
@@ -174,7 +186,7 @@ const styles = StyleSheet.create({
 	modalSub: { color: "#6b6b6b", marginTop: 6 },
 	modalRow: { flexDirection: "row", gap: 8 },
 
-	// Modal: character decoration (카메라 파일 기준)
+	// character decoration
 	imageDecoBox: {
 		display: "flex",
 		flexDirection: "row",

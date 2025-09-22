@@ -3,6 +3,7 @@ import { Tabs } from "expo-router";
 import { useColorScheme, View } from "react-native";
 import Colors from "../../constants/Colors";
 import BottomTabBar from "../../components/common/BottomTabBar";
+import { GlobalLoadingHost } from "../../components/common/loading";
 export default function PageLayout() {
   const scheme = useColorScheme();
   const theme = Colors[scheme === "dark" ? "dark" : "light"];
