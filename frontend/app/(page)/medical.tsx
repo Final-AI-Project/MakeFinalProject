@@ -17,11 +17,13 @@ import {
 	ActivityIndicator,
 	useColorScheme,
 	SectionList,
+	Easing,
 } from "react-native";
 import Colors from "../../constants/Colors";
 import { useRouter } from "expo-router";
 import arrowDownW from "../../assets/images/w_arrow_down.png";
 import arrowDownD from "../../assets/images/d_arrow_down.png";
+import medicalSetting from "../../assets/images/medical_setting.png";
 import { getToken } from "../../libs/auth";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -220,6 +222,37 @@ export default function MedicalPage() {
 	}, [fetchData]);
 
 	const sections = useMemo(() => groupBySpecies(data), [data]);
+	
+	// 왼쪽 하단 이미지 둥둥 애니메이션 (y축 보빙)
+	const bob = useRef(new Animated.Value(0)).current;
+	useEffect(() => {
+		const loop = Animated.loop(
+			Animated.sequence([
+				// 천천히 2시(약 60deg)까지
+				Animated.timing(bob, {
+					toValue: 1,
+					duration: 2000,
+					easing: Easing.out(Easing.quad),
+					useNativeDriver: true,
+				}),
+				// 빠르게 원위치(0deg)로 복귀
+				Animated.timing(bob, {
+					toValue: 0,
+					duration: 280,
+					easing: Easing.in(Easing.cubic),
+					useNativeDriver: true,
+				}),
+			])
+		);
+		loop.start();
+		return () => loop.stop();
+	}, [bob]);
+
+	// 각도로 변환 (0deg ↔ 60deg)
+	const bobRotate = bob.interpolate({
+		inputRange: [0, 1],
+		outputRange: ["0deg", "10deg"],
+	});
 
 	// 아이템 렌더
 	const renderItem = useCallback(
@@ -410,18 +443,7 @@ export default function MedicalPage() {
 				sections={sections}
 				keyExtractor={(item) => item.id}
 				renderItem={renderItem}
-				renderSectionHeader={({ section }) => (
-					<View
-						style={[
-							styles.sectionHeader,
-							{ borderColor: theme.border, backgroundColor: theme.bg },
-						]}
-					>
-						<Text style={[styles.sectionHeaderText, { color: theme.text }]}>
-							{section.title}
-						</Text>
-					</View>
-				)}
+				renderSectionHeader={() => null}
 				contentContainerStyle={{ padding: 16, paddingBottom: 24 }}
 				refreshControl={
 					<RefreshControl
@@ -455,6 +477,16 @@ export default function MedicalPage() {
 				<Text style={styles.fabPlus}>+</Text>
 				<Text style={styles.fabLabel}>진단하기</Text>
 			</Pressable>
+
+			{/* ⬅️ 왼쪽 하단 고정: medicalSetting 이미지 버튼 */}
+			<View style={styles.leftDeco} pointerEvents="none">
+				<Animated.Image
+					source={medicalSetting}
+					style={[styles.leftDecoImg, { transform: [{ rotate: bobRotate }] }]}
+					resizeMode="contain"
+				/>
+			</View>
+
 		</View>
 	);
 }
@@ -671,5 +703,18 @@ const styles = StyleSheet.create({
 		fontSize: 15,
 		fontWeight: "700",
 		color: "#fff",
+	},
+	leftDeco: {
+		position: "absolute",
+		left: 8,
+		bottom: 60,
+		width: 64,
+		height: 64,
+		alignItems: "center",
+		justifyContent: "center",
+	},
+	leftDecoImg: {
+		width: 150,
+		height: 150,
 	},
 });
