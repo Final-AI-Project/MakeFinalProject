@@ -10,6 +10,7 @@ import Colors from "../../constants/Colors";
 import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, withSequence, Easing } from "react-native-reanimated";
 import { getApiUrl } from "../../config/api";
 import { getToken } from "../../libs/auth";
+import { showAlert } from "../../components/common/appAlert";
 
 // 전역 로딩 오버레이 API
 import { startLoading } from "../../components/common/loading";
@@ -72,7 +73,7 @@ export default function CameraScreen() {
 				try {
 					const token = await getToken();
 					if (!token) {
-						Alert.alert("오류", "로그인이 필요합니다.");
+						showAlert({ title: "오류", message: "로그인이 필요합니다." });
 						setResult(mockClassify(pickedUri));
 						return;
 					}
@@ -104,7 +105,7 @@ export default function CameraScreen() {
 					}
 				} catch (err) {
 					console.error("[infer] error:", err);
-					Alert.alert("분류 실패", "식물 분류 중 문제가 발생했습니다. (임시 결과 표시)");
+					showAlert({ title: "분류 실패", message: "식물 분류 중 문제가 발생했습니다. (임시 결과 표시)" });
 					setResult(mockClassify(pickedUri));
 				} finally {
 					// 전역 로딩은 startLoading 내부 finally에서 자동으로 꺼짐
@@ -119,7 +120,7 @@ export default function CameraScreen() {
 	const askCamera = async () => {
 		const { status } = await ImagePicker.requestCameraPermissionsAsync();
 		if (status !== "granted") {
-			return Alert.alert("권한 필요", "카메라 권한을 허용해주세요.");
+			return showAlert({ title: "권한 필요", message: "카메라 권한을 허용해주세요." });
 		}
 		setBusy(true);
 		try {
@@ -135,7 +136,7 @@ export default function CameraScreen() {
 	const askGallery = async () => {
 		const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
 		if (status !== "granted") {
-			return Alert.alert("권한 필요", "갤러리 접근 권한을 허용해주세요.");
+			return showAlert({ title: "권한 필요", message: "갤러리 접근 권한을 허용해주세요." });
 		}
 		setBusy(true);
 		try {
