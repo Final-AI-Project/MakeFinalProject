@@ -51,8 +51,9 @@ export default function PlantDetail() {
     const [species] = useState<string>(params.species ?? "");
     const [startedAt] = useState<string>(params.startedAt ?? "");
     const [health, setHealth] = useState<string>("좋음"); // 기본값
-    const [pestLogs] = useState<PestLog[]>([]);   // ✨ 작성은 별도 페이지에서
-    const [diaryLogs] = useState<DiaryLog[]>([]); // ✨ 작성은 별도 페이지에서
+    const [watering, setWatering] = useState('');
+    const [pestLogs] = useState<PestLog[]>([]);
+    const [diaryLogs] = useState<DiaryLog[]>([]);
     const [waterLogs, setWaterLogs] = useState<WaterLog[]>([]);
     const [busy, setBusy] = useState(false);
 
@@ -272,6 +273,39 @@ export default function PlantDetail() {
                             </View>
                         ))
                     )}
+                </View>
+
+                {/* 일기 목록 (보기 전용 / 작성은 페이지 이동) */}
+                <View style={styles.card}>
+                    <View style={styles.cardHeader}>
+                        <Text style={[styles.cardTitle, { color: theme.text }]}>일기 목록</Text>
+                        <TouchableOpacity style={[styles.smallBtn, { backgroundColor: theme.primary }]} onPress={goDiaryNew}>
+                            <Text style={styles.smallBtnText}>일기 작성</Text>
+                        </TouchableOpacity>
+                    </View>
+                    {diaryLogs.length === 0 ? (
+                        <Text style={{ color: "#888" }}>작성한 일기가 없어요.</Text>
+                    ) : (
+                        diaryLogs.map(log => (
+                            <View key={log.id} style={styles.listRow}>
+                                <Text style={[styles.listDate, { color: theme.text }]}>{log.createdAt}</Text>
+                                <Text style={[styles.listText, { color: theme.text }]}>{log.text}</Text>
+                            </View>
+                        ))
+                    )}
+                </View>
+
+                {/* 다음 물 주기 */}
+                <View style={styles.card}>
+                    <Text style={[styles.cardTitle, { color: theme.text }]}>다음 물주기</Text>
+                    <TextInput
+                        placeholder="2025-09-23"
+                        placeholderTextColor="#909090"
+                        readOnly={true}
+                        value={watering}
+                        onChangeText={setWatering}
+                        style={[styles.input, { color: theme.text, borderColor: theme.border }]}
+                    />
                 </View>
 
                 {/* 일기 목록 (보기 전용 / 작성은 페이지 이동) */}
