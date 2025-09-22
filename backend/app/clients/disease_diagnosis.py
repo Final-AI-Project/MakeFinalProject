@@ -95,10 +95,15 @@ async def diagnose_disease_from_image(image_data: bytes) -> DiseaseDiagnosisResu
                     status=500
                 )
                 
-    except httpx.ConnectError:
+    except httpx.ConnectError as e:
+        print(f"[DEBUG] 모델 서버 연결 실패: {e}")
+        print(f"[DEBUG] 모델 서버 URL: {MODEL_SERVER_URL}")
         # 모델 서버 연결 실패 시 더미 데이터 반환
         return _get_dummy_diagnosis_result()
     except Exception as e:
+        print(f"[DEBUG] 진단 중 예외 발생: {e}")
+        import traceback
+        print(f"[DEBUG] 트레이스백: {traceback.format_exc()}")
         raise http_error(
             "disease_diagnosis_exception",
             f"병충해 진단 중 예외 발생: {str(e)}",

@@ -29,6 +29,8 @@ async def diagnose_disease_from_upload(
     - **image**: 진단할 식물 이미지 파일
     """
     try:
+        print(f"[DEBUG] 진단 요청 받음 - 사용자: {user.get('user_id', 'unknown')}")
+        
         # 파일 유효성 검사
         if not image.filename:
             raise HTTPException(status_code=400, detail="파일명이 없습니다.")
@@ -45,8 +47,18 @@ async def diagnose_disease_from_upload(
         print(f"[DEBUG] 저장된 이미지 URL: {img_url}")
         
         # 병충해 진단 수행
+        print("[DEBUG] 모델 서버 호출 시작...")
         result = await diagnose_disease_from_image(image_data)
         print(f"[DEBUG] 진단 결과: {result}")
+        
+        # DiseasePrediction 객체를 딕셔너리로 변환
+        disease_predictions_dict = []
+        for pred in result.disease_predictions:
+            disease_predictions_dict.append({
+                "class_name": pred.class_name,
+                "confidence": pred.confidence,
+                "rank": pred.rank
+            })
         
         response = DiseaseDiagnosisResponse(
             success=result.success,
@@ -55,7 +67,7 @@ async def diagnose_disease_from_upload(
             health_confidence=result.health_confidence,
             message=result.message,
             recommendation=result.recommendation,
-            disease_predictions=result.disease_predictions,
+            disease_predictions=disease_predictions_dict,  # 딕셔너리 리스트로 전달
             image_url=img_url
         )
         print(f"[DEBUG] 최종 응답: {response}")
