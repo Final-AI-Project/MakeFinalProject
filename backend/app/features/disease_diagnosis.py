@@ -105,7 +105,7 @@ async def get_user_plants_for_diagnosis(
                     species,
                     meet_day
                 FROM user_plant 
-                WHERE user_id = %s AND on = 1
+                WHERE user_id = %s
                 ORDER BY plant_name ASC
                 """,
                 (user["user_id"],)

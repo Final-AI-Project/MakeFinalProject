@@ -30,6 +30,7 @@ async def get_user_plants_with_status(user_id: str) -> DashboardResponse:
         print(f"[DEBUG] Test query result: {test_result}")
         
         # 이미지 정보를 포함한 쿼리 (plant_id로 조인)
+        # Final.sql에 따르면 img_address 테이블에 plant_id 컬럼이 있음
         query = """
         SELECT 
             up.plant_id,
@@ -38,19 +39,16 @@ async def get_user_plants_with_status(user_id: str) -> DashboardResponse:
             up.species,
             up.meet_day,
             
-            -- 사용자 식물 사진 (img_address 테이블의 이미지 - 가장 예전 것)
+            -- 사용자 식물 사진 (img_address 테이블의 이미지 - 첫 번째 이미지)
             ia.img_url as user_plant_image
             
         FROM user_plant up
-        LEFT JOIN (
-            SELECT 
-                plant_id,
-                img_url,
-                ROW_NUMBER() OVER (PARTITION BY plant_id ORDER BY plant_id ASC) as rn
-            FROM img_address
-            WHERE img_url IS NOT NULL AND img_url != '' AND plant_id IS NOT NULL
-        ) ia ON up.plant_id = ia.plant_id AND ia.rn = 1
+        LEFT JOIN img_address ia ON up.plant_id = ia.plant_id 
+            AND ia.img_url IS NOT NULL 
+            AND ia.img_url != '' 
+            AND ia.plant_id IS NOT NULL
         WHERE up.user_id = %s
+        GROUP BY up.plant_id, up.user_id, up.plant_name, up.species, up.meet_day, ia.img_url
         ORDER BY up.meet_day DESC
         """
         
@@ -60,6 +58,17 @@ async def get_user_plants_with_status(user_id: str) -> DashboardResponse:
         print(f"[DEBUG] Query returned {len(results)} results")
         for i, row in enumerate(results):
             print(f"[DEBUG] Row {i}: plant_id={row['plant_id']}, plant_name={row['plant_name']}, user_plant_image={row['user_plant_image']}")
+        
+        # img_address 테이블에 실제 데이터가 있는지 확인
+        print("[DEBUG] img_address 테이블 데이터 확인...")
+        await cursor.execute("SELECT COUNT(*) as total FROM img_address WHERE plant_id IS NOT NULL")
+        img_count = await cursor.fetchone()
+        print(f"[DEBUG] img_address 테이블의 plant_id가 있는 레코드 수: {img_count['total']}")
+        
+        if img_count['total'] > 0:
+            await cursor.execute("SELECT plant_id, img_url FROM img_address WHERE plant_id IS NOT NULL LIMIT 5")
+            sample_imgs = await cursor.fetchall()
+            print(f"[DEBUG] img_address 샘플 데이터: {sample_imgs}")
         
         plants = []
         for row in results:

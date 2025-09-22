@@ -28,33 +28,44 @@ async def classify_plant_species(image_data: bytes) -> SpeciesClassificationResu
         SpeciesClassificationResult: 분류 결과
     """
     try:
+        print(f"[DEBUG] 품종 분류 시작 - 모델 서버 URL: {MODEL_SERVER_URL}")
+        print(f"[DEBUG] 이미지 데이터 크기: {len(image_data)} bytes")
+        
         async with httpx.AsyncClient(timeout=settings.MODEL_SERVER_TIMEOUT) as client:
             # 이미지를 파일로 전송
             files = {
                 'image': ('plant_image.jpg', image_data, 'image/jpeg')
             }
             
+            print(f"[DEBUG] API 호출 중: {MODEL_SERVER_URL}/species")
             response = await client.post(
                 f"{MODEL_SERVER_URL}/species",
                 files=files
             )
+            print(f"[DEBUG] API 응답 상태: {response.status_code}")
             
             if response.status_code == 200:
                 data = response.json()
+                print(f"[DEBUG] 모델 서버 응답 데이터: {data}")
+                
                 if data.get("success"):
-                    return SpeciesClassificationResult(
+                    result = SpeciesClassificationResult(
                         success=True,
                         species=data.get("species"),
                         confidence=data.get("confidence"),
                         top_predictions=data.get("top_predictions"),
                         message=data.get("message", "품종 분류가 완료되었습니다.")
                     )
+                    print(f"[DEBUG] 품종 분류 성공: {result}")
+                    return result
                 else:
                     # 모델 서버에서 에러가 발생한 경우
-                    return SpeciesClassificationResult(
+                    result = SpeciesClassificationResult(
                         success=False,
                         message=data.get("message", "품종 분류에 실패했습니다.")
                     )
+                    print(f"[DEBUG] 품종 분류 실패: {result}")
+                    return result
             else:
                 # HTTP 에러가 발생한 경우
                 return SpeciesClassificationResult(
@@ -62,17 +73,30 @@ async def classify_plant_species(image_data: bytes) -> SpeciesClassificationResu
                     message=f"모델 서버 응답 오류: {response.status_code}"
                 )
                 
-    except httpx.TimeoutException:
+    except httpx.TimeoutException as e:
+        print(f"[ERROR] 모델 서버 응답 시간 초과: {e}")
         return SpeciesClassificationResult(
             success=False,
             message="모델 서버 응답 시간 초과"
         )
-    except httpx.ConnectError:
+    except httpx.ConnectError as e:
+        print(f"[ERROR] 모델 서버 연결 실패: {e}")
         return SpeciesClassificationResult(
             success=False,
             message="모델 서버에 연결할 수 없습니다"
         )
+    except httpx.HTTPStatusError as e:
+        print(f"[ERROR] HTTP 상태 오류: {e.response.status_code} - {e.response.text}")
+        print(f"[ERROR] 요청 URL: {MODEL_SERVER_URL}/species")
+        print(f"[ERROR] 이미지 데이터 크기: {len(image_data)} bytes")
+        return SpeciesClassificationResult(
+            success=False,
+            message=f"모델 서버 HTTP 오류: {e.response.status_code}"
+        )
     except Exception as e:
+        print(f"[ERROR] 품종 분류 중 예상치 못한 오류: {type(e).__name__}: {e}")
+        import traceback
+        print(f"[ERROR] 트레이스백: {traceback.format_exc()}")
         return SpeciesClassificationResult(
             success=False,
             message=f"품종 분류 중 오류가 발생했습니다: {str(e)}"

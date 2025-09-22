@@ -5,6 +5,7 @@ from datetime import date, datetime
 class PlantRegistrationRequest(BaseModel):
     """식물 등록 요청 스키마"""
     plant_name: str = Field(..., min_length=1, max_length=100, description="식물 별명")
+    location: Optional[str] = Field(None, max_length=300, description="식물 위치")
     species: Optional[str] = Field(None, max_length=100, description="식물 품종")
     meet_day: date = Field(..., description="키우기 시작한 날")
     plant_id: Optional[int] = Field(None, description="식물 위키 ID (선택사항)")
@@ -14,6 +15,7 @@ class PlantRegistrationResponse(BaseModel):
     idx: int = Field(..., description="등록된 식물 ID")
     user_id: str = Field(..., description="사용자 ID")
     plant_name: str = Field(..., description="식물 별명")
+    location: Optional[str] = Field(None, description="식물 위치")
     species: Optional[str] = Field(None, description="식물 품종")
     meet_day: date = Field(..., description="키우기 시작한 날")
     plant_id: Optional[int] = Field(None, description="식물 위키 ID")
@@ -43,6 +45,7 @@ class PlantListResponse(BaseModel):
 class PlantUpdateRequest(BaseModel):
     """식물 정보 수정 요청 스키마"""
     plant_name: Optional[str] = Field(None, min_length=1, max_length=100, description="식물 별명")
+    location: Optional[str] = Field(None, max_length=300, description="식물 위치")
     species: Optional[str] = Field(None, max_length=100, description="식물 품종")
     meet_day: Optional[date] = Field(None, description="키우기 시작한 날")
     plant_id: Optional[int] = Field(None, description="식물 위키 ID")
@@ -52,6 +55,7 @@ class PlantUpdateResponse(BaseModel):
     idx: int = Field(..., description="식물 ID")
     user_id: str = Field(..., description="사용자 ID")
     plant_name: str = Field(..., description="식물 별명")
+    location: Optional[str] = Field(None, description="식물 위치")
     species: Optional[str] = Field(None, description="식물 품종")
     meet_day: date = Field(..., description="키우기 시작한 날")
     plant_id: Optional[int] = Field(None, description="식물 위키 ID")

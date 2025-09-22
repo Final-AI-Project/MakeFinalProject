@@ -21,12 +21,12 @@ import { getToken } from "../../libs/auth";
 // ① Types
 // ─────────────────────────────────────────────────────────────────────────────
 type Diary = {
-  diary_id: number;
+  idx: number;
   user_title: string;
   user_content: string;
   plant_nickname?: string;
   plant_species?: string;
-  plant_content?: string; // AI 답변
+  plant_reply?: string; // AI 답변
   weather?: string;
   weather_icon?: string;
   img_url?: string;
@@ -120,7 +120,7 @@ export default function DiaryList() {
   const openDiary = (item: Diary) => {
     router.push({
       pathname: "/(page)/diary",
-      params: { id: item.diary_id.toString() },
+      params: { id: item.idx.toString() },
     });
   };
 
@@ -189,7 +189,7 @@ export default function DiaryList() {
       {!loading && !error && (
         <FlatList
           data={data}
-          keyExtractor={(item) => item.diary_id.toString()}
+          keyExtractor={(item) => item.idx.toString()}
           contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 120 }}
           renderItem={({ item }) => (
             <Pressable

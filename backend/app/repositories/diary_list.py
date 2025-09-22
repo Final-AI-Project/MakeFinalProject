@@ -82,19 +82,20 @@ async def get_user_diary_list(
             # 일기 목록 조회
             list_query = f"""
             SELECT 
-                d.diary_id,
+                d.idx,
                 d.user_title,
                 d.user_content,
-                d.plant_content,
+                d.plant_nickname,
+                d.plant_species,
+                d.plant_reply,
                 d.weather,
+                d.weather_icon,
                 d.hashtag,
                 d.created_at,
-                up.plant_name as plant_nickname,
-                up.species as plant_species,
+                d.updated_at,
                 ia.img_url
             FROM diary d
-            LEFT JOIN user_plant up ON d.plant_id = up.plant_id
-            LEFT JOIN img_address ia ON d.diary_id = ia.diary_id
+            LEFT JOIN img_address ia ON d.idx = ia.diary_id
             WHERE {where_clause}
             ORDER BY {order_column} {order_direction.upper()}
             LIMIT %s OFFSET %s
@@ -217,19 +218,20 @@ async def get_recent_diaries(user_id: str, limit: int = 5) -> List[DiaryListItem
         
         query = """
         SELECT 
-            d.diary_id,
+            d.idx,
             d.user_title,
             d.user_content,
-            d.plant_content,
+            d.plant_nickname,
+            d.plant_species,
+            d.plant_reply,
             d.weather,
+            d.weather_icon,
             d.hashtag,
             d.created_at,
-            up.plant_name as plant_nickname,
-            up.species as plant_species,
+            d.updated_at,
             ia.img_url
         FROM diary d
-        LEFT JOIN user_plant up ON d.plant_id = up.plant_id
-        LEFT JOIN img_address ia ON d.diary_id = ia.diary_id
+        LEFT JOIN img_address ia ON d.idx = ia.diary_id
         WHERE d.user_id = %s
         ORDER BY d.created_at DESC
         LIMIT %s

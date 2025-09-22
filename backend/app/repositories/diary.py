@@ -27,10 +27,10 @@ async def save_image_file(image_data: bytes, filename: str) -> str:
     return f"/uploads/diary_images/{unique_filename}"
 
 
-async def get_by_idx(db, idx: int) -> Optional[Diary]:
-    """idx로 일기 조회"""
+async def get_by_diary_id(db, diary_id: int) -> Optional[Diary]:
+    """diary_id로 일기 조회"""
     async with db.cursor(aiomysql.DictCursor) as cursor:
-        await cursor.execute("SELECT * FROM diary WHERE idx = %s", (idx,))
+        await cursor.execute("SELECT * FROM diary WHERE diary_id = %s", (diary_id,))
         result = await cursor.fetchone()
         return Diary.from_dict(result) if result else None
 
@@ -45,6 +45,11 @@ async def create(
     plant_id: Optional[int] = None,
     plant_content: Optional[str] = None,
     weather: Optional[str] = None,
+    hist_watered: Optional[int] = None,
+    hist_repot: Optional[int] = None,
+    hist_pruning: Optional[int] = None,
+    hist_fertilize: Optional[int] = None,
+    created_at: Optional[date] = None,
     image_data: Optional[bytes] = None,
     image_filename: Optional[str] = None,
 ) -> Diary:
@@ -64,10 +69,10 @@ async def create(
         try:
             await cursor.execute(
                 """
-                INSERT INTO diary (user_id, user_title, user_content, hashtag, plant_id, plant_content, weather)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                INSERT INTO diary (user_id, user_title, user_content, hashtag, plant_id, plant_content, weather, hist_watered, hist_repot, hist_pruning, hist_fertilize, created_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
-                (user_id, user_title, user_content, hashtag, plant_id, plant_content, weather)
+                (user_id, user_title, user_content, hashtag, plant_id, plant_content, weather, hist_watered, hist_repot, hist_pruning, hist_fertilize, created_at)
             )
             diary_id = cursor.lastrowid
             print(f"[DEBUG] diary INSERT 성공 - diary_id: {diary_id}")
@@ -87,10 +92,10 @@ async def create(
                 # img_address 테이블에 저장
                 await cursor.execute(
                     """
-                    INSERT INTO img_address (diary_id, plant_id, img_url)
-                    VALUES (%s, %s, %s)
+                    INSERT INTO img_address (diary_id, img_url)
+                    VALUES (%s, %s)
                     """,
-                    (diary_id, plant_id, img_url)
+                    (diary_id, img_url)
                 )
                 print("[DEBUG] img_address INSERT 성공")
             except Exception as e:

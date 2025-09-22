@@ -1,9 +1,59 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from typing import List
 from schemas.plant_detail import PlantDiaryResponse
+from schemas.disease_diagnosis import UserPlantOption, UserPlantsResponse
 from repositories.plant_detail import get_plant_diaries, get_plant_diary_count, get_plant_recent_diary_summary
+from services.auth_service import get_current_user
+from db.pool import get_db_connection
+import aiomysql
 
 router = APIRouter(prefix="/plant-detail", tags=["plant-detail-diary"])
+
+@router.get("/my-plants", response_model=UserPlantsResponse)
+async def get_user_plants_for_diary(
+    user: dict = Depends(get_current_user),
+    db: tuple = Depends(get_db_connection)
+):
+    """
+    일기 작성/수정 시 사용할 사용자의 식물 목록을 조회합니다.
+    """
+    try:
+        conn, cursor = db
+        await cursor.execute(
+            """
+            SELECT 
+                plant_id,
+                plant_name,
+                species,
+                meet_day
+            FROM user_plant 
+            WHERE user_id = %s
+            ORDER BY plant_name ASC
+            """,
+            (user["user_id"],)
+        )
+        results = await cursor.fetchall()
+        
+        plants = [
+            UserPlantOption(
+                plant_id=row["plant_id"],
+                plant_name=row["plant_name"],
+                species=row["species"],
+                meet_day=row["meet_day"]
+            )
+            for row in results
+        ]
+        
+        return UserPlantsResponse(
+            plants=plants,
+            total_count=len(plants)
+        )
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"사용자 식물 목록 조회 중 오류가 발생했습니다: {str(e)}"
+        )
 
 @router.get("/{plant_idx}/diaries", response_model=List[PlantDiaryResponse])
 async def get_plant_diary_list(plant_idx: int, user_id: str, limit: int = 10):

@@ -331,13 +331,14 @@ async def create_diary_entry(
                 user_id=user["user_id"],
                 user_title=diary_request.user_title,
                 user_content=diary_request.user_content,
-                img_url=None,  # DiaryWriteRequest에 img_url이 없으므로 None으로 설정
                 hashtag=diary_request.hashtag,
-                plant_nickname=diary_request.plant_nickname,
-                plant_species=diary_request.plant_species,
-                plant_content=plant_reply,  # AI 모델에서 생성된 답변
-                weather=diary_request.weather,  # DiaryWriteRequest에서 weather 받기
-                weather_icon=None  # DiaryWriteRequest에 weather_icon이 없으므로 None으로 설정
+                plant_id=diary_request.plant_id,  # 새로운 diary 테이블 구조에 맞춰 수정
+                plant_content=plant_reply,  # AI 모델에서 생성된 답변을 plant_content로 저장
+                weather=diary_request.weather,
+                hist_watered=None,  # 새로운 필드들
+                hist_repot=None,
+                hist_pruning=None,
+                hist_fertilize=None
             )
             
             print(f"[DEBUG] 일기 생성 성공: {diary}")
@@ -346,18 +347,18 @@ async def create_diary_entry(
                 success=True,
                 message="일기가 성공적으로 작성되었습니다.",
                 diary=DiaryListItemResponse(
-                    diary_id=getattr(diary, 'diary_id', None) or getattr(diary, 'idx', None) or 1,  # 기본값 설정
+                    idx=getattr(diary, 'idx', None) or 1,  # 기본값 설정
                     user_title=diary.user_title,
                     user_content=diary.user_content,
-                    img_url=getattr(diary, 'img_url', None),
-                    hashtag=getattr(diary, 'hashtag', None),
                     plant_nickname=getattr(diary, 'plant_nickname', None),
                     plant_species=getattr(diary, 'plant_species', None),
-                    plant_content=plant_reply,  # AI 모델에서 생성된 답변
+                    plant_reply=plant_reply,  # AI 모델에서 생성된 답변
                     weather=getattr(diary, 'weather', None),
                     weather_icon=getattr(diary, 'weather_icon', None),
-                    created_at=getattr(diary, 'created_at', None).strftime("%Y-%m-%d %H:%M:%S") if getattr(diary, 'created_at', None) else "2024-01-01 00:00:00",
-                    updated_at=getattr(diary, 'updated_at', None).strftime("%Y-%m-%d %H:%M:%S") if getattr(diary, 'updated_at', None) else "2024-01-01 00:00:00"
+                    img_url=getattr(diary, 'img_url', None),
+                    hashtag=getattr(diary, 'hashtag', None),
+                    created_at=getattr(diary, 'created_at', None),
+                    updated_at=getattr(diary, 'updated_at', None)
                 )
             )
             

@@ -14,7 +14,6 @@ import {
   TextInput,
   Pressable,
   Image,
-  Alert,
   ActivityIndicator,
   Animated,
   Easing,
@@ -28,14 +27,13 @@ import { useRouter } from "expo-router";
 import Colors from "../../../constants/Colors";
 import { fetchSimpleWeather } from "../../../components/common/weatherBox";
 import { useFocusEffect } from "@react-navigation/native";
-import { getToken } from "../../../libs/auth";
-import { getApiUrl } from "../../../config/api";
 import { startLoading } from "../../../components/common/loading";
+import { showAlert } from "../../../components/common/appAlert";
 
 // ✅ 데코 이미지 (RN는 default import/require 사용)
-// import LLMDecoImage from "../../../assets/images/LLM_setting.png"; // 고정
-// import LLMDecoImageFace from "../../../assets/images/LLM_setting_face.png"; // 애니메 #1
-// import LLMDecoImageHand from "../../../assets/images/LLM_setting_hand.png"; // 애니메 #2
+import LLMDecoImage from "../../../assets/images/LLM_setting.png"; // 고정
+import LLMDecoImageFace from "../../../assets/images/LLM_setting_face.png"; // 애니메 #1
+import LLMDecoImageHand from "../../../assets/images/LLM_setting_hand.png"; // 애니메 #2
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ② Helpers & Types
@@ -67,18 +65,6 @@ function withJosa(word: string, type: "이가" | "을를" = "이가") {
   if (type === "이가") return `${word}${hasJong ? "이" : "가"}`;
   return `${word}${hasJong ? "을" : "를"}`;
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// ②-1 Care Actions (분갈이/가지치기/물주기/영양제)
-// ─────────────────────────────────────────────────────────────────────────────
-type CareAction = "repot" | "prune" | "water" | "nutrient";
-
-const CARE_ACTIONS: { key: CareAction; label: string; emoji: string }[] = [
-  { key: "repot", label: "분갈이했음", emoji: "🪴" },
-  { key: "prune", label: "가지치기 했음", emoji: "✂️" },
-  { key: "water", label: "물줬음", emoji: "💧" },
-  { key: "nutrient", label: "영양제 줬음", emoji: "🧪" },
-];
 
 /** 인라인 드롭다운(모달 없이) */
 function InlineSelect<T extends string>({
@@ -347,14 +333,6 @@ export default function Diary() {
   const [weatherLoading, setWeatherLoading] = useState(true); // 날씨 로딩 상태
   const [body, setBody] = useState("");
 
-  // ✅ 오늘 한 일(체크박스 대용 Pill)
-  const [actions, setActions] = useState<CareAction[]>([]);
-  const toggleAction = (k: CareAction) => {
-    setActions((prev) =>
-      prev.includes(k) ? prev.filter((v) => v !== k) : [...prev, k]
-    );
-  };
-
   // 기타 UI
   const [busy, setBusy] = useState(false);
   const [sheetVisible, setSheetVisible] = useState(false);
@@ -381,10 +359,7 @@ export default function Diary() {
     const fetchMyPlants = async () => {
       try {
         const token = await getToken();
-        if (!token) {
-          console.warn("⚠️ 토큰이 없어 식물 목록을 불러오지 못했습니다.");
-          return;
-        }
+        if (!token) return;
 
         const apiUrl = getApiUrl("/home/plants/current");
         const response = await fetch(apiUrl, {
@@ -395,26 +370,15 @@ export default function Diary() {
           },
         });
 
-        if (!response.ok) {
-          console.warn("⚠️ 식물 목록 응답 오류:", response.status, apiUrl);
-          return;
-        }
-
-        const data = await response.json();
-        // 서버가 data.plants 또는 data.data?.plants 형태일 가능성 방어
-        const plants = data?.plants ?? data?.data?.plants ?? [];
-        if (Array.isArray(plants)) {
-          const plantOptions = plants
-            .map((plant: any) => ({
-              label: `${plant.plant_name ?? plant.nickname ?? "이름없음"} (${
-                plant.species || "기타"
-              })`,
-              value: plant.plant_name ?? plant.nickname ?? "",
-            }))
-            .filter((p) => p.value);
-          setMyPlants(plantOptions);
-        } else {
-          console.warn("⚠️ 예상과 다른 식물 목록 구조:", data);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.plants && Array.isArray(data.plants)) {
+            const plantOptions = data.plants.map((plant: any) => ({
+              label: `${plant.plant_name} (${plant.species || "기타"})`,
+              value: plant.plant_id.toString(), // plant_id를 value로 사용
+            }));
+            setMyPlants(plantOptions);
+          }
         }
       } catch (error) {
         console.error("식물 목록 가져오기 실패:", error);
@@ -449,7 +413,7 @@ export default function Diary() {
 
         if (w) {
           console.log("✅ 날씨 조회 성공:", w);
-          setWeather(w as Weather);
+          setWeather(w);
           setWeatherLoading(false);
         } else {
           throw new Error("날씨 데이터가 null입니다");
@@ -466,7 +430,7 @@ export default function Diary() {
         } else {
           console.error("🚨 날씨 조회 최종 실패 - 기본값 설정");
           // 최종 실패 시에만 기본값 설정
-          setWeather("맑음" as Weather);
+          setWeather("맑음");
           setWeatherLoading(false);
         }
       }
@@ -475,32 +439,22 @@ export default function Diary() {
     fetchWeatherWithRetry();
   }, []);
 
-	// Care Actions
-	type CareAction = "repot" | "prune" | "water" | "nutrient";
-
-	const CARE_ACTIONS: { key: CareAction; label: string; emoji: string }[] = [
-		{ key: "repot", label: "분갈이했음", emoji: "🪴" },
-		{ key: "prune", label: "가지치기 했음", emoji: "✂️" },
-		{ key: "water", label: "물줬음", emoji: "💧" },
-		{ key: "nutrient", label: "영양제 줬음", emoji: "🧪" },
-	];
-
-	const [actions, setActions] = useState<CareAction[]>([]);
-	const toggleAction = (k: CareAction) => {
-		setActions((prev) =>
-			prev.includes(k) ? prev.filter((v) => v !== k) : [...prev, k]
-		);
-	};
-
-	// 등록: 시트는 등록하면 열림
-	const handleSubmit = async () => {
-		if (!canSubmit) return;
+  // ✅ 제출 버튼 활성 조건 (모든 입력 완료 판정)
+  const canSubmit = Boolean(
+    photoUri && title.trim() && selectedPlant && date && weather && body.trim()
+  );
 
   // 사진 선택
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== "granted")
-      return Alert.alert("권한 필요", "앨범 접근 권한을 허용해주세요.");
+    if (status !== "granted") {
+      showAlert({
+        title: "권한 필요",
+        message: "앨범 접근 권한을 허용해주세요.",
+        buttons: [{ text: "확인" }],
+      });
+      return;
+    }
     setBusy(true);
     try {
       const res = await ImagePicker.launchImageLibraryAsync({
@@ -515,6 +469,23 @@ export default function Diary() {
     }
   };
 
+  // Care Actions
+  type CareAction = "repot" | "prune" | "water" | "nutrient";
+
+  const CARE_ACTIONS: { key: CareAction; label: string; emoji: string }[] = [
+    { key: "repot", label: "분갈이했음", emoji: "🪴" },
+    { key: "prune", label: "가지치기 했음", emoji: "✂️" },
+    { key: "water", label: "물줬음", emoji: "💧" },
+    { key: "nutrient", label: "영양제 줬음", emoji: "🧪" },
+  ];
+
+  const [actions, setActions] = useState<CareAction[]>([]);
+  const toggleAction = (k: CareAction) => {
+    setActions((prev) =>
+      prev.includes(k) ? prev.filter((v) => v !== k) : [...prev, k]
+    );
+  };
+
   // 등록: 시트는 등록하면 열림
   const handleSubmit = async () => {
     if (!canSubmit) return;
@@ -522,35 +493,23 @@ export default function Diary() {
     try {
       const token = await getToken();
       if (!token) {
-        Alert.alert("오류", "로그인이 필요합니다.");
+        showAlert({
+          title: "오류",
+          message: "로그인이 필요합니다.",
+          buttons: [{ text: "확인" }],
+        });
         return;
       }
-
-      // 선택 액션을 해시태그로 변환
-      const actionTags = actions
-        .map((a) =>
-          a === "repot"
-            ? "#분갈이"
-            : a === "prune"
-            ? "#가지치기"
-            : a === "water"
-            ? "#물주기"
-            : a === "nutrient"
-            ? "#영양제"
-            : ""
-        )
-        .filter(Boolean)
-        .join(" ");
 
       // 일기 작성 API 호출
       const diaryData = {
         user_title: title,
         user_content: body,
-        plant_nickname: selectedPlant,
+        plant_id: selectedPlant ? parseInt(selectedPlant) : null, // plant_id 추가
+        plant_nickname: selectedPlant, // 호환성을 위해 유지
         plant_species: selectedPlant, // TODO: 실제 식물 종으로 교체
-        hashtag: `#${selectedPlant} #${weather || "일상"} ${actionTags}`.trim(),
+        hashtag: `#${selectedPlant} #${weather || "일상"}`,
         weather: weather,
-        actions, // ← 배열 그대로도 보냄
       };
 
       console.log("📝 일기 작성 데이터:", diaryData);
@@ -574,11 +533,11 @@ export default function Diary() {
 
       const result = await response.json();
       console.log("일기 작성 성공:", result);
-      console.log("AI 답변:", result.diary?.plant_content);
+      console.log("AI 답변:", result.diary?.plant_reply);
 
       // AI 답변을 상태에 저장
-      if (result.diary?.plant_content) {
-        setAiText(result.diary.plant_content);
+      if (result.diary?.plant_reply) {
+        setAiText(result.diary.plant_reply);
       }
 
       setAiPreviewVisible(true); // 등록 후에만 미리보기 표시
@@ -586,7 +545,11 @@ export default function Diary() {
       setIsSubmitted(true); // 이후부터 '수정' 모드
     } catch (error) {
       console.error("일기 작성 오류:", error);
-      Alert.alert("일기 작성 실패", "일기 작성 중 문제가 발생했습니다.");
+      showAlert({
+        title: "일기 작성 실패",
+        message: "일기 작성 중 문제가 발생했습니다.",
+        buttons: [{ text: "확인" }],
+      });
     }
   };
 
@@ -608,7 +571,11 @@ export default function Diary() {
       if (!aiPreviewVisible) setAiPreviewVisible(true);
       setSheetVisible(true);
     } catch {
-      Alert.alert("수정 실패", "잠시 후 다시 시도해 주세요.");
+      showAlert({
+        title: "수정 실패",
+        message: "잠시 후 다시 시도해 주세요.",
+        buttons: [{ text: "확인" }],
+      });
     }
   };
 
@@ -618,12 +585,6 @@ export default function Diary() {
 
   // 바텀시트 타이틀
   const sheetTitle = `${selectedPlant ?? "식물"}의 하고픈 말`;
-
-  // 일기 목록으로 이동
-  const goToDiaryList = () => {
-    Keyboard.dismiss();
-    router.replace("/(page)/diaryList");
-  };
 
   // ✨ 무한 애니메이션 (face, hand)
   const move1 = useRef(new Animated.Value(0)).current;
@@ -689,7 +650,6 @@ export default function Diary() {
     setAiText(
       "오늘은 통풍만 잘 시켜주세요. 물은 내일 추천! 🌤️오늘은 통풍만 잘 시켜주세요. 물은 내일 추천! 🌤️오늘은 통풍만 잘 시켜주세요. 물은 내일 추천! 🌤️오늘은 통풍만 잘 시켜주세요. 물은 내일 추천! 🌤️"
     );
-    setActions([]); // ✅ 액션도 리셋
   }, []);
 
   useFocusEffect(
@@ -755,61 +715,25 @@ export default function Diary() {
           )}
         </View>
 
-					{/* 오늘 한 일 (체크박스 스타일 토글) */}
-					<View style={styles.field}>
-						<Text style={[styles.sectionLabel, { color: theme.text }]}>오늘 한 일</Text>
-
-						<View style={styles.actionsWrap}>
-							{CARE_ACTIONS.map((act) => {
-								const active = actions.includes(act.key);
-								return (
-									<Pressable
-										key={act.key}
-										onPress={() => toggleAction(act.key)}
-										style={[
-											styles.actionPill,
-											{ borderColor: theme.border, backgroundColor: theme.bg },
-											active && [styles.actionPillActive, { backgroundColor: theme.primary }],
-										]}
-									>
-										<Text style={[styles.actionEmoji]}>{act.emoji}</Text>
-										<Text style={[styles.actionText, { color: active ? "#fff" : theme.text }]}>
-											{act.label}
-										</Text>
-										{active && <Text style={styles.actionCheck}>✓</Text>}
-									</Pressable>
-								);
-							})}
-						</View>
-
-						<Text style={[styles.actionsHint, { color: theme.text }]}>
-							선택한 항목은 일기와 함께 기록돼요.
-						</Text>
-					</View>
-
-					{/* 일기 내용 */}
-					<View style={styles.field}>
-						<Text style={[styles.sectionLabel, { color: theme.text }]}>
-							일기 내용
-						</Text>
-						<TextInput
-							placeholder="오늘의 식물 이야기를 적어주세요…"
-							placeholderTextColor="#909090"
-							value={body}
-							onChangeText={setBody}
-							multiline
-							textAlignVertical="top"
-							style={[
-								styles.input,
-								{
-									color: theme.text,
-									borderColor: theme.border,
-									minHeight: 180,
-									lineHeight: 22,
-								},
-							]}
-						/>
-					</View>
+        {/* 입력들 */}
+        <View style={styles.inputArea}>
+          {/* 제목 */}
+          <View style={styles.field}>
+            <Text style={[styles.sectionLabel, { color: theme.text }]}>
+              제목
+            </Text>
+            <TextInput
+              placeholder="제목을 입력하세요"
+              placeholderTextColor="#909090"
+              value={title}
+              onChangeText={setTitle}
+              style={[
+                styles.input,
+                { color: theme.text, borderColor: theme.border },
+              ]}
+              returnKeyType="next"
+            />
+          </View>
 
           {/* 내 식물(별명) */}
           <InlineSelect
@@ -823,39 +747,20 @@ export default function Diary() {
             theme={theme as any}
           />
 
-					{/* 하단 버튼 */}
-					<View style={[styles.bottomBar, { backgroundColor: theme.bg }]}>
-						<Pressable
-							onPress={() =>
-								startLoading(router, {
-									delay: 400,
-									to: "/(page)/diaryList",
-									replace: true,
-									timeoutMs: 0,
-								})
-							}
-							style={[styles.cancelBtn, { borderColor: theme.border }]}
-						>
-							<Text style={[styles.cancelText, { color: theme.text }]}>목록으로</Text>
-						</Pressable>
-						<Pressable
-							disabled={!canSubmit}
-							onPress={() => {
-								Keyboard.dismiss();
-								primaryOnPress();
-							}} // ← 먼저 키패드 닫기
-							style={[
-								styles.submitBtn,
-								{ backgroundColor: !canSubmit ? theme.graybg : theme.primary },
-							]}
-						>
-							<Text style={[styles.submitText, { color: "#fff" }]}>
-								{primaryLabel}
-							</Text>
-						</Pressable>
-					</View>
-				</View>
-			</ScrollView>
+          {/* 날짜 (읽기전용) */}
+          <View style={styles.field}>
+            <Text style={[styles.sectionLabel, { color: theme.text }]}>
+              날짜
+            </Text>
+            <TextInput
+              value={date}
+              editable={false}
+              style={[
+                styles.input,
+                { color: theme.text, borderColor: theme.border, opacity: 0.85 },
+              ]}
+            />
+          </View>
 
           {/* 날씨 (자동/읽기전용) */}
           <View style={styles.field}>
@@ -895,27 +800,16 @@ export default function Diary() {
                         { backgroundColor: theme.primary },
                       ],
                     ]}
-                    hitSlop={6}
-                    android_ripple={{ color: (theme as any).graybg }}
                   >
-                    <Text
-                      style={[
-                        styles.actionEmoji,
-                        { opacity: active ? 1 : 0.95 },
-                      ]}
-                    >
-                      {act.emoji}
-                    </Text>
+                    <Text style={[styles.actionEmoji]}>{act.emoji}</Text>
                     <Text
                       style={[
                         styles.actionText,
                         { color: active ? "#fff" : theme.text },
                       ]}
-                      numberOfLines={1}
                     >
                       {act.label}
                     </Text>
-                    {/* 체크 마크 (선택 시만 보임) */}
                     {active && <Text style={styles.actionCheck}>✓</Text>}
                   </Pressable>
                 );
@@ -976,7 +870,14 @@ export default function Diary() {
           {/* 하단 버튼 */}
           <View style={[styles.bottomBar, { backgroundColor: theme.bg }]}>
             <Pressable
-              onPress={goToDiaryList}
+              onPress={() =>
+                startLoading(router, {
+                  delay: 400,
+                  to: "/(page)/diaryList",
+                  replace: true,
+                  timeoutMs: 0,
+                })
+              }
               style={[styles.cancelBtn, { borderColor: theme.border }]}
             >
               <Text style={[styles.cancelText, { color: theme.text }]}>
@@ -1012,19 +913,23 @@ export default function Diary() {
       >
         <View style={styles.LLMDecoBox}>
           {/* 고정 이미지 */}
-          <Text style={{ fontSize: 40 }}>🌱</Text>
+          <Image
+            source={LLMDecoImage}
+            style={styles.LLMDecoImage}
+            resizeMode="contain"
+          />
           {/* 움직이는 얼굴 */}
-          <Animated.Text
+          <Animated.Image
+            source={LLMDecoImageFace}
             style={[styles.LLMDecoFace, { transform: [{ translateX: tx1 }] }]}
-          >
-            😊
-          </Animated.Text>
+            resizeMode="contain"
+          />
           {/* 움직이는 손 */}
-          <Animated.Text
+          <Animated.Image
+            source={LLMDecoImageHand}
             style={[styles.LLMDecoHand, { transform: [{ translateX: tx2 }] }]}
-          >
-            👋
-          </Animated.Text>
+            resizeMode="contain"
+          />
         </View>
       </BottomSheet>
     </KeyboardAvoidingView>
@@ -1170,66 +1075,66 @@ const styles = StyleSheet.create({
   },
   sheetBtnText: { fontWeight: "700" },
 
-	LLMDecoBox: {
-		display: "flex",
-		flexDirection: "row",
-		alignItems: "center",
-		justifyContent: "flex-end",
-		position: "relative",
-		width: "100%",
-	},
-	LLMDecoImage: {
-		width: 120,
-		height: 100,
-	},
-	LLMDecoFace: {
-		position: "absolute",
-		width: 70,
-		height: 48,
-		right: 22,
-		top: 4,
-	},
-	LLMDecoHand: {
-		position: "absolute",
-		width: 42,
-		height: 42,
-		right: 50,
-		top: 46,
-	},
-	actionsWrap: {
-		flexDirection: "row",
-		flexWrap: "wrap",
-		gap: 8,
-	},
-	actionPill: {
-		flexDirection: "row",
-		alignItems: "center",
-		paddingHorizontal: 12,
-		paddingVertical: 10,
-		borderWidth: 1,
-		borderRadius: 999,
-	},
-	actionPillActive: {
-		borderColor: "transparent",
-	},
-	actionEmoji: {
-		fontSize: 16,
-		marginRight: 6,
-	},
-	actionText: {
-		fontSize: 14,
-		fontWeight: "700",
-		maxWidth: 160,
-	},
-	actionCheck: {
-		marginLeft: 6,
-		fontSize: 14,
-		fontWeight: "800",
-		color: "#fff",
-	},
-	actionsHint: {
-		fontSize: 12,
-		opacity: 0.7,
-		marginTop: 8,
-	},
+  LLMDecoBox: {
+    display: "flex",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    position: "relative",
+    width: "100%",
+  },
+  LLMDecoImage: {
+    width: 120,
+    height: 100,
+  },
+  LLMDecoFace: {
+    position: "absolute",
+    width: 70,
+    height: 48,
+    right: 22,
+    top: 4,
+  },
+  LLMDecoHand: {
+    position: "absolute",
+    width: 42,
+    height: 42,
+    right: 50,
+    top: 46,
+  },
+  actionsWrap: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  actionPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderRadius: 999,
+  },
+  actionPillActive: {
+    borderColor: "transparent",
+  },
+  actionEmoji: {
+    fontSize: 16,
+    marginRight: 6,
+  },
+  actionText: {
+    fontSize: 14,
+    fontWeight: "700",
+    maxWidth: 160,
+  },
+  actionCheck: {
+    marginLeft: 6,
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#fff",
+  },
+  actionsHint: {
+    fontSize: 12,
+    opacity: 0.7,
+    marginTop: 8,
+  },
 });

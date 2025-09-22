@@ -82,6 +82,7 @@ async def classify_species_from_image(
 @router.post("", response_model=PlantRegistrationResponse, status_code=201)
 async def register_plant(
     plant_name: str = Form(...),
+    location: Optional[str] = Form(None),
     species: Optional[str] = Form(None),
     meet_day: date = Form(...),
     plant_id: Optional[int] = Form(None),
@@ -92,6 +93,7 @@ async def register_plant(
     새 식물을 등록합니다.
     
     - **plant_name**: 식물 별명 (필수)
+    - **location**: 식물 위치 (선택사항)
     - **species**: 식물 품종 (선택사항)
     - **meet_day**: 키우기 시작한 날 (필수)
     - **plant_id**: 식물 위키 ID (선택사항)
@@ -104,28 +106,59 @@ async def register_plant(
         if image:
             # 품종이 없으면 AI 분류 수행
             if not species:
-                image_data = await image.read()
-                classification_result = await classify_plant_species(image_data)
-                
-                if classification_result.success and classification_result.species:
-                    species = classification_result.species
+                try:
+                    print(f"[DEBUG] 품종 분류 시작 - 이미지 파일: {image.filename}")
+                    image_data = await image.read()
+                    print(f"[DEBUG] 이미지 데이터 읽기 완료 - 크기: {len(image_data)} bytes")
+                    
+                    if len(image_data) == 0:
+                        print(f"[ERROR] 이미지 데이터가 비어있습니다")
+                        raise Exception("이미지 데이터가 비어있습니다")
+                    
+                    classification_result = await classify_plant_species(image_data)
+                    print(f"[DEBUG] 품종 분류 결과: {classification_result}")
+                    
+                    if classification_result.success and classification_result.species:
+                        species = classification_result.species
+                        print(f"[DEBUG] 분류된 품종: {species}")
+                    else:
+                        print(f"[WARNING] 품종 분류 실패: {classification_result.message}")
+                        # 품종 분류 실패 시 기본값 설정
+                        species = "알 수 없는 품종"
+                except Exception as e:
+                    print(f"[ERROR] 품종 분류 중 오류: {e}")
+                    import traceback
+                    print(f"[ERROR] 품종 분류 트레이스백: {traceback.format_exc()}")
+                    # 품종 분류 실패해도 식물 등록은 계속 진행
+                    species = "알 수 없는 품종"
             
             # 이미지 저장 (품종 분류 여부와 관계없이)
-            image_url = await save_uploaded_image(image, "plants")
+            try:
+                image_url = await save_uploaded_image(image, "plants")
+                print(f"[DEBUG] 이미지 저장 완료: {image_url}")
+            except Exception as e:
+                print(f"[ERROR] 이미지 저장 실패: {e}")
+                image_url = None
         
         # 식물 등록 요청 생성
         plant_request = PlantRegistrationRequest(
             plant_name=plant_name,
+            location=location,
             species=species,
             meet_day=meet_day,
             plant_id=plant_id
         )
         
+        print(f"[DEBUG] 식물 등록 요청: {plant_request}")
+        print(f"[DEBUG] 사용자 ID: {user['user_id']}")
+        
         # 식물 등록
         result = await create_plant(user["user_id"], plant_request)
+        print(f"[DEBUG] 식물 등록 성공: {result}")
         
         # 이미지가 있으면 img_address 테이블에 저장
         if image_url:
+            print(f"[INFO] 식물 이미지 저장: {image_url}")
             await save_plant_image_to_db(result.idx, image_url)
         
         return result
@@ -235,6 +268,7 @@ async def get_plant_detail(
 async def update_plant_info(
     plant_idx: int,
     plant_name: Optional[str] = Form(None),
+    location: Optional[str] = Form(None),
     species: Optional[str] = Form(None),
     meet_day: Optional[date] = Form(None),
     plant_id: Optional[int] = Form(None),
@@ -246,6 +280,7 @@ async def update_plant_info(
     
     - **plant_idx**: 식물 ID
     - **plant_name**: 식물 별명 (선택사항)
+    - **location**: 식물 위치 (선택사항)
     - **species**: 식물 품종 (선택사항)
     - **meet_day**: 키우기 시작한 날 (선택사항)
     - **plant_id**: 식물 위키 ID (선택사항)
@@ -269,6 +304,7 @@ async def update_plant_info(
         # 식물 수정 요청 생성
         update_request = PlantUpdateRequest(
             plant_name=plant_name,
+            location=location,
             species=species,
             meet_day=meet_day,
             plant_id=plant_id

@@ -15,9 +15,11 @@ class DiaryCreate(OrmBase):
     user_title: str = Field(min_length=1, max_length=200)
     user_content: str = Field(min_length=1)
     hashtag: str | None = None
-    plant_id: int | None = None        # 식물 ID (FK)
-    plant_content: str | None = None   # 식물의 답변 (자동생성)
+    plant_nickname: str | None = None  # 식물별명
+    plant_species: str | None = None   # 식물종류
+    plant_reply: str | None = None     # 식물의 답변 (자동생성)
     weather: str | None = None
+    weather_icon: str | None = None    # 날씨 아이콘 URL
 
 class DiaryUpdate(OrmBase):
     user_title: str | None = None
@@ -31,7 +33,7 @@ class DiaryUpdate(OrmBase):
     weather_icon: str | None = None
 
 class DiaryOut(OrmBase):
-    diary_id: int
+    idx: int
     user_id: str
     user_title: str
     img_url: str | None
@@ -39,7 +41,7 @@ class DiaryOut(OrmBase):
     hashtag: str | None
     plant_nickname: str | None
     plant_species: str | None
-    plant_content: str | None
+    plant_reply: str | None
     weather: str | None
     weather_icon: str | None
     created_at: datetime
@@ -57,16 +59,18 @@ class DiaryListOut(OrmBase):
 # 일기 목록 페이지용 스키마
 class DiaryListItemResponse(OrmBase):
     """일기 목록 아이템 응답 스키마"""
-    diary_id: int
+    idx: int
     user_title: str
     user_content: str
     plant_nickname: Optional[str] = None
     plant_species: Optional[str] = None
-    plant_content: Optional[str] = None
+    plant_reply: Optional[str] = None
     weather: Optional[str] = None
+    weather_icon: Optional[str] = None
     img_url: Optional[str] = None
     hashtag: Optional[str] = None
     created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
 class DiaryListResponse(OrmBase):
     """일기 목록 응답 스키마"""
@@ -98,7 +102,9 @@ class DiaryWriteRequest(OrmBase):
     """일기 작성 요청"""
     user_title: str = Field(min_length=1, max_length=200)
     user_content: str = Field(min_length=1)
-    plant_id: int | None = None        # 식물 ID (FK)
+    plant_id: int | None = None  # 식물 ID (새로운 diary 테이블 구조)
+    plant_nickname: str | None = None  # 식물별명 (호환성을 위해 유지)
+    plant_species: str | None = None   # 식물종류 (호환성을 위해 유지)
     hashtag: str | None = None
     weather: str | None = None
 

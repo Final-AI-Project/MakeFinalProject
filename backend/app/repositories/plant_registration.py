@@ -17,31 +17,57 @@ async def create_plant(
     """새 식물을 등록합니다."""
     try:
         async with get_db_connection() as (conn, cursor):
-            # 식물 등록 (plant_id는 auto_increment이므로 제외)
-            await cursor.execute(
-                """
-                INSERT INTO user_plant (user_id, plant_name, species, meet_day)
-                VALUES (%s, %s, %s, %s)
-                """,
-                (
-                    user_id,
-                    plant_request.plant_name,
-                    plant_request.species,
-                    plant_request.meet_day
+            # 먼저 실제 테이블 구조 확인
+            await cursor.execute("DESCRIBE user_plant")
+            columns = await cursor.fetchall()
+            print(f"[DEBUG] user_plant 테이블 구조: {[col['Field'] for col in columns]}")
+            
+            # Final.sql 구조에 맞춰 INSERT (plant_id가 auto_increment primary key)
+            if plant_request.plant_id is not None:
+                # plant_id가 제공된 경우
+                await cursor.execute(
+                    """
+                    INSERT INTO user_plant (user_id, plant_id, plant_name, location, species, meet_day)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        user_id,
+                        plant_request.plant_id,
+                        plant_request.plant_name,
+                        plant_request.location,
+                        plant_request.species,
+                        plant_request.meet_day
+                    )
                 )
-            )
+                plant_idx = plant_request.plant_id
+            else:
+                # plant_id가 제공되지 않은 경우 (auto_increment 사용)
+                await cursor.execute(
+                    """
+                    INSERT INTO user_plant (user_id, plant_name, location, species, meet_day)
+                    VALUES (%s, %s, %s, %s, %s)
+                    """,
+                    (
+                        user_id,
+                        plant_request.plant_name,
+                        plant_request.location,
+                        plant_request.species,
+                        plant_request.meet_day
+                    )
+                )
+                plant_idx = cursor.lastrowid
             
-            plant_id = cursor.lastrowid
+            print(f"[DEBUG] 생성된 plant_idx: {plant_idx}")
             
-            # 생성된 식물 정보 조회
+            # 생성된 식물 정보 조회 (plant_id로 조회)
             await cursor.execute(
                 "SELECT * FROM user_plant WHERE plant_id = %s",
-                (plant_id,)
+                (plant_idx,)
             )
             result = await cursor.fetchone()
             
             return PlantRegistrationResponse(
-                idx=result['plant_id'],  # plant_id가 실제 primary key
+                idx=result['plant_id'],  # plant_id를 idx로 사용
                 user_id=result['user_id'],
                 plant_name=result['plant_name'],
                 species=result['species'],
@@ -52,6 +78,9 @@ async def create_plant(
             
     except Exception as e:
         print(f"Error in create_plant: {e}")
+        print(f"Error type: {type(e)}")
+        import traceback
+        print(f"Traceback: {traceback.format_exc()}")
         raise e
 
 async def get_user_plants(
@@ -87,7 +116,7 @@ async def get_user_plants(
             
             plants = [
                 PlantRegistrationResponse(
-                    idx=row['plant_id'],  # plant_id를 idx로 반환
+                    idx=row['plant_id'],  # plant_id를 idx로 사용
                     user_id=row['user_id'],
                     plant_name=row['plant_name'],
                     species=row['species'],
@@ -122,9 +151,10 @@ async def get_plant_by_id(plant_idx: int, user_id: str) -> Optional[PlantRegistr
             
             if result:
                 return PlantRegistrationResponse(
-                    idx=result['plant_id'],  # plant_id를 idx로 반환
+                    idx=result['plant_id'],  # plant_id를 idx로 사용
                     user_id=result['user_id'],
                     plant_name=result['plant_name'],
+                    location=result.get('location'),
                     species=result['species'],
                     meet_day=result['meet_day'],
                     plant_id=result['plant_id'],
@@ -151,6 +181,10 @@ async def update_plant(
             if update_request.plant_name is not None:
                 update_fields.append("plant_name = %s")
                 update_values.append(update_request.plant_name)
+            
+            if update_request.location is not None:
+                update_fields.append("location = %s")
+                update_values.append(update_request.location)
             
             if update_request.species is not None:
                 update_fields.append("species = %s")
@@ -190,7 +224,7 @@ async def update_plant(
                 result = await cursor.fetchone()
                 
                 return PlantUpdateResponse(
-                    idx=result['plant_id'],  # plant_id를 idx로 반환
+                    idx=result['plant_id'],  # plant_id를 idx로 사용
                     user_id=result['user_id'],
                     plant_name=result['plant_name'],
                     species=result['species'],
@@ -217,7 +251,7 @@ async def delete_plant(plant_idx: int, user_id: str) -> bool:
             print(f"[DEBUG] 트랜잭션 시작")
             
             try:
-                # 1. 먼저 식물이 존재하는지 확인 (plant_id만 사용)
+                # 1. 먼저 식물이 존재하는지 확인 (plant_id 사용)
                 print(f"[DEBUG] 식물 존재 확인 중...")
                 await cursor.execute(
                     "SELECT plant_id FROM user_plant WHERE plant_id = %s AND user_id = %s",
@@ -237,12 +271,16 @@ async def delete_plant(plant_idx: int, user_id: str) -> bool:
                 
                 # 2. 관련된 이미지 데이터 삭제 (img_address 테이블에서)
                 print(f"[DEBUG] 관련 이미지 데이터 삭제 중...")
-                await cursor.execute(
-                    "DELETE FROM img_address WHERE plant_id = %s",
-                    (actual_plant_id,)
-                )
-                img_deleted = cursor.rowcount
-                print(f"[DEBUG] 삭제된 이미지 수: {img_deleted}")
+                try:
+                    await cursor.execute(
+                        "DELETE FROM img_address WHERE plant_id = %s",
+                        (actual_plant_id,)
+                    )
+                    img_deleted = cursor.rowcount
+                    print(f"[DEBUG] 삭제된 이미지 수: {img_deleted}")
+                except Exception as e:
+                    print(f"[DEBUG] 이미지 삭제 중 오류: {e}")
+                    img_deleted = 0
                 
                 # 3. 관련된 진단 데이터 삭제 (medical_diagnosis 테이블이 있는 경우에만)
                 print(f"[DEBUG] 관련 진단 데이터 삭제 중...")
@@ -377,7 +415,7 @@ async def search_plants(
             
             plants = [
                 PlantRegistrationResponse(
-                    idx=row['plant_id'],  # plant_id를 idx로 반환
+                    idx=row['plant_id'],  # plant_id를 idx로 사용
                     user_id=row['user_id'],
                     plant_name=row['plant_name'],
                     species=row['species'],
@@ -404,6 +442,7 @@ async def save_plant_image_to_db(plant_idx: int, image_url: str) -> bool:
     """식물 이미지를 img_address 테이블에 저장합니다."""
     try:
         async with get_db_connection() as (conn, cursor):
+            # Final.sql에 따르면 img_address 테이블에 plant_id 컬럼이 있음
             await cursor.execute(
                 """
                 INSERT INTO img_address (plant_id, img_url)
@@ -411,6 +450,7 @@ async def save_plant_image_to_db(plant_idx: int, image_url: str) -> bool:
                 """,
                 (plant_idx, image_url)
             )
+            print(f"[DEBUG] 식물 이미지 저장 성공: plant_id={plant_idx}, img_url={image_url}")
             return True
     except Exception as e:
         print(f"Error in save_plant_image_to_db: {e}")
@@ -424,7 +464,7 @@ async def get_plant_images(plant_idx: int) -> List[str]:
                 """
                 SELECT img_url FROM img_address 
                 WHERE plant_id = %s
-                ORDER BY idx DESC
+                ORDER BY img_url ASC
                 """,
                 (plant_idx,)
             )
