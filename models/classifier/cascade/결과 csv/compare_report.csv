@@ -1,6 +1,0 @@
-model,img_size,params_M,weight_MB,latency_ms_per_img,top1,top3,confusion_png
-mobilenet_v3_large,224,4.2187,16.29,4.89,0.9310,0.9923,models\classifier\cascade\weight\mobilenet_v3_large_best.mobilenet_v3_large.cm.png
-ghostnet,224,3.9182,15.21,11.43,0.9310,0.9770,models\classifier\cascade\weight\ghostnet_best.ghostnet.cm.png
-mobilevitv2,256,4.3955,16.93,6.92,0.9234,0.9885,models\classifier\cascade\weight\mobilevitv2_best.mobilevitv2.cm.png
-shufflenet_v2,224,1.2669,5.00,5.32,0.5211,0.8199,models\classifier\cascade\weight\shufflenet_v2_best.shufflenet_v2.cm.png
-efficientnet_b0,224,4.0242,15.64,6.21,0.9540,0.9808,models\classifier\cascade\weight\efficientnet_b0_best.efficientnet_b0.cm.png
