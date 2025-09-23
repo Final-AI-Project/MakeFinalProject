@@ -97,12 +97,7 @@ def save_image(file_content: bytes, image_type: str, original_filename: str = No
         f.write(file_content)
     
     # URL 생성 (프론트엔드에서 접근할 수 있는 경로)
-    # disease_diagnosis 타입은 medical 폴더에 저장되므로 특별 처리
-    if image_type == "disease_diagnosis":
-        actual_path = file_path.relative_to(BASE_STATIC_PATH)
-        url = f"/{actual_path.as_posix()}"
-    else:
-        url = f"/static/images/{image_type}/{filename}"
+    url = f"/static/images/{image_type}/{filename}"
     
     return filename, url
 

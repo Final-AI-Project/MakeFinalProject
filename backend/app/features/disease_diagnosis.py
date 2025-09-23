@@ -38,13 +38,20 @@ async def diagnose_disease_from_upload(
         print(f"[DEBUG] 업로드된 파일: {image.filename}")
         print(f"[DEBUG] 파일 타입: {image.content_type}")
         
-        # 이미지 저장 (파일 시스템에만)
-        img_url = await save_uploaded_image(image, "disease_diagnosis")
-        print(f"[DEBUG] 저장된 이미지 URL: {img_url}")
-        
-        # 이미지 데이터 읽기 (저장 후에 읽기)
+        # 이미지 데이터 읽기 (저장 전에 읽기)
         image_data = await image.read()
         print(f"[DEBUG] 이미지 데이터 크기: {len(image_data)} bytes")
+        
+        # 이미지 저장 (파일 시스템에만) - 이미지 데이터를 직접 전달
+        from utils.image_storage import save_image
+        from datetime import datetime
+        filename, img_url = save_image(
+            file_content=image_data,
+            image_type="medical",
+            original_filename=image.filename,
+            prefix=f"medical_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        )
+        print(f"[DEBUG] 저장된 이미지 URL: {img_url}")
         
         # 병충해 진단 수행
         print("[DEBUG] 모델 서버 호출 시작...")

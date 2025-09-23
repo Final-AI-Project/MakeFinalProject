@@ -458,7 +458,7 @@ export default function MedicalPage() {
                 >
                   {item.photoUri ? (
                     <Image
-                      source={{ uri: item.photoUri }}
+                      source={{ uri: `${API_BASE}${item.photoUri}` }}
                       style={{ width: "100%", height: "100%" }}
                       resizeMode="cover"
                     />
