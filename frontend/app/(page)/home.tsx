@@ -11,8 +11,8 @@ import {
   useColorScheme,
   Pressable,
   Image,
-  Alert,
 } from "react-native";
+import { showAlert } from "../../components/common/appAlert";
 import { Link, useRouter, useLocalSearchParams } from "expo-router";
 import Colors from "../../constants/Colors";
 import WeatherBox from "../../components/common/weatherBox";
@@ -112,7 +112,11 @@ export default function Home() {
       setLoading(true);
       const token = await getToken();
       if (!token) {
-        Alert.alert("오류", "로그인이 필요합니다.");
+        showAlert({
+          title: "오류",
+          message: "로그인이 필요합니다.",
+          buttons: [{ text: "확인" }],
+        });
         return;
       }
 
@@ -140,7 +144,11 @@ export default function Home() {
       });
     } catch (error) {
       console.error("식물 데이터 조회 실패:", error);
-      Alert.alert("오류", "식물 정보를 불러오는데 실패했습니다.");
+      showAlert({
+        title: "오류",
+        message: "식물 정보를 불러오는데 실패했습니다.",
+        buttons: [{ text: "확인" }],
+      });
       stopLoading(router);
     } finally {
       setLoading(false);
@@ -148,12 +156,6 @@ export default function Home() {
   };
 
   // ✅ 3-4-1) 포커스 시 사용할 '조용한' 리패치 (오버레이 X)
-  const refetchUserPlants = async () => {
-    setLoading(true);
-    await refetchUserPlantsSilently();
-    setLoading(false);
-  };
-
   const refetchUserPlantsSilently = async () => {
     try {
       const token = await getToken();
@@ -601,7 +603,7 @@ const styles = StyleSheet.create({
     width: 250,
     height: 250,
     transform: [{ translateX: -125 }],
-    borderRadius: "100%",
+    borderRadius: 125,
   },
   slot1: {
     position: "absolute",
@@ -621,10 +623,10 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 40,
     left: -45,
-    transform: [{ translateX: "50%" }],
+    transform: [{ translateX: 85 }],
     width: 170,
     height: 170,
-    borderRadius: "100%",
+    borderRadius: 85,
   },
   slot4: {
     position: "absolute",
@@ -651,7 +653,7 @@ const styles = StyleSheet.create({
   carouselSlideText: { color: "#fff", fontSize: 28, fontWeight: "bold" },
   carouselDots: {
     position: "absolute",
-    bottom: -19,
+    bottom: 0,
     flexDirection: "row",
     gap: 6,
   },

@@ -293,7 +293,7 @@ function BottomSheet({
         <Text style={[styles.sheetTitle, { color: theme.text }]}>{title}</Text>
         <View style={styles.sheetBody}>
           <AnimatedChars
-            text={text || "임시 응답 텍스트가 없습니다."}
+            text={text || "식물의 응답을 기다리는 중입니다..."}
             delayStep={22}
             duration={260}
             style={[styles.sheetText, { color: theme.text }]}
@@ -503,7 +503,7 @@ export default function Diary() {
       const res = await ImagePicker.launchImageLibraryAsync({
         allowsEditing: true,
         quality: 0.9,
-        mediaTypes: MEDIA?.Images ?? ImagePicker.MediaType.Images,
+        mediaTypes: MEDIA?.Images ?? ImagePicker.MediaTypeOptions.Images,
         aspect: [1, 1],
       });
       if (!res.canceled && res.assets?.[0]?.uri) setPhotoUri(res.assets[0].uri);
@@ -1096,15 +1096,6 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   submitText: { fontWeight: "700", fontSize: 16 },
-  deleteBtn: {
-    flex: 1,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 14,
-    marginHorizontal: 8,
-  },
-  deleteText: { fontWeight: "700", fontSize: 14 },
 
   changeBadge: {
     position: "absolute",

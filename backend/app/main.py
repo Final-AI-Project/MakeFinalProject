@@ -26,6 +26,7 @@ async def lifespan(app: FastAPI):
         await mqtt_service.stop()
         await close_pool()
 
+
 app = FastAPI(
     title="Pland API", 
     version="0.1.0",
@@ -34,6 +35,7 @@ app = FastAPI(
 
 register_error_handlers(app)
 
+app.mount("/static", StaticFiles(directory="../static"), name="static")
 # Static 파일 서빙 설정
 import os
 static_dir = os.path.join(os.path.dirname(__file__), "..", "static")
@@ -76,6 +78,7 @@ def version():
         "app": "Pland API", 
         "api_v": "0.1.0"
     }
+
 
 @app.get("/mqtt/last")
 def mqtt_last():

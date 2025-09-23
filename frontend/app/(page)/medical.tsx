@@ -17,12 +17,14 @@ import {
   ActivityIndicator,
   useColorScheme,
   SectionList,
+  Easing,
   Alert,
 } from "react-native";
 import Colors from "../../constants/Colors";
 import { useRouter, useFocusEffect, useLocalSearchParams } from "expo-router";
-import arrowDownW from "../../assets/images/w_arrow_down.png";
-import arrowDownD from "../../assets/images/d_arrow_down.png";
+const arrowDownW = require("../../assets/images/w_arrow_down.png");
+const arrowDownD = require("../../assets/images/d_arrow_down.png");
+const medicalSetting = require("../../assets/images/medical_setting.png");
 import { getToken } from "../../libs/auth";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -105,7 +107,6 @@ function groupBySpecies(list: Diagnosis[]): SpeciesSection[] {
 export default function MedicalPage() {
   const scheme = useColorScheme();
   const theme = Colors[scheme === "dark" ? "dark" : "light"];
-
   const router = useRouter();
   const params = useLocalSearchParams();
 
@@ -119,7 +120,10 @@ export default function MedicalPage() {
   const rotateMap = useRef<Record<string, Animated.Value>>({});
   const heightMap = useRef<Record<string, Animated.Value>>({});
   const contentHMap = useRef<Record<string, number>>({});
+  const thumbMap = useRef<Record<string, Animated.Value>>({});
 
+  const getThumb = (id: string) =>
+    (thumbMap.current[id] ??= new Animated.Value(1));
   const getRotate = (id: string) =>
     (rotateMap.current[id] ??= new Animated.Value(0));
   const getHeight = (id: string) =>
@@ -154,7 +158,7 @@ export default function MedicalPage() {
           style: "destructive",
           onPress: async () => {
             try {
-              const apiUrl = getApiUrl(`/medical/diagnoses/${actualId}`);
+              const apiUrl = `${API_BASE}/medical/diagnoses/${actualId}`;
               const response = await fetch(apiUrl, {
                 method: "DELETE",
                 headers: {
@@ -187,31 +191,9 @@ export default function MedicalPage() {
     }
   };
 
-  // 페이지 포커스 시 데이터 새로고침
-  useFocusEffect(
-    React.useCallback(() => {
-      fetchData();
-    }, [fetchData])
-  );
-
-  // refresh 파라미터가 있을 때 강제 새로고침
-  useEffect(() => {
-    if (params.refresh) {
-      console.log("🔄 강제 새로고침 요청됨:", params.refresh);
-      fetchData();
-    }
-  }, [params.refresh, fetchData]);
-
   // 데이터 로드
   const fetchData = useCallback(async () => {
     // 더미 데이터 제거 - 실제 API 데이터만 사용
-
-    // 강제 데모 모드
-    if (FORCE_DEMO) {
-      setError(null);
-      setLoading(false);
-      return;
-    }
 
     if (!API_BASE) {
       setError(
@@ -294,9 +276,20 @@ export default function MedicalPage() {
     }
   }, []);
 
+  // 페이지 포커스 시 데이터 새로고침
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchData();
+    }, [fetchData])
+  );
+
+  // refresh 파라미터가 있을 때 강제 새로고침
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    if (params.refresh) {
+      console.log("🔄 강제 새로고침 요청됨:", params.refresh);
+      fetchData();
+    }
+  }, [params.refresh, fetchData]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -306,11 +299,54 @@ export default function MedicalPage() {
 
   const sections = useMemo(() => groupBySpecies(data), [data]);
 
+  // 왼쪽 하단 이미지 둥둥 애니메이션 (y축 보빙)
+  const bob = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        // 천천히 2시(약 60deg)까지
+        Animated.timing(bob, {
+          toValue: 1,
+          duration: 2000,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
+        // 빠르게 원위치(0deg)로 복귀
+        Animated.timing(bob, {
+          toValue: 0,
+          duration: 280,
+          easing: Easing.in(Easing.cubic),
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [bob]);
+
+  // 각도로 변환 (0deg ↔ 60deg)
+  const bobRotate = bob.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["0deg", "10deg"],
+  });
+
   // 아이템 렌더
   const renderItem = useCallback(
     ({ item }: { item: Diagnosis }) => {
       const rotate = getRotate(item.id);
       const height = getHeight(item.id);
+
+      // 썸네일 애니메이션 (열리면 숨김)
+      const thumb = getThumb(item.id);
+      const thumbW = thumb.interpolate({
+        inputRange: [0, 1],
+        outputRange: [0, 72],
+      });
+      const thumbMR = thumb.interpolate({
+        inputRange: [0, 1],
+        outputRange: [0, 10],
+      });
+
       const arrowRotate = rotate.interpolate({
         inputRange: [0, 1],
         outputRange: ["0deg", "540deg"],
@@ -325,6 +361,12 @@ export default function MedicalPage() {
           toValue: next ? 1 : 0,
           duration: 260,
           useNativeDriver: true,
+        }).start();
+
+        Animated.timing(thumb, {
+          toValue: next ? 0 : 1,
+          duration: 200,
+          useNativeDriver: false,
         }).start();
 
         const targetH = next ? getContentH(item.id) : 0;
@@ -345,23 +387,22 @@ export default function MedicalPage() {
           >
             <Pressable onPress={toggle}>
               <View style={styles.row}>
-                <View style={styles.left}>
+                {/* 왼쪽 썸네일: width/marginRight 애니메이션으로 숨김 */}
+                <Animated.View
+                  style={[
+                    styles.left,
+                    { width: thumbW, marginRight: thumbMR, overflow: "hidden" },
+                  ]}
+                >
                   <View style={[styles.photo, { borderColor: theme.border }]}>
                     {item.photoUri ? (
                       <Image
-                        source={{
-                          uri:
-                            item.photoUri.startsWith("http") ||
-                            item.photoUri.startsWith("file://")
-                              ? item.photoUri
-                              : getApiUrl(item.photoUri),
-                        }}
+                        source={{ uri: item.photoUri }}
                         style={{
                           width: "100%",
                           height: "100%",
                           borderRadius: 8,
                         }}
-                        resizeMode="cover"
                       />
                     ) : (
                       <View style={styles.placeholder}>
@@ -369,7 +410,8 @@ export default function MedicalPage() {
                       </View>
                     )}
                   </View>
-                </View>
+                </Animated.View>
+
                 <View style={styles.right}>
                   <View style={[styles.box, { borderColor: theme.border }]}>
                     <Text
@@ -410,13 +452,7 @@ export default function MedicalPage() {
                 >
                   {item.photoUri ? (
                     <Image
-                      source={{
-                        uri:
-                          item.photoUri.startsWith("http") ||
-                          item.photoUri.startsWith("file://")
-                            ? item.photoUri
-                            : getApiUrl(item.photoUri),
-                      }}
+                      source={{ uri: item.photoUri }}
                       style={{ width: "100%", height: "100%" }}
                       resizeMode="cover"
                     />
@@ -439,64 +475,23 @@ export default function MedicalPage() {
                   </Text>
                 </View>
 
-                {/* 3) 후보 병충해 1~3 - 박스 형태로 표시 */}
-                <View
-                  style={[
-                    styles.candidatesContainer,
-                    { backgroundColor: theme.bg },
-                  ]}
-                >
-                  <Text style={[styles.candidatesTitle, { color: theme.text }]}>
-                    진단 결과
-                  </Text>
-                  {(item.candidates ?? []).slice(0, 3).map((d, i) => (
-                    <View
-                      key={d.id}
-                      style={[
-                        styles.candidateBox,
-                        {
-                          borderColor: theme.border,
-                          backgroundColor: theme.bg,
-                          borderLeftColor:
-                            i === 0
-                              ? "#ff6b6b"
-                              : i === 1
-                              ? "#4ecdc4"
-                              : "#45b7d1",
-                          borderLeftWidth: 4,
-                        },
-                      ]}
-                    >
-                      <View style={styles.candidateHeader}>
-                        <Text
-                          style={[styles.candidateRank, { color: theme.text }]}
-                        >
-                          {i + 1}순위
-                        </Text>
-                        {typeof d.confidence === "number" && (
-                          <Text
-                            style={[
-                              styles.candidateConfidence,
-                              { color: theme.text },
-                            ]}
-                          >
-                            {Math.round(d.confidence * 100)}%
-                          </Text>
-                        )}
-                      </View>
-                      <Text
-                        style={[styles.candidateName, { color: theme.text }]}
-                      >
-                        {d.name}
-                      </Text>
-                      <Text
-                        style={[styles.candidateDesc, { color: theme.text }]}
-                      >
-                        {d.desc ?? "상세 정보 없음"}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
+                {/* 3) 후보 병충해 1~3 */}
+                {(item.candidates ?? []).slice(0, 3).map((d, i) => (
+                  <View
+                    key={d.id}
+                    style={[
+                      styles.accRow,
+                      { borderColor: theme.border, backgroundColor: theme.bg },
+                    ]}
+                  >
+                    <Text style={[styles.accRowText, { color: theme.text }]}>
+                      {i + 1}. {d.name} : {d.desc ?? "-"}
+                      {typeof d.confidence === "number"
+                        ? ` (${Math.round(d.confidence * 100)}%)`
+                        : ""}
+                    </Text>
+                  </View>
+                ))}
 
                 {/* 진단 결과 삭제 버튼 */}
                 <View style={[styles.deleteButtonContainer, { marginTop: 12 }]}>
@@ -547,7 +542,7 @@ export default function MedicalPage() {
       <SectionList
         sections={sections}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => renderItem({ item })}
+        renderItem={renderItem}
         renderSectionHeader={({ section }) => (
           <View
             style={[
@@ -598,108 +593,22 @@ export default function MedicalPage() {
         <Text style={styles.fabPlus}>+</Text>
         <Text style={styles.fabLabel}>진단하기</Text>
       </Pressable>
+
+      {/* ⬅️ 왼쪽 하단 고정: medicalSetting 이미지 버튼 */}
+      <View style={styles.leftDeco} pointerEvents="none">
+        <Animated.Image
+          source={medicalSetting}
+          style={[styles.leftDecoImg, { transform: [{ rotate: bobRotate }] }]}
+          resizeMode="contain"
+        />
+      </View>
     </View>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// DEMO_DATA
+// 더미 데이터 제거 - 실제 API 데이터만 사용
 // ─────────────────────────────────────────────────────────────────────────────
-const DEMO_DATA: Diagnosis[] = [
-  {
-    id: "diag_001",
-    nickname: "초코(몬스테라)",
-    diagnosedAt: "2025-09-18T10:20:00+09:00",
-    diseaseName: "잎마름병",
-    details: "엽연 갈변과 건조 흔적이 관찰됨. 통풍 부족 및 과습 의심.",
-    photoUri: "https://picsum.photos/seed/plant1/480/360",
-    candidates: [
-      {
-        id: "cand_001",
-        code: "leaf_blight",
-        name: "잎마름병",
-        desc: "가장자리 갈변·마름",
-        confidence: 0.87,
-      },
-      {
-        id: "cand_002",
-        code: "powdery_mildew",
-        name: "흰가루병",
-        desc: "백색 분말성 균총",
-        confidence: 0.08,
-      },
-      {
-        id: "cand_003",
-        code: "scale_insect",
-        name: "깍지벌레",
-        desc: "줄기·잎의 흰 혹",
-        confidence: 0.05,
-      },
-    ],
-  },
-  {
-    id: "diag_002",
-    nickname: "토리(올리브나무)",
-    diagnosedAt: "2025-09-17",
-    diseaseName: "진딧물",
-    details: "잎 뒷면 점착 물질과 굴절광 반사. 그을음병 동반 가능.",
-    photoUri: "https://picsum.photos/seed/plant2/480/360",
-    candidates: [
-      {
-        id: "cand_004",
-        code: "aphid",
-        name: "진딧물",
-        desc: "연한 새순 부위 군집",
-        confidence: 0.76,
-      },
-      {
-        id: "cand_005",
-        code: "spider_mite",
-        name: "응애",
-        desc: "미세한 점상 피해",
-        confidence: 0.14,
-      },
-      {
-        id: "cand_006",
-        code: "thrips",
-        name: "총채벌레",
-        desc: "은백색 변색 스트리크",
-        confidence: 0.1,
-      },
-    ],
-  },
-  {
-    id: "diag_003",
-    nickname: "토리(올리브나무)",
-    diagnosedAt: "2025-09-17",
-    diseaseName: "진딧물",
-    details: "잎 뒷면 점착 물질과 굴절광 반사. 그을음병 동반 가능.",
-    photoUri: "https://picsum.photos/seed/plant3/480/360",
-    candidates: [
-      {
-        id: "cand_007",
-        code: "aphid",
-        name: "진딧물",
-        desc: "연한 새순 부위 군집",
-        confidence: 0.76,
-      },
-      {
-        id: "cand_008",
-        code: "spider_mite",
-        name: "응애",
-        desc: "미세한 점상 피해",
-        confidence: 0.14,
-      },
-      {
-        id: "cand_009",
-        code: "thrips",
-        name: "총채벌레",
-        desc: "은백색 변색 스트리크",
-        confidence: 0.1,
-      },
-    ],
-  },
-];
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 스타일
@@ -770,52 +679,6 @@ const styles = StyleSheet.create({
   },
   accRowText: { fontSize: 14, lineHeight: 20 },
 
-  // 진단 결과 박스 스타일
-  candidatesContainer: {
-    marginTop: 8,
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  candidatesTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    marginBottom: 12,
-    textAlign: "center",
-  },
-  candidateBox: {
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 8,
-  },
-  candidateHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 6,
-  },
-  candidateRank: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#666",
-  },
-  candidateConfidence: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#007AFF",
-  },
-  candidateName: {
-    fontSize: 16,
-    fontWeight: "700",
-    marginBottom: 4,
-  },
-  candidateDesc: {
-    fontSize: 14,
-    lineHeight: 20,
-    color: "#666",
-  },
-
   // 삭제 버튼 스타일
   deleteButtonContainer: {
     alignItems: "center",
@@ -878,5 +741,18 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "700",
     color: "#fff",
+  },
+  leftDeco: {
+    position: "absolute",
+    left: 8,
+    bottom: 60,
+    width: 64,
+    height: 64,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  leftDecoImg: {
+    width: 150,
+    height: 150,
   },
 });

@@ -17,7 +17,6 @@ import {
   TextInput,
   Pressable,
   Image,
-  Alert,
   ActivityIndicator,
   Platform,
   Dimensions,
@@ -32,6 +31,7 @@ import Colors from "../../../constants/Colors";
 import { getApiUrl } from "../../../config/api";
 import { getToken, refreshToken } from "../../../libs/auth";
 import { useFocusEffect } from "@react-navigation/native";
+import { showAlert } from "../../../components/common/appAlert";
 
 // 공통 모달
 import ClassifierResultModal, {
@@ -40,21 +40,7 @@ import ClassifierResultModal, {
 
 type IndoorOutdoor = "indoor" | "outdoor" | null;
 
-const SPECIES = [
-  "몬스테라",
-  "스투키",
-  "금전수",
-  "선인장",
-  "호접란",
-  "테이블야자",
-  "홍콩야자",
-  "스파티필럼",
-  "관음죽",
-  "벵갈고무나무",
-  "올리브나무",
-  "디펜바키아",
-  "보스턴고사리",
-] as const;
+// 더미데이터 제거 - 실제 API 응답만 사용
 
 // 백엔드를 통한 품종 분류 API 호출
 async function classifySpecies(imageUri: string): Promise<ClassifyResult> {
@@ -215,9 +201,9 @@ export default function PlantNew() {
     }, [resetForm, imageUri, species, nickname, startedAt])
   );
 
-  // Validation
+  // Validation - 더미데이터 제거로 인한 수정
   const isKnownSpecies = useMemo(
-    () => (species ? (SPECIES as readonly string[]).includes(species) : true),
+    () => true, // 실제 API에서 검증하므로 항상 true
     [species]
   );
   const isAllFilled = Boolean(
@@ -239,16 +225,27 @@ export default function PlantNew() {
   // Image pick
   function handlePickImage() {
     if (Platform.OS === "web") return void pickFromLibrary();
-    Alert.alert("사진 등록", "사진을 불러올 방법을 선택하세요.", [
-      { text: "사진 찍기", onPress: takePhoto },
-      { text: "앨범 선택", onPress: pickFromLibrary },
-      { text: "취소", style: "cancel" },
-    ]);
+    showAlert({
+      title: "사진 등록",
+      message: "사진을 불러올 방법을 선택하세요.",
+      buttons: [
+        { text: "사진 찍기", onPress: takePhoto },
+        { text: "앨범 선택", onPress: pickFromLibrary },
+        { text: "취소", style: "cancel" },
+      ],
+      dismissible: true,
+    });
   }
   async function pickFromLibrary() {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== "granted")
-      return Alert.alert("권한 필요", "앨범 접근 권한을 허용해주세요.");
+    if (status !== "granted") {
+      showAlert({
+        title: "권한 필요",
+        message: "앨범 접근 권한을 허용해주세요.",
+        buttons: [{ text: "확인" }],
+      });
+      return;
+    }
     setBusy(true);
     try {
       const res = await ImagePicker.launchImageLibraryAsync({
@@ -274,8 +271,14 @@ export default function PlantNew() {
   }
   async function takePhoto() {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== "granted")
-      return Alert.alert("권한 필요", "카메라 권한을 허용해주세요.");
+    if (status !== "granted") {
+      showAlert({
+        title: "권한 필요",
+        message: "카메라 권한을 허용해주세요.",
+        buttons: [{ text: "확인" }],
+      });
+      return;
+    }
     setBusy(true);
     try {
       const res = await ImagePicker.launchCameraAsync({
@@ -302,11 +305,14 @@ export default function PlantNew() {
   // Submit
   async function handleSubmit() {
     if (!isAllFilled) return;
-    if (!isDateLike)
-      return Alert.alert(
-        "날짜 형식 확인",
-        "날짜는 YYYY-MM-DD 형식으로 입력해주세요."
-      );
+    if (!isDateLike) {
+      showAlert({
+        title: "날짜 형식 확인",
+        message: "날짜는 YYYY-MM-DD 형식으로 입력해주세요.",
+        buttons: [{ text: "확인" }],
+      });
+      return;
+    }
 
     Keyboard.dismiss();
     setBusy(true);
@@ -314,7 +320,11 @@ export default function PlantNew() {
     try {
       const token = await getToken();
       if (!token) {
-        Alert.alert("오류", "로그인이 필요합니다.");
+        showAlert({
+          title: "오류",
+          message: "로그인이 필요합니다.",
+          buttons: [{ text: "확인" }],
+        });
         return;
       }
 
@@ -353,19 +363,22 @@ export default function PlantNew() {
         throw new Error(errorData.detail || `등록 실패: ${response.status}`);
       }
 
-      const result = await response.json();
+      await response.json();
 
-      Alert.alert("등록 완료", "새 식물이 성공적으로 등록되었습니다!", [
-        { text: "확인", onPress: () => router.replace("/(page)/home") },
-      ]);
-    } catch (error) {
+      showAlert({
+        title: "등록 완료",
+        message: "새 식물이 성공적으로 등록되었습니다!",
+        buttons: [
+          { text: "확인", onPress: () => router.replace("/(page)/home") },
+        ],
+      });
+    } catch (error: any) {
       console.error("식물 등록 오류:", error);
-      Alert.alert(
-        "등록 실패",
-        error instanceof Error
-          ? error.message
-          : "식물 등록 중 오류가 발생했습니다."
-      );
+      showAlert({
+        title: "등록 실패",
+        message: error?.message || "식물 등록 중 오류가 발생했습니다.",
+        buttons: [{ text: "확인" }],
+      });
     } finally {
       setBusy(false);
     }
@@ -460,12 +473,7 @@ export default function PlantNew() {
               * 직접입력 시 올바른 품종정보나 생육정보의 제공이 어려울 수
               있습니다.
             </Text>
-            {species.trim().length > 0 && !isKnownSpecies && (
-              <Text style={styles.warn}>
-                * 데이터 베이스에 없는 식물입니다. 식물주님의 품종을 학습하여
-                조만간 업데이트 하겠습니다.
-              </Text>
-            )}
+            {/* 더미데이터 제거로 인한 경고 메시지 제거 */}
           </View>
 
           {/* 별명 */}

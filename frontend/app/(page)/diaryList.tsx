@@ -319,10 +319,7 @@ export default function DiaryList() {
 
       {/* 우하단 원형 버튼 (타임 랩스 만들기) */}
       <Pressable
-        onPress={() => {
-          // TODO: 타임랩스 생성 페이지 경로로 교체
-          // 예) router.push("/(page)/timelapse");
-        }}
+        onPress={() => router.push("/(page)/(stackless)/timelapse")}
         style={[
           styles.fab,
           {
@@ -330,6 +327,7 @@ export default function DiaryList() {
             backgroundColor: theme.bg,
           },
         ]}
+        hitSlop={8}
       >
         <Text style={[styles.fabText, { color: theme.text }]}>
           타임 랩스{"\n"}만들기
@@ -343,7 +341,7 @@ export default function DiaryList() {
 // ③ Styles
 // ─────────────────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: { flex: 1, paddingBottom: 100 },
 
   // 상단 바: 좌측 셀렉트, 우측 "일기 쓰기" 버튼
   topBar: {

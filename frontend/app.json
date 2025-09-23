@@ -12,6 +12,7 @@
       "supportsTablet": true
     },
     "android": {
+	  "usesCleartextTraffic": true,
       "softwareKeyboardLayoutMode": "resize",
 	  "windowSoftInputMode": "adjustResize",
       "adaptiveIcon": {

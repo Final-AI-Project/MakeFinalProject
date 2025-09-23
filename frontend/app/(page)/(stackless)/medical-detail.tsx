@@ -9,7 +9,6 @@ import {
   Platform,
   Pressable,
   Image,
-  Alert,
   ActivityIndicator,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
@@ -19,6 +18,7 @@ import Colors from "../../../constants/Colors";
 import { fetchSimpleWeather } from "../../../components/common/weatherBox";
 import { getApiUrl } from "../../../config/api";
 import { getToken } from "../../../libs/auth";
+import { showAlert } from "../../../components/common/appAlert";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ① Helpers & Types
@@ -145,7 +145,9 @@ export default function medicalDetail() {
       setDiagnosisResult({
         healthStatus: "",
         healthConfidence: 0,
-        candidates: [],
+        message: "",
+        recommendation: "",
+        diseasePredictions: [],
       });
       console.log("🔍 진단 페이지 상태 초기화 완료");
     }, [])
@@ -161,7 +163,9 @@ export default function medicalDetail() {
     setDiagnosisResult({
       healthStatus: "",
       healthConfidence: 0,
-      candidates: [],
+      message: "",
+      recommendation: "",
+      diseasePredictions: [],
     });
     console.log("🔍 진단 페이지 컴포넌트 마운트 시 초기화 완료");
   }, []);
@@ -227,8 +231,14 @@ export default function medicalDetail() {
   // 사진 선택
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== "granted")
-      return Alert.alert("권한 필요", "앨범 접근 권한을 허용해주세요.");
+    if (status !== "granted") {
+      showAlert({
+        title: "권한 필요",
+        message: "앨범 접근 권한을 허용해주세요.",
+        buttons: [{ text: "확인" }],
+      });
+      return;
+    }
     setBusy(true);
     try {
       const res = await ImagePicker.launchImageLibraryAsync({
@@ -266,7 +276,11 @@ export default function medicalDetail() {
     try {
       const token = await getToken();
       if (!token) {
-        Alert.alert("오류", "로그인이 필요합니다.");
+        showAlert({
+          title: "오류",
+          message: "로그인이 필요합니다.",
+          buttons: [{ text: "확인" }],
+        });
         return;
       }
 
@@ -293,7 +307,11 @@ export default function medicalDetail() {
         console.log("🌱 식물 ID:", plantId);
 
         if (!plantId) {
-          Alert.alert("오류", "선택된 식물의 ID를 찾을 수 없습니다.");
+          showAlert({
+            title: "오류",
+            message: "선택된 식물의 ID를 찾을 수 없습니다.",
+            buttons: [{ text: "확인" }],
+          });
           return;
         }
 
@@ -359,15 +377,18 @@ export default function medicalDetail() {
         console.log("⚠️ 저장할 진단 결과가 없음");
       }
 
-      Alert.alert("등록 완료", "진단 결과가 저장되었습니다.");
-      // 강제 새로고침을 위한 타임스탬프 파라미터 추가
-      router.push({
-        pathname: "/(page)/medical",
-        params: { refresh: Date.now().toString() },
+      showAlert({
+        title: "등록 완료",
+        message: "진단 결과가 저장되었습니다.",
+        buttons: [{ text: "확인", onPress: () => router.back() }],
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("저장 오류:", error);
-      Alert.alert("저장 실패", "진단 결과 저장 중 문제가 발생했습니다.");
+      showAlert({
+        title: "저장 실패",
+        message: "진단 결과 저장 중 문제가 발생했습니다.",
+        buttons: [{ text: "확인" }],
+      });
     }
   };
 
@@ -441,14 +462,13 @@ export default function medicalDetail() {
       } else {
         throw new Error("진단 결과를 받을 수 없습니다.");
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error("진단 오류:", e);
-      Alert.alert(
-        "진단 실패",
-        `사진 진단 중 문제가 발생했습니다: ${
-          e instanceof Error ? e.message : String(e)
-        }`
-      );
+      showAlert({
+        title: "진단 실패",
+        message: `사진 진단 중 문제가 발생했습니다: ${e.message ?? e}`,
+        buttons: [{ text: "확인" }],
+      });
       setDiagnosisResult(null);
     } finally {
       setInferBusy(false);
@@ -649,90 +669,66 @@ export default function medicalDetail() {
                   </View>
                 </View>
               );
-            } else if (display.type === "diseased" && display.diseases) {
+            } else if (
+              display.type === "diseased" &&
+              (display as any).diseases
+            ) {
               // 병충해 진단 결과 - 상위 3개 표시
-              return display.diseases.map((disease, idx) => (
-                <View
-                  key={idx}
-                  style={[
-                    styles.rowBox,
-                    { borderColor: theme.border, marginBottom: 8 },
-                  ]}
-                >
-                  <Text style={[styles.rank, { color: theme.text }]}>
-                    {disease.rank}.
-                  </Text>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.diseaseName, { color: theme.text }]}>
-                      {disease.class_name}
+              return (display as any).diseases.map(
+                (disease: any, idx: number) => (
+                  <View
+                    key={idx}
+                    style={[
+                      styles.rowBox,
+                      { borderColor: theme.border, marginBottom: 8 },
+                    ]}
+                  >
+                    <Text style={[styles.rank, { color: theme.text }]}>
+                      {disease.rank}.
                     </Text>
-                    <Text
-                      style={[
-                        styles.diseaseDesc,
-                        { color: theme.text, opacity: 0.8 },
-                      ]}
-                    >
-                      신뢰도: {(disease.confidence * 100).toFixed(1)}%
-                    </Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.diseaseName, { color: theme.text }]}>
+                        {disease.class_name}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.diseaseDesc,
+                          { color: theme.text, opacity: 0.8 },
+                        ]}
+                      >
+                        신뢰도: {(disease.confidence * 100).toFixed(1)}%
+                      </Text>
+                    </View>
                   </View>
-                </View>
-              ));
-            } else if (display.type === "loading") {
-              // 로딩 중 - 의심 병충해 3순위 박스 표시
-              return [1, 2, 3].map((rank) => (
-                <View
-                  key={rank}
-                  style={[
-                    styles.rowBox,
-                    { borderColor: theme.border, marginBottom: 8 },
-                  ]}
-                >
-                  <Text style={[styles.rank, { color: theme.text }]}>
-                    {rank}.
-                  </Text>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.diseaseName, { color: theme.text }]}>
-                      의심 병충해 {rank}순위
-                    </Text>
-                    <Text
-                      style={[
-                        styles.diseaseDesc,
-                        { color: theme.text, opacity: 0.8 },
-                      ]}
-                    >
-                      {display.desc}
-                    </Text>
-                  </View>
-                </View>
-              ));
+                )
+              );
             } else {
-              // 진단 전 - 의심 병충해 3순위 박스 표시
-              return [1, 2, 3].map((rank) => (
+              // 기본 상태 (사진 없음, 로딩 중 등)
+              return (
                 <View
-                  key={rank}
                   style={[
                     styles.rowBox,
                     { borderColor: theme.border, marginBottom: 8 },
                   ]}
                 >
-                  <Text style={[styles.rank, { color: theme.text }]}>
-                    {rank}.
-                  </Text>
+                  <Text style={[styles.rank, { color: theme.text }]}>1.</Text>
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.diseaseName, { color: theme.text }]}>
-                      진단 병충해 {rank}번
+                      {display.title}
                     </Text>
-                    <Text
-                      style={[
-                        styles.diseaseDesc,
-                        { color: theme.text, opacity: 0.8 },
-                      ]}
-                    >
-                      사진을 등록하고 진단을 실행하세요
-                    </Text>
+                    {!!(display as any).desc && (
+                      <Text
+                        style={[
+                          styles.diseaseDesc,
+                          { color: theme.text, opacity: 0.8 },
+                        ]}
+                      >
+                        {(display as any).desc}
+                      </Text>
+                    )}
                   </View>
                 </View>
-              ));
+              );
             }
           })()}
         </View>

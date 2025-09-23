@@ -12,7 +12,6 @@ import {
   Pressable,
   TouchableOpacity,
   TextInput,
-  Alert,
   ActivityIndicator,
 } from "react-native";
 import { useLocalSearchParams, useFocusEffect } from "expo-router";
@@ -20,9 +19,9 @@ import { useRouter, type Href } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import { useColorScheme } from "react-native";
 import Colors from "../../../constants/Colors";
-import { getApiUrl } from "../../../config/api";
+import { getApiUrl, API_ENDPOINTS } from "../../../config/api";
 import { getToken } from "../../../libs/auth";
-import { API_ENDPOINTS } from "../../../config/api";
+import { showAlert } from "../../../components/common/appAlert";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ② Types & Constants
@@ -208,7 +207,11 @@ export default function PlantDetail() {
   async function changePhoto() {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {
-      Alert.alert("권한 필요", "앨범 접근 권한을 허용해주세요.");
+      showAlert({
+        title: "권한 필요",
+        message: "앨범 접근 권한을 허용해주세요.",
+        buttons: [{ text: "확인" }],
+      });
       return;
     }
     setBusy(true);
@@ -237,7 +240,11 @@ export default function PlantDetail() {
 
       const token = await getToken();
       if (!token) {
-        Alert.alert("오류", "로그인이 필요합니다.");
+        showAlert({
+          title: "오류",
+          message: "로그인이 필요합니다.",
+          buttons: [{ text: "확인" }],
+        });
         return;
       }
 
@@ -266,14 +273,19 @@ export default function PlantDetail() {
           // 한글 품종명이 있으면 사용, 없으면 영어 품종명 사용
           const displaySpecies = result.species_korean || result.species;
           setSpecies(displaySpecies);
-          Alert.alert(
-            "품종 재분류 완료",
-            `새로운 품종: ${displaySpecies}\n신뢰도: ${Math.round(
+          showAlert({
+            title: "품종 재분류 완료",
+            message: `새로운 품종: ${displaySpecies}\n신뢰도: ${Math.round(
               (result.confidence || 0) * 100
-            )}%`
-          );
+            )}%`,
+            buttons: [{ text: "확인" }],
+          });
         } else {
-          Alert.alert("품종 분류 실패", "품종을 분류할 수 없습니다.");
+          showAlert({
+            title: "품종 분류 실패",
+            message: "품종을 분류할 수 없습니다.",
+            buttons: [{ text: "확인" }],
+          });
         }
       } else {
         throw new Error(`품종 분류 실패: ${response.status}`);
@@ -281,22 +293,27 @@ export default function PlantDetail() {
     } catch (error) {
       console.error("품종 분류 오류:", error);
       // 품종 분류 실패해도 계속 진행 (사용자에게 알림만 표시)
-      Alert.alert(
-        "품종 분류 실패",
-        "품종 분류 중 문제가 발생했습니다.\n기존 품종 정보를 유지합니다.",
-        [{ text: "확인" }]
-      );
+      showAlert({
+        title: "품종 분류 실패",
+        message:
+          "품종 분류 중 문제가 발생했습니다.\n기존 품종 정보를 유지합니다.",
+        buttons: [{ text: "확인" }],
+      });
     } finally {
       setBusy(false);
     }
   }
 
-  // 3-4) “습도계 지수 n% 증가 시 물준날로 기록?”
+  // 3-4) "습도계 지수 n% 증가 시 물준날로 기록?"
   const [humidityRise, setHumidityRise] = useState<string>("10");
   function markWateringByHumidity() {
     const n = Number(humidityRise);
     if (Number.isNaN(n) || n <= 0) {
-      Alert.alert("값 확인", "증가 퍼센트를 숫자로 입력해주세요.");
+      showAlert({
+        title: "값 확인",
+        message: "증가 퍼센트를 숫자로 입력해주세요.",
+        buttons: [{ text: "확인" }],
+      });
       return;
     }
     setWaterLogs((prev) => [
@@ -307,25 +324,30 @@ export default function PlantDetail() {
       },
       ...prev,
     ]);
-    Alert.alert("기록 완료", `습도 ${n}% 증가로 물 준 날을 기록했어요.`);
+    showAlert({
+      title: "기록 완료",
+      message: `습도 ${n}% 증가로 물 준 날을 기록했어요.`,
+      buttons: [{ text: "확인" }],
+    });
   }
 
   // 3-5) Delete / Edit / Back
   async function onDelete() {
-    Alert.alert(
-      "식물 삭제",
-      `${nickname || "이 식물"}과의 모든 추억을 삭제하시겠습니까?`,
-      [
+    showAlert({
+      title: "식물 삭제",
+      message: `${nickname || "이 식물"}과의 모든 추억을 삭제하시겠습니까?`,
+      buttons: [
         { text: "취소", style: "cancel" },
         {
           text: "삭제하기",
           style: "destructive",
           onPress: () => {
             // 2단계 확인
-            Alert.alert(
-              "정말 삭제하시겠습니까?",
-              "삭제 시 다음 데이터가 모두 사라집니다:\n• 식물 기본 정보\n• 관련 일기\n• 관련 이미지\n• 진단 기록\n\n삭제된 데이터는 복구할 수 없습니다.",
-              [
+            showAlert({
+              title: "정말 삭제하시겠습니까?",
+              message:
+                "삭제 시 다음 데이터가 모두 사라집니다:\n• 식물 기본 정보\n• 관련 일기\n• 관련 이미지\n• 진단 기록\n\n삭제된 데이터는 복구할 수 없습니다.",
+              buttons: [
                 { text: "취소", style: "cancel" },
                 {
                   text: "삭제",
@@ -337,7 +359,11 @@ export default function PlantDetail() {
                       // 토큰 가져오기
                       const token = await getToken();
                       if (!token) {
-                        Alert.alert("오류", "로그인이 필요합니다.");
+                        showAlert({
+                          title: "오류",
+                          message: "로그인이 필요합니다.",
+                          buttons: [{ text: "확인" }],
+                        });
                         return;
                       }
 
@@ -367,35 +393,38 @@ export default function PlantDetail() {
                       }
 
                       const result = await response.json();
-                      Alert.alert(
-                        "삭제 완료",
-                        "식물과 관련된 모든 데이터가 성공적으로 삭제되었습니다.",
-                        [
+                      showAlert({
+                        title: "삭제 완료",
+                        message:
+                          "식물과 관련된 모든 데이터가 성공적으로 삭제되었습니다.",
+                        buttons: [
                           {
                             text: "확인",
                             onPress: () => router.push("/(page)/home"),
                           },
-                        ]
-                      );
+                        ],
+                      });
                     } catch (error) {
                       console.error("식물 삭제 실패:", error);
-                      Alert.alert(
-                        "삭제 실패",
-                        error instanceof Error
-                          ? error.message
-                          : "식물 삭제 중 오류가 발생했습니다."
-                      );
+                      showAlert({
+                        title: "삭제 실패",
+                        message:
+                          error instanceof Error
+                            ? error.message
+                            : "식물 삭제 중 오류가 발생했습니다.",
+                        buttons: [{ text: "확인" }],
+                      });
                     } finally {
                       setBusy(false);
                     }
                   },
                 },
-              ]
-            );
+              ],
+            });
           },
         },
-      ]
-    );
+      ],
+    });
   }
 
   // 수정 모드 토글
@@ -407,7 +436,11 @@ export default function PlantDetail() {
   async function saveChanges() {
     const plantId = params.id || params.plantId;
     if (!plantId) {
-      Alert.alert("오류", "식물 ID가 없습니다.");
+      showAlert({
+        title: "오류",
+        message: "식물 ID가 없습니다.",
+        buttons: [{ text: "확인" }],
+      });
       return;
     }
 
@@ -415,7 +448,11 @@ export default function PlantDetail() {
     try {
       const token = await getToken();
       if (!token) {
-        Alert.alert("오류", "로그인이 필요합니다.");
+        showAlert({
+          title: "오류",
+          message: "로그인이 필요합니다.",
+          buttons: [{ text: "확인" }],
+        });
         return;
       }
 
@@ -444,7 +481,11 @@ export default function PlantDetail() {
       });
 
       if (response.ok) {
-        Alert.alert("저장 완료", "식물 정보가 성공적으로 업데이트되었습니다.");
+        showAlert({
+          title: "저장 완료",
+          message: "식물 정보가 성공적으로 업데이트되었습니다.",
+          buttons: [{ text: "확인" }],
+        });
         setIsEditing(false);
         // 홈페이지로 돌아가기
         router.push("/(page)/home");
@@ -453,7 +494,11 @@ export default function PlantDetail() {
       }
     } catch (error) {
       console.error("식물 정보 저장 오류:", error);
-      Alert.alert("저장 실패", "식물 정보 저장 중 문제가 발생했습니다.");
+      showAlert({
+        title: "저장 실패",
+        message: "식물 정보 저장 중 문제가 발생했습니다.",
+        buttons: [{ text: "확인" }],
+      });
     } finally {
       setIsSaving(false);
     }
