@@ -294,7 +294,7 @@ function BottomSheet({
         <Text style={[styles.sheetTitle, { color: theme.text }]}>{title}</Text>
         <View style={styles.sheetBody}>
           <AnimatedChars
-            text={text || "임시 응답 텍스트가 없습니다."}
+            text={text || "식물의 응답을 기다리는 중입니다..."}
             delayStep={22}
             duration={260}
             style={[styles.sheetText, { color: theme.text }]}
