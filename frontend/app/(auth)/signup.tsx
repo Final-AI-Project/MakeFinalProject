@@ -5,7 +5,6 @@ import {
     Text,
     TextInput,
     TouchableOpacity,
-    Alert,
     KeyboardAvoidingView,
     Platform,
     ScrollView,
@@ -17,7 +16,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import Colors from "../../constants/Colors";
 import { useColorScheme } from "react-native";
-
+import { showAlert } from "../../components/common/appAlert";
 import { API_BASE_URL } from "../../config/api";
 
 type SignupForm = {
@@ -56,9 +55,18 @@ export default function SignupScreen() {
     const validate = () => {
         const emailOk = /^\S+@\S+\.\S+$/.test(form.email);
         const hpOk = /^[0-9\-+ ]{9,20}$/.test(form.hp);
-        if (!emailOk) { Alert.alert("회원가입", "이메일 형식이 올바르지 않습니다."); return false; }
-        if (form.user_pw.length < 6) { Alert.alert("회원가입", "비밀번호는 6자 이상으로 입력해주세요."); return false; }
-        if (!hpOk) { Alert.alert("회원가입", "휴대폰 번호 형식을 확인해주세요."); return false; }
+        if (!emailOk) {
+			showAlert({ title: "회원가입", message: "이메일 형식이 올바르지 않습니다.", buttons: [{ text: "확인" }] });
+			return false;
+		}
+		if (form.user_pw.length < 6) {
+			showAlert({ title: "회원가입", message: "비밀번호는 6자 이상으로 입력해주세요.", buttons: [{ text: "확인" }] });
+			return false;
+		}
+		if (!hpOk) {
+			showAlert({ title: "회원가입", message: "휴대폰 번호 형식을 확인해주세요.", buttons: [{ text: "확인" }] });
+			return false;
+		}
         return true;
     };
 
@@ -132,13 +140,14 @@ export default function SignupScreen() {
             const data = await res.json();
             console.log("Signup success:", data);
             
-            Alert.alert(
-                "🎉 회원가입 완료", 
-                "회원가입이 성공적으로 완료되었습니다!\n로그인 화면으로 이동합니다.", 
-                [
-                    { text: "확인", onPress: () => router.replace("/(auth)/login") }
-                ]
-            );
+            showAlert({
+				title: "회원가입 완료",
+				message: "회원가입이 성공적으로 완료되었습니다!\n로그인 화면으로 이동합니다.",
+				buttons: [
+					{ text: "확인", onPress: () => router.replace("/(auth)/login") }
+				],
+			});
+
         } catch (err: any) {
             console.error("Signup error:", err);
 
@@ -157,50 +166,51 @@ export default function SignupScreen() {
                 err?.name === "TypeError";
 
             if (isConnectionError) {
-                Alert.alert(
-                    "🔌 서버 연결 실패",
-                    "백엔드 서버에 연결할 수 없습니다.\n\n• 백엔드 서버가 실행 중인지 확인해주세요\n• 네트워크 연결을 확인해주세요",
-                    [
-                        { text: "다시 시도", style: "default" },
-                        { text: "확인", style: "cancel" }
-                    ]
-                );
+                showAlert({
+					title: "🔌 서버 연결 실패",
+					message: "백엔드 서버에 연결할 수 없습니다.\n\n• 백엔드 서버가 실행 중인지 확인해주세요\n• 네트워크 연결을 확인해주세요",
+					buttons: [
+						{ text: "다시 시도" },
+						{ text: "확인", style: "cancel" },
+					],
+				});
             } else if (errorTitle === "중복 오류") {
-                Alert.alert(
-                    "⚠️ 중복 오류",
-                    `${errorMessage}\n\n• 다른 아이디를 사용해주세요\n• 다른 이메일을 사용해주세요`,
-                    [
-                        { text: "다시 시도", style: "default" },
-                        { text: "확인", style: "cancel" }
-                    ]
-                );
+                showAlert({
+					title: "중복 오류",
+					message: `${errorMessage}\n\n• 다른 아이디를 사용해주세요\n• 다른 이메일을 사용해주세요`,
+					buttons: [
+						{ text: "다시 시도" },
+						{ text: "확인", style: "cancel" },
+					],
+				});
             } else if (errorTitle === "입력 오류") {
-                Alert.alert(
-                    "📝 입력 오류",
-                    `${errorMessage}\n\n• 모든 필드를 올바르게 입력해주세요\n• 이메일 형식을 확인해주세요`,
-                    [
-                        { text: "다시 시도", style: "default" },
-                        { text: "확인", style: "cancel" }
-                    ]
-                );
+                showAlert({
+					title: "입력 오류",
+					message: `${errorMessage}\n\n• 모든 필드를 올바르게 입력해주세요\n• 이메일 형식을 확인해주세요`,
+					buttons: [
+						{ text: "다시 시도" },
+						{ text: "확인", style: "cancel" },
+					],
+				});
             } else if (errorTitle === "서버 오류") {
-                Alert.alert(
-                    "⚠️ 서버 오류",
-                    `${errorMessage}\n\n잠시 후 다시 시도해주세요.`,
-                    [
-                        { text: "다시 시도", style: "default" },
-                        { text: "확인", style: "cancel" }
-                    ]
-                );
+                showAlert({
+					title: "서버 오류",
+					message: `${errorMessage}\n\n잠시 후 다시 시도해주세요.`,
+					buttons: [
+						{ text: "다시 시도" },
+						{ text: "확인", style: "cancel" },
+					],
+				});
+
             } else {
-                Alert.alert(
-                    "❌ 회원가입 실패",
-                    `${errorMessage}\n\n문제가 지속되면 관리자에게 문의해주세요.`,
-                    [
-                        { text: "다시 시도", style: "default" },
-                        { text: "확인", style: "cancel" }
-                    ]
-                );
+                showAlert({
+					title: "회원가입 실패",
+					message: `${errorMessage}\n\n문제가 지속되면 관리자에게 문의해주세요.`,
+					buttons: [
+						{ text: "다시 시도" },
+						{ text: "확인", style: "cancel" },
+					],
+				});
             }
         } finally {
             setLoading(false);
