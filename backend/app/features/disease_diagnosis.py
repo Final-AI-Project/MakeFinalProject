@@ -38,13 +38,13 @@ async def diagnose_disease_from_upload(
         print(f"[DEBUG] 업로드된 파일: {image.filename}")
         print(f"[DEBUG] 파일 타입: {image.content_type}")
         
-        # 이미지 데이터 읽기
-        image_data = await image.read()
-        print(f"[DEBUG] 이미지 데이터 크기: {len(image_data)} bytes")
-        
-        # 이미지 저장
+        # 이미지 저장 (파일 시스템에만)
         img_url = await save_uploaded_image(image, "disease_diagnosis")
         print(f"[DEBUG] 저장된 이미지 URL: {img_url}")
+        
+        # 이미지 데이터 읽기 (저장 후에 읽기)
+        image_data = await image.read()
+        print(f"[DEBUG] 이미지 데이터 크기: {len(image_data)} bytes")
         
         # 병충해 진단 수행
         print("[DEBUG] 모델 서버 호출 시작...")
@@ -373,24 +373,35 @@ async def save_disease_diagnosis(
                 print(f"[WARNING] predictions_list가 비어있음 - 저장할 진단 결과가 없습니다.")
             
             # 진단 이미지를 img_address 테이블에 저장 (이미지가 있는 경우)
+            print(f"[DEBUG] 이미지 저장 조건 확인:")
+            print(f"[DEBUG] - image_url: {image_url} (존재: {bool(image_url)})")
+            print(f"[DEBUG] - diagnosis_id: {diagnosis_id} (존재: {bool(diagnosis_id)})")
+            
             if image_url and diagnosis_id:
                 print(f"[DEBUG] 진단 이미지 URL 저장 중: {image_url}")
-                # pest_plant_idx를 사용해서 이미지 저장
-                await cursor.execute(
-                    """
-                    INSERT INTO img_address (
-                        pest_plant_idx,
-                        img_url
-                    ) VALUES (%s, %s)
-                    """,
-                    (
-                        diagnosis_id,  # user_plant_pest의 idx 사용
-                        image_url
+                try:
+                    # pest_plant_idx를 사용해서 이미지 저장
+                    await cursor.execute(
+                        """
+                        INSERT INTO img_address (
+                            pest_plant_idx,
+                            img_url
+                        ) VALUES (%s, %s)
+                        """,
+                        (
+                            diagnosis_id,  # user_plant_pest의 idx 사용
+                            image_url
+                        )
                     )
-                )
-                print(f"[DEBUG] 진단 이미지 URL 저장 완료 (pest_plant_idx: {diagnosis_id})")
+                    print(f"[DEBUG] 진단 이미지 URL 저장 완료 (pest_plant_idx: {diagnosis_id})")
+                except Exception as e:
+                    print(f"[DEBUG] 이미지 저장 실패: {e}")
+                    import traceback
+                    print(f"[DEBUG] 이미지 저장 트레이스백: {traceback.format_exc()}")
             elif image_url and not diagnosis_id:
                 print(f"[WARNING] 이미지는 있지만 diagnosis_id가 없어서 저장하지 않음")
+            else:
+                print(f"[DEBUG] 이미지 저장 건너뜀: image_url={image_url}, diagnosis_id={diagnosis_id}")
         
         return DiseaseDiagnosisSaveResponse(
             success=True,

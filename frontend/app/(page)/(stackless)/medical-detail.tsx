@@ -124,6 +124,7 @@ export default function medicalDetail() {
     message: string;
     recommendation: string;
     diseasePredictions: any[];
+    image_url?: string;
   } | null>(null);
 
   // 내 식물(별명) - 실제 API에서 가져오기
@@ -148,6 +149,7 @@ export default function medicalDetail() {
         message: "",
         recommendation: "",
         diseasePredictions: [],
+        image_url: undefined,
       });
       console.log("🔍 진단 페이지 상태 초기화 완료");
     }, [])
@@ -166,6 +168,7 @@ export default function medicalDetail() {
       message: "",
       recommendation: "",
       diseasePredictions: [],
+      image_url: undefined,
     });
     console.log("🔍 진단 페이지 컴포넌트 마운트 시 초기화 완료");
   }, []);
@@ -286,7 +289,15 @@ export default function medicalDetail() {
 
   // 등록
   const handleSubmit = async () => {
-    if (!canSubmit) return;
+    console.log("🚀 handleSubmit 함수 호출됨");
+    console.log("🔍 canSubmit:", canSubmit);
+    console.log("🔍 selectedPlant:", selectedPlant);
+    console.log("🔍 diagnosisResult:", diagnosisResult);
+
+    if (!canSubmit) {
+      console.log("❌ canSubmit이 false여서 함수 종료");
+      return;
+    }
 
     try {
       const token = await getToken();
@@ -354,6 +365,15 @@ export default function medicalDetail() {
 
         const apiUrl = getApiUrl("/disease-diagnosis/save");
         console.log("🌐 저장 API URL:", apiUrl);
+        console.log("📤 저장할 FormData 내용:", {
+          plant_id: plantId.toString(),
+          disease_name: diagnosisResult.diseasePredictions[0].class_name,
+          confidence:
+            diagnosisResult.diseasePredictions[0].confidence.toString(),
+          diagnosis_date: date,
+          health_status: diagnosisResult.healthStatus || "ill",
+          image_url: diagnosisResult.image_url,
+        });
 
         const response = await fetch(apiUrl, {
           method: "POST",
@@ -375,7 +395,8 @@ export default function medicalDetail() {
             buttons: [
               {
                 text: "확인",
-                onPress: () => router.push("/(page)/medical"),
+                onPress: () =>
+                  router.push("/(page)/medical?refresh=" + Date.now()),
               },
             ],
           });
@@ -610,6 +631,7 @@ export default function medicalDetail() {
           message: result.message,
           recommendation: result.recommendation,
           diseasePredictions: result.disease_predictions || [],
+          image_url: result.image_url,
         });
 
         // 진단 완료 - 다른 페이지들처럼 결과만 표시하고 등록하기 버튼 활성화
