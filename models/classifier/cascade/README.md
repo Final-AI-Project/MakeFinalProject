@@ -18,9 +18,11 @@ uvicorn server:app --host 0.0.0.0 --port 4000
 # 모바일 온디바이스 실행 준비 (TorchScript)
 python export_mobile.py
 
+# onnx 만들기
+python export_to_onnx.py --weights weight\mobilenet_v3_large_best.pth --labels labels.txt --out mobilenet_v3_large_best.onnx --verify
 
-
-
+# 서버 열기
+D:\hwan\AIFinalProject\models\classifier\cascade>uvicorn server:app --host 0.0.0.0 --port 40000 --port 4000
 
 
 
