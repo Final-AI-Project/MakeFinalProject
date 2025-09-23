@@ -1,28 +1,37 @@
+# 실행
+### 0. .venv 설치
+cd /models/classifier/ 
+### 이후
+python -m venv .venv
+### (.venv) 키기위해
+cd .venv/Scripts/
+### activate
+activate
 
-# 실행 (가상환경에서):
-(.venv) D:\hwan\AIFinalProject\models\classifier\cascade> pip install fastapi uvicorn pillow torch torchvision
-(.venv) D:\hwan\AIFinalProject\models\classifier\cascade> uvicorn server:app --host 0.0.0.0 --port 4000
+### pip 설치
+cd D:\hwan\AIFinalProject\models\classifier\cascade
+### 이후
+python -m pip install -r requirement.txt
 
-
-# plants-dataset/train, val 에 실제 식물 이미지 넣은 뒤
-python models/classifier/cascade/cascade.py --data_root models/plants-dataset --model mobilenet_v3_large --epochs 10 --weighted_sampler
-
-
-
-# Python 단일 명령어 추론
-python infer_classifier.py --model mobilenet_v3_large --weights weight/mobilenet_v3_large_best.pth --image plants-dataset/val/mon/mon_102.jpg
-
-# 프론트 연결용 추론 서버 실행
+### 서버 실행
+cd D:\hwan\AIFinalProject\models\classifier\cascade
 uvicorn server:app --host 0.0.0.0 --port 4000
 
-# 모바일 온디바이스 실행 준비 (TorchScript)
-python export_mobile.py
+### 확인용 (JSON)
+http://<네트워크_IP>:4000/healthcheck
 
-# onnx 만들기
+## plants-dataset/train, val 에 실제 식물 이미지 넣은 뒤
+python models/classifier/cascade/cascade.py --data_root models/plants-dataset --model mobilenet_v3_large --epochs 10 --weighted_sampler
+
+## Python 단일 명령어 추론
+python infer_classifier.py --model mobilenet_v3_large --weights weight/mobilenet_v3_large_best.pth --image plants-dataset/val/mon/mon_102.jpg
+
+## 프론트 연결용 추론 서버 실행
+uvicorn server:app --host 0.0.0.0 --port 4000
+
+## onnx 만들기
 python export_to_onnx.py --weights weight\mobilenet_v3_large_best.pth --labels labels.txt --out mobilenet_v3_large_best.onnx --verify
 
-# 서버 열기
-D:\hwan\AIFinalProject\models\classifier\cascade>uvicorn server:app --host 0.0.0.0 --port 40000 --port 4000
 
 
 
@@ -31,22 +40,22 @@ D:\hwan\AIFinalProject\models\classifier\cascade>uvicorn server:app --host 0.0.0
 
 
 ### 그 밖에 모델 테스트
-# ShuffleNetV2
+### ShuffleNetV2
 python models/classifier/cascade/cascade.py --data_root models/plants-dataset --model shufflenet_v2 --epochs 10 --weighted_sampler
 
-# efficientnet_b0
+### efficientnet_b0
 python models/classifier/cascade/cascade.py --data_root models/plants-dataset --model efficientnet_b0 --epochs 20 --weighted_sampler
 
-# GhostNet (timm 필요)
+### GhostNet (timm 필요)
 python models/classifier/cascade/cascade.py --data_root models/plants-dataset --model ghostnet --epochs 10 --weighted_sampler
 
-# MobileViT(v2) (timm 필요)
+### MobileViT(v2) (timm 필요)
 python models/classifier/cascade/cascade.py --data_root models/plants-dataset --model mobilevitv2 --epochs 10 --weighted_sampler
 
-# MobileNetV3-Large (기존)
+### MobileNetV3-Large (기존)
 python models/classifier/cascade/cascade.py --data_root models/plants-dataset --model mobilenet_v3_large --epochs 10 --weighted_sampler
 
-# pth 로 비교
+### pth 로 비교
 python models/classifier/cascade/compare_report.py --data_root models/plants-dataset --mobilenet_weights models/classifier/cascade/weight/mobilenet_v3_large_best.pth --ghostnet_weights models/classifier/cascade/weight/ghostnet_best.pth --mobilevitv2_weights models/classifier/cascade/weight/mobilevitv2_best.pth --shufflenet_v2_weights models/classifier/cascade/weight/shufflenet_v2_best.pth --efficientnet_b0_weights models/classifier/cascade/weight/efficientnet_b0_best.pth
 
 
