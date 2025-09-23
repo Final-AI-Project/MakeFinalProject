@@ -47,10 +47,6 @@ class MQTTService:
         # 디버그/상태 확인용
         self.last: Optional[Dict[str, Any]] = None
 
-
-
-
-
     # ---------- FastAPI lifespan에서 호출 ----------
     async def start(self, loop: asyncio.AbstractEventLoop) -> None:
         """서비스 시작: 컨슈머 태스크 생성, MQTT 접속/수신루프 시작"""
@@ -178,29 +174,25 @@ class MQTTService:
 
 
         # 4. humid_date → DATETIME (KST 기준)
-        # 지금은 DATE로 저장 중 (추후 수정 가능성 있음)
         ts = data.get("ts")
         if isinstance(ts, (int, float)):
             dt_utc = datetime.fromtimestamp(int(ts), tz=timezone.utc)
         else:
             dt_utc = item["received_at"]
-        dt_date = dt_utc.astimezone(KST).date()
-        # datetime 수정 시 .date() 삭제
+        dt_date = dt_utc.astimezone(KST)
 
 
         # INSERT
-        sensor_digit_for_db = 0 if sensor_digit is None else sensor_digit
-
         async with get_cursor() as cursor:
 
-            print(f"[MQTT→DB] insert try: device_id={device_id}, humidity={humidity}, " f"sensor_digit={sensor_digit_for_db}, humid_date={dt_date}", flush=True)
+            print(f"[MQTT→DB] insert try: device_id={device_id}, humidity={humidity}, " f"sensor_digit={sensor_digit}, humid_date={dt_date}", flush=True)
 
             await cursor.execute(
                 """
                 INSERT INTO humid_info (device_id, humidity, sensor_digit, humid_date)
                 VALUES (%s, %s, %s, %s)
                 """,
-                (device_id, humidity, sensor_digit_for_db, dt_date)
+                (device_id, humidity, sensor_digit, dt_date)
             )
             conn = getattr(cursor, "connection", None) or getattr(cursor, "_connection", None)
             if conn is not None and hasattr(conn, "commit"):
