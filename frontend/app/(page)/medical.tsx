@@ -252,13 +252,19 @@ export default function MedicalPage() {
             }`,
             diagnosedAt: formatDate(it.pest_date),
             diseaseName: it.pest_name,
-            details: it.symptom || "진단 결과가 저장되었습니다.",
+            details:
+              it.symptom === "위키에 정보가 없습니다."
+                ? "위키에 정보가 없습니다."
+                : it.symptom || "진단 결과가 저장되었습니다.",
             photoUri: it.diagnosis_image_url || null, // 진단 이미지 URL
             candidates: [
               {
                 id: `cand_${it.pest_id}`,
                 name: it.pest_name,
-                desc: it.symptom || "진단 결과",
+                desc:
+                  it.symptom === "위키에 정보가 없습니다."
+                    ? "위키에 정보가 없습니다."
+                    : it.symptom || "진단 결과",
                 confidence: 0.8, // 기본값
               },
             ],
@@ -471,27 +477,65 @@ export default function MedicalPage() {
                   ]}
                 >
                   <Text style={[styles.accRowText, { color: theme.text }]}>
-                    내 식물 별명 / 진단 날짜(당일): {item.nickname} / {todayStr}
+                    {item.nickname} / {formatDate(item.diagnosedAt)}
                   </Text>
                 </View>
 
                 {/* 3) 후보 병충해 1~3 */}
-                {(item.candidates ?? []).slice(0, 3).map((d, i) => (
-                  <View
-                    key={d.id}
+                <View
+                  style={[
+                    styles.accRow,
+                    { borderColor: theme.border, backgroundColor: theme.bg },
+                  ]}
+                >
+                  <Text
                     style={[
-                      styles.accRow,
-                      { borderColor: theme.border, backgroundColor: theme.bg },
+                      styles.accRowText,
+                      { color: theme.text, marginBottom: 8 },
                     ]}
                   >
-                    <Text style={[styles.accRowText, { color: theme.text }]}>
-                      {i + 1}. {d.name} : {d.desc ?? "-"}
-                      {typeof d.confidence === "number"
-                        ? ` (${Math.round(d.confidence * 100)}%)`
-                        : ""}
-                    </Text>
-                  </View>
-                ))}
+                    진단 결과
+                  </Text>
+                  {(item.candidates ?? []).slice(0, 3).map((d, i) => (
+                    <View
+                      key={d.id}
+                      style={[
+                        styles.rankBox,
+                        {
+                          borderColor: theme.border,
+                          backgroundColor: theme.bg,
+                          marginBottom: i < 2 ? 6 : 0,
+                        },
+                      ]}
+                    >
+                      <View style={styles.rankHeader}>
+                        <Text
+                          style={[styles.rankNumber, { color: theme.text }]}
+                        >
+                          {i + 1}순위
+                        </Text>
+                        {typeof d.confidence === "number" && (
+                          <Text
+                            style={[
+                              styles.rankConfidence,
+                              { color: theme.text },
+                            ]}
+                          >
+                            {Math.round(d.confidence * 100)}%
+                          </Text>
+                        )}
+                      </View>
+                      <Text style={[styles.rankName, { color: theme.text }]}>
+                        {d.name}
+                      </Text>
+                      {d.desc && (
+                        <Text style={[styles.rankDesc, { color: theme.text }]}>
+                          {d.desc}
+                        </Text>
+                      )}
+                    </View>
+                  ))}
+                </View>
 
                 {/* 진단 결과 삭제 버튼 */}
                 <View style={[styles.deleteButtonContainer, { marginTop: 12 }]}>
@@ -695,6 +739,40 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 14,
     fontWeight: "600",
+  },
+
+  // 진단 순위 박스 스타일
+  rankBox: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 6,
+  },
+  rankHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 6,
+  },
+  rankNumber: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#007AFF",
+  },
+  rankConfidence: {
+    fontSize: 12,
+    fontWeight: "600",
+    opacity: 0.7,
+  },
+  rankName: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 4,
+  },
+  rankDesc: {
+    fontSize: 13,
+    lineHeight: 18,
+    opacity: 0.8,
   },
 
   sectionHeader: {

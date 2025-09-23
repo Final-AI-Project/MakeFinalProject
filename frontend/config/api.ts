@@ -9,24 +9,24 @@ import { Platform } from "react-native";
 function resolveDefaultBaseUrl(): string {
   // 1순위: .env 파일의 EXPO_PUBLIC_API_BASE_URL
   const envUrl = process.env.EXPO_PUBLIC_API_BASE_URL?.trim();
-  console.log("🔧 EXPO_PUBLIC_API_BASE_URL:", envUrl);
+  // console.log("🔧 EXPO_PUBLIC_API_BASE_URL:", envUrl);
 
   if (envUrl) {
     // http://가 없으면 자동으로 추가
     const finalUrl = envUrl.startsWith("http") ? envUrl : `http://${envUrl}`;
-    console.log("✅ .env에서 URL 사용:", finalUrl);
+    // console.log("✅ .env에서 URL 사용:", finalUrl);
     return finalUrl;
   }
 
   // 2순위: 개발 기본값 (fallback)
   const host = Platform.OS === "android" ? "10.0.2.2" : "localhost";
   const fallbackUrl = `http://${host}:3000`;
-  console.log("⚠️ fallback URL 사용:", fallbackUrl);
+  // console.log("⚠️ fallback URL 사용:", fallbackUrl);
   return fallbackUrl;
 }
 
 export const API_BASE_URL = resolveDefaultBaseUrl();
-console.log("🚀 최종 API_BASE_URL:", API_BASE_URL);
+// console.log("🚀 최종 API_BASE_URL:", API_BASE_URL);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 2) 엔드포인트

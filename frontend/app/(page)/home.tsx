@@ -31,8 +31,8 @@ import { startLoading, stopLoading } from "../../components/common/loading";
 import { useFocusEffect } from "@react-navigation/native";
 import { API_BASE_URL } from "../../config/api";
 
-// API_BASE_URL 확인
-console.log("🏠 Home에서 API_BASE_URL:", API_BASE_URL);
+// API_BASE_URL 확인 (개발용)
+// console.log("🏠 Home에서 API_BASE_URL:", API_BASE_URL);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ② Types & Constants
@@ -112,11 +112,8 @@ export default function Home() {
       setLoading(true);
       const token = await getToken();
       if (!token) {
-        showAlert({
-          title: "오류",
-          message: "로그인이 필요합니다.",
-          buttons: [{ text: "확인" }],
-        });
+        console.log("🔑 No token found in fetchUserPlants, skipping API call");
+        setLoading(false);
         return;
       }
 

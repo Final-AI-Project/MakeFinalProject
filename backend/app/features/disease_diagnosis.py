@@ -199,9 +199,39 @@ async def save_disease_diagnosis(
                 pest_id_db = pest_result["pest_id"]
                 print(f"[DEBUG] 병충해 ID 찾음: {pest_id_db}")
             else:
-                # 병충해가 DB에 없는 경우 기본값 사용
-                pest_id_db = 1  # 기본 병충해 ID
-                print(f"[DEBUG] 병충해 ID 없음, 기본값 사용: {pest_id_db}")
+                # 병충해가 DB에 없는 경우 새로운 병충해 추가
+                try:
+                    await cursor.execute(
+                        """
+                        INSERT INTO pest_wiki (pest_name, pathogen, symptom, cause, cure)
+                        VALUES (%s, %s, %s, %s, %s)
+                        """,
+                        (
+                            disease_name,
+                            "알 수 없음",
+                            "위키에 정보가 없습니다.",
+                            "위키에 정보가 없습니다.",
+                            "위키에 정보가 없습니다."
+                        )
+                    )
+                    pest_id_db = cursor.lastrowid
+                    print(f"[DEBUG] 새로운 병충해 추가됨: {disease_name} (ID: {pest_id_db})")
+                except Exception as e:
+                    print(f"[DEBUG] 병충해 추가 중 오류 발생: {e}")
+                    # 중복 키 에러인 경우 다시 조회
+                    if "Duplicate entry" in str(e):
+                        await cursor.execute(
+                            "SELECT pest_id FROM pest_wiki WHERE pest_name = %s LIMIT 1",
+                            (disease_name,)
+                        )
+                        result = await cursor.fetchone()
+                        if result:
+                            pest_id_db = result["pest_id"]
+                            print(f"[DEBUG] 중복된 병충해 발견: {disease_name} (ID: {pest_id_db})")
+                        else:
+                            raise e
+                    else:
+                        raise e
             
             # 날짜 문자열을 date 객체로 변환
             from datetime import datetime
@@ -241,15 +271,13 @@ async def save_disease_diagnosis(
                     """
                     INSERT INTO img_address (
                         pest_plant_idx,
-                        pest_id,
                         img_url
-                    ) VALUES (%s, %s, %s)
+                    ) VALUES (%s, %s)
                     ON DUPLICATE KEY UPDATE
                         img_url = VALUES(img_url)
                     """,
                     (
                         diagnosis_id,
-                        pest_id_db,
                         image_url
                     )
                 )
@@ -265,6 +293,9 @@ async def save_disease_diagnosis(
     except HTTPException:
         raise
     except Exception as e:
+        print(f"[DEBUG] 진단 저장 API 오류: {e}")
+        import traceback
+        print(f"[DEBUG] 트레이스백: {traceback.format_exc()}")
         raise HTTPException(
             status_code=500,
             detail=f"병충해 진단 저장 중 오류가 발생했습니다: {str(e)}"

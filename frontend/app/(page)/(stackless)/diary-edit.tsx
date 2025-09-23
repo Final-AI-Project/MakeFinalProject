@@ -855,13 +855,13 @@ export default function DiaryEdit() {
   const plantName = selectedPlantData?.plant_name || "식물";
   const sheetTitle = `${plantName}의 하고픈 말`;
 
-  // 디버깅 로그
-  console.log("🔍 바텀시트 타이틀 디버깅:");
-  console.log("selectedPlant:", selectedPlant);
-  console.log("plantsData:", plantsData);
-  console.log("selectedPlantData:", selectedPlantData);
-  console.log("plantName:", plantName);
-  console.log("sheetTitle:", sheetTitle);
+  // 디버깅 로그 (개발용)
+  // console.log("🔍 바텀시트 타이틀 디버깅:");
+  // console.log("selectedPlant:", selectedPlant);
+  // console.log("plantsData:", plantsData);
+  // console.log("selectedPlantData:", selectedPlantData);
+  // console.log("plantName:", plantName);
+  // console.log("sheetTitle:", sheetTitle);
 
   // ✨ 무한 애니메이션 (face, hand)
   const move1 = useRef(new Animated.Value(0)).current;

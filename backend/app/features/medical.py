@@ -15,7 +15,7 @@ from repositories.medical import (
     get_medical_diagnosis_by_id,
     create_medical_diagnosis,
     update_medical_diagnosis,
-    delete_medical_diagnosis,
+    delete_medical_diagnosis as delete_medical_diagnosis_repo,
     get_medical_stats,
     get_related_diagnoses
 )
@@ -307,7 +307,7 @@ async def delete_medical_diagnosis_record(
     """
     try:
         async with get_db_connection() as (conn, cursor):
-            success = await delete_medical_diagnosis(
+            success = await delete_medical_diagnosis_repo(
                 db=(conn, cursor),
                 diagnosis_id=diagnosis_id,
                 user_id=user["user_id"]

@@ -86,14 +86,25 @@ async def create_medical_diagnosis(
     """새로운 병충해 진단 기록을 생성합니다."""
     conn, cursor = db
     async with cursor:
+        # user_plant_pest 테이블에 진단 기록 생성 (이미지 URL은 저장하지 않음)
         await cursor.execute(
             """
-            INSERT INTO user_plant_pest (plant_id, pest_id, pest_date, diagnosis_image_url)
-            VALUES (%s, %s, %s, %s)
+            INSERT INTO user_plant_pest (plant_id, pest_id, pest_date)
+            VALUES (%s, %s, %s)
             """,
-            (plant_id, pest_id, pest_date, diagnosis_image_url)
+            (plant_id, pest_id, pest_date)
         )
         diagnosis_id = cursor.lastrowid
+        
+        # 이미지가 있으면 img_address 테이블에 저장
+        if diagnosis_image_url:
+            await cursor.execute(
+                """
+                INSERT INTO img_address (pest_plant_idx, img_url)
+                VALUES (%s, %s)
+                """,
+                (diagnosis_id, diagnosis_image_url)
+            )
         
         # 생성된 진단 기록 조회
         await cursor.execute(
@@ -208,6 +219,18 @@ async def delete_medical_diagnosis(
     """병충해 진단 기록을 삭제합니다."""
     conn, cursor = db
     async with cursor:
+        # 먼저 관련된 이미지 삭제
+        await cursor.execute(
+            """
+            DELETE ia FROM img_address ia
+            JOIN user_plant_pest upp ON ia.pest_plant_idx = upp.idx
+            JOIN user_plant up ON upp.plant_id = up.plant_id
+            WHERE upp.idx = %s AND up.user_id = %s
+            """,
+            (diagnosis_id, user_id)
+        )
+        
+        # 진단 기록 삭제
         await cursor.execute(
             """
             DELETE upp FROM user_plant_pest upp

@@ -28,11 +28,14 @@ export function useAuthGuard() {
 
         // 토큰이 없으면 로그인 페이지로 리다이렉트
         if (!token) {
-          console.log("No token found, redirecting to login");
+          console.log("🔑 No token found, redirecting to login");
           router.replace("/(auth)/login" as any);
+          return;
         }
+
+        console.log("🔑 Token found, authentication successful");
       } catch (error) {
-        console.error("Auth check failed:", error);
+        console.error("❌ Auth check failed:", error);
         // 에러 발생 시에도 로그인 페이지로 리다이렉트
         router.replace("/(auth)/login" as any);
       }

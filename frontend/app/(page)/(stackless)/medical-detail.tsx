@@ -380,7 +380,9 @@ export default function medicalDetail() {
       showAlert({
         title: "등록 완료",
         message: "진단 결과가 저장되었습니다.",
-        buttons: [{ text: "확인", onPress: () => router.back() }],
+        buttons: [
+          { text: "확인", onPress: () => router.push("/(page)/medical") },
+        ],
       });
     } catch (error: any) {
       console.error("저장 오류:", error);
@@ -750,7 +752,7 @@ export default function medicalDetail() {
         {/* 5) 하단 버튼: 등록 / 취소 */}
         <View style={[styles.bottomBar]}>
           <Pressable
-            onPress={() => router.back()}
+            onPress={() => router.push("/(page)/medical")}
             style={[styles.cancelBtn, { borderColor: theme.border }]}
           >
             <Text style={[styles.cancelText, { color: theme.text }]}>취소</Text>
