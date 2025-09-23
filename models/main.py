@@ -22,14 +22,14 @@ def safe_torch_load(*args, **kwargs):
     return original_torch_load(*args, **kwargs)
 torch.load = safe_torch_load
 from detector.leaf_segmentation import LeafSegmentationModel
-from classifier.cascade.cascade import build_model
+from classifier.cascade.plant_classifier import get_plant_service, predict_plant_species
 from classifier.pestcase.plant_classifier import predict_image as predict_pest
 
-# 품종 분류 클래스 정의
+# 품종 분류 클래스 정의 (cascade 폴더의 labels.txt와 동일한 순서)
 CLASSES = [
-    "monstera","stuckyi_sansevieria","zz_plant","cactus_succulent","phalaenopsis",
-    "chamaedorea","schefflera","spathiphyllum","lady_palm","ficus_audrey",
-    "olive_tree","dieffenbachia","boston_fern"
+    "보스턴고사리", "선인장", "관음죽", "디펜바키아", "벵갈고무나무",
+    "테이블야자", "몬스테라", "올리브나무", "호접란", "홍콩야자",
+    "스파티필럼", "스투키", "금전수"
 ]
 from healthy.healthy import predict_image as predict_health
 
@@ -83,23 +83,24 @@ print("🔧 Loading Leaf Segmentation Model...")
 print("⚠️ 세그멘테이션 모델 사용 중지됨 (호환성 문제)")
 seg_model = None
 
-# 품종 분류 모델 로드
+# 품종 분류 모델 로드 (새로운 구조)
 print("🔧 Loading Species Classification Model...")
 try:
-    if os.path.exists(SPECIES_MODEL_PATH):
-        species_model, _ = build_model("efficientnet_b0", len(CLASSES), 224)
-        checkpoint = torch.load(SPECIES_MODEL_PATH, map_location=device)
-        species_model.load_state_dict(checkpoint["model"])
-        species_model.to(device)
-        species_model.eval()
+    species_service = get_plant_service()
+    print(f"[DEBUG] species_service 타입: {type(species_service)}")
+    print(f"[DEBUG] species_service.model: {species_service.model}")
+    
+    if species_service.model is not None:
         print("✅ 품종 분류 모델 로드 완료")
+        species_model = species_service  # 서비스 객체를 모델로 사용
+        print(f"[DEBUG] species_model 설정 완료: {type(species_model)}")
     else:
-        print("⚠️ 품종 분류 모델 파일이 없습니다. 더미 모델을 생성합니다.")
-        species_model, _ = build_model("efficientnet_b0", len(CLASSES), 224)
-        species_model.to(device)
-        species_model.eval()
+        print("⚠️ 품종 분류 모델 로드 실패 - model이 None")
+        species_model = None
 except Exception as e:
     print(f"❌ 품종 분류 모델 로드 실패: {e}")
+    import traceback
+    print(f"[DEBUG] 트레이스백: {traceback.format_exc()}")
     species_model = None
 
 # 건강 상태 모델 로드
@@ -152,53 +153,35 @@ async def classify_species(
     """
     식물의 품종을 분류
     """
-    if species_model is None:
-        raise HTTPException(status_code=500, detail="품종 분류 모델이 로드되지 않았습니다.")
-    
     try:
         # 업로드된 이미지 읽기
         image_data = await image.read()
-        pil_image = Image.open(io.BytesIO(image_data)).convert("RGB")
         
-        # 이미지 전처리 (EfficientNet B0용)
-        from torchvision import transforms
-        transform = transforms.Compose([
-            transforms.Resize(224),
-            transforms.CenterCrop(224),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-        ])
+        # 새로운 모델로 예측 수행
+        result = predict_plant_species(image_data)
         
-        input_tensor = transform(pil_image).unsqueeze(0).to(device)
+        if not result["success"]:
+            raise HTTPException(status_code=500, detail=result.get("error", "분류 중 오류가 발생했습니다."))
         
-        # 예측 수행
-        with torch.no_grad():
-            outputs = species_model(input_tensor)
-            probabilities = torch.softmax(outputs, dim=1)
-            confidence, predicted = torch.max(probabilities, 1)
-            
-            # 상위 3개 예측 결과
-            top3_probs, top3_indices = torch.topk(probabilities, 3, dim=1)
-            
-            predictions = []
-            for i in range(3):
-                class_idx = top3_indices[0][i].item()
-                class_name = CLASSES[class_idx]
-                confidence_score = top3_probs[0][i].item()
-                predictions.append({
-                    'class_name': class_name,
-                    'confidence': round(confidence_score, 4)
-                })
+        predictions = result["predictions"]
+        top_prediction = result["top_prediction"]
         
         return JSONResponse(content={
             'success': True,
-            'message': f"품종 분류 완료: {predictions[0]['class_name']}",
-            'species': predictions[0]['class_name'],
-            'confidence': predictions[0]['confidence'],
-            'top_predictions': predictions
+            'message': f"품종 분류 완료: {top_prediction['class_name']}",
+            'species': top_prediction['class_name'],
+            'confidence': round(top_prediction['confidence'], 4),
+            'top_predictions': [
+                {
+                    'class_name': pred['class_name'],
+                    'confidence': round(pred['confidence'], 4)
+                }
+                for pred in predictions
+            ]
         })
         
     except Exception as e:
+        print(f"❌ 품종 분류 오류: {e}")
         raise HTTPException(status_code=500, detail=f"품종 분류 중 오류가 발생했습니다: {str(e)}")
 
 # -------------------------- 잎 상태 분류기 API
@@ -390,14 +373,14 @@ async def health_check():
         "status": "healthy",
         "models": {
             "segmentation": False,  # 호환성 문제로 비활성화됨
-            "species": species_model is not None,
+            "species": True,  # 새로운 모델 구조 사용
             "health": health_model is not None,
             "disease": pest_model is not None,  # 병충해/질병 통합 모델
             "llm": False  # 비활성화됨
         },
         "device": device,
         "available_classes": {
-            "species": CLASSES if species_model is not None else [],
+            "species": CLASSES,  # 새로운 모델 구조 사용
             "health": ["healthy", "unhealthy", "diseased"] if health_model is not None else []
         },
         "api_endpoints": [

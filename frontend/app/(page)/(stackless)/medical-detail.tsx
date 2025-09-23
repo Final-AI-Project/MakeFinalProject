@@ -267,10 +267,142 @@ export default function medicalDetail() {
   };
 
   // 제출 가능 조건
-  const canSubmit = Boolean(photoUri && selectedPlant && isMine === "mine");
+  const canSubmit = Boolean(
+    photoUri &&
+      selectedPlant &&
+      isMine === "mine" &&
+      diagnosisResult &&
+      diagnosisResult.health_status !== "healthy"
+  );
+
+  console.log("🔍 canSubmit 조건 확인:", {
+    photoUri: !!photoUri,
+    selectedPlant: !!selectedPlant,
+    isMine,
+    diagnosisResult: !!diagnosisResult,
+    health_status: diagnosisResult?.health_status,
+    canSubmit,
+  });
 
   // 등록
   const handleSubmit = async () => {
+    if (!canSubmit) return;
+
+    try {
+      const token = await getToken();
+      if (!token) {
+        showAlert({
+          title: "오류",
+          message: "로그인이 필요합니다.",
+          buttons: [{ text: "확인" }],
+        });
+        return;
+      }
+
+      // 진단 결과 저장
+      if (
+        diagnosisResult &&
+        diagnosisResult.diseasePredictions &&
+        diagnosisResult.diseasePredictions.length > 0
+      ) {
+        console.log("💾 진단 결과 저장 시작");
+        console.log("🌱 선택된 식물:", selectedPlant);
+
+        // 선택된 식물의 정보 찾기
+        const selectedPlantData = plantsData.find(
+          (p) => p.plant_id.toString() === selectedPlant
+        );
+        console.log("🌱 선택된 식물 이름:", selectedPlantData?.plant_name);
+        console.log("🦠 진단 결과:", diagnosisResult.diseasePredictions[0]);
+
+        const plantId = selectedPlantData?.plant_id || selectedPlantData?.id;
+
+        console.log("🌱 선택된 식물 데이터:", selectedPlantData);
+        console.log("🌱 식물 ID:", plantId);
+
+        if (!plantId) {
+          showAlert({
+            title: "오류",
+            message: "선택된 식물의 ID를 찾을 수 없습니다.",
+            buttons: [{ text: "확인" }],
+          });
+          return;
+        }
+
+        const formData = new FormData();
+        formData.append("plant_id", plantId.toString());
+        formData.append(
+          "disease_name",
+          diagnosisResult.diseasePredictions[0].class_name
+        );
+        formData.append(
+          "confidence",
+          diagnosisResult.diseasePredictions[0].confidence.toString()
+        );
+        formData.append("diagnosis_date", date);
+        formData.append("health_status", diagnosisResult.healthStatus || "ill");
+        formData.append(
+          "predictions",
+          JSON.stringify(diagnosisResult.diseasePredictions)
+        );
+
+        // 이미지 URL 추가 (진단 API에서 저장된 이미지)
+        if (diagnosisResult.image_url) {
+          formData.append("image_url", diagnosisResult.image_url);
+          console.log("🖼️ 이미지 URL 추가:", diagnosisResult.image_url);
+        }
+
+        const apiUrl = getApiUrl("/disease-diagnosis/save");
+        console.log("🌐 저장 API URL:", apiUrl);
+
+        const response = await fetch(apiUrl, {
+          method: "POST",
+          body: formData,
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        console.log("📡 저장 응답 상태:", response.status, response.ok);
+
+        if (response.ok) {
+          const result = await response.json();
+          console.log("💾 저장 성공:", result);
+
+          showAlert({
+            title: "저장 완료",
+            message: "진단 결과가 성공적으로 저장되었습니다.",
+            buttons: [
+              {
+                text: "확인",
+                onPress: () => router.push("/(page)/medical"),
+              },
+            ],
+          });
+        } else {
+          const errorData = await response.json().catch(() => ({}));
+          console.error("❌ 저장 실패:", errorData);
+          throw new Error(errorData.detail || `저장 실패: ${response.status}`);
+        }
+      } else {
+        showAlert({
+          title: "오류",
+          message: "저장할 진단 결과가 없습니다.",
+          buttons: [{ text: "확인" }],
+        });
+      }
+    } catch (error: any) {
+      console.error("저장 오류:", error);
+      showAlert({
+        title: "저장 실패",
+        message: `진단 결과 저장 중 문제가 발생했습니다: ${error.message}`,
+        buttons: [{ text: "확인" }],
+      });
+    }
+  };
+
+  // 기존 저장 로직 (사용하지 않음 - 진단 API에서 자동 저장)
+  const handleSubmit_old = async () => {
     if (!canSubmit) return;
 
     try {
@@ -326,14 +458,32 @@ export default function medicalDetail() {
           diagnosisResult.diseasePredictions[0].confidence.toString()
         );
         formData.append("diagnosis_date", date);
+        console.log("🔍 diagnosisResult 전체:", diagnosisResult);
+        console.log("🔍 health_status 값:", diagnosisResult.health_status);
 
-        // 이미지가 있으면 추가
-        if (photoUri) {
-          formData.append("image", {
-            uri: photoUri,
-            type: "image/jpeg",
-            name: "diagnosis.jpg",
-          } as any);
+        formData.append(
+          "health_status",
+          diagnosisResult.health_status || "ill"
+        );
+        formData.append(
+          "predictions",
+          JSON.stringify(diagnosisResult.diseasePredictions)
+        );
+
+        console.log("🔍 FormData 내용:", {
+          plant_id: plantId.toString(),
+          disease_name: diagnosisResult.diseasePredictions[0].class_name,
+          confidence:
+            diagnosisResult.diseasePredictions[0].confidence.toString(),
+          diagnosis_date: date,
+          health_status: diagnosisResult.health_status,
+          predictions: JSON.stringify(diagnosisResult.diseasePredictions),
+        });
+
+        // 이미지 URL 추가 (이미 진단 API에서 저장됨)
+        if (diagnosisResult.image_url) {
+          formData.append("image_url", diagnosisResult.image_url);
+          console.log("🖼️ 이미지 URL 추가:", diagnosisResult.image_url);
         }
 
         const apiUrl = getApiUrl("/disease-diagnosis/save");
@@ -461,6 +611,8 @@ export default function medicalDetail() {
           recommendation: result.recommendation,
           diseasePredictions: result.disease_predictions || [],
         });
+
+        // 진단 완료 - 다른 페이지들처럼 결과만 표시하고 등록하기 버튼 활성화
       } else {
         throw new Error("진단 결과를 받을 수 없습니다.");
       }
@@ -765,7 +917,9 @@ export default function medicalDetail() {
               { backgroundColor: !canSubmit ? theme.graybg : theme.primary },
             ]}
           >
-            <Text style={[styles.submitText, { color: "#fff" }]}>등록</Text>
+            <Text style={[styles.submitText, { color: "#fff" }]}>
+              {diagnosisResult?.health_status === "healthy" ? "건강함" : "등록"}
+            </Text>
           </Pressable>
         </View>
       </ScrollView>

@@ -140,9 +140,22 @@ async def save_disease_diagnosis(
     disease_name: str = Form(...),
     confidence: float = Form(...),
     diagnosis_date: str = Form(...),
-    image: Optional[UploadFile] = File(None),
+    health_status: str = Form(...),
+    predictions: str = Form(...),  # JSON 문자열로 받음
+    image_url: Optional[str] = Form(None),  # 이미 저장된 이미지 URL
     user: dict = Depends(get_current_user)
 ):
+    print(f"[DEBUG] ===== save_disease_diagnosis 함수 호출됨 =====")
+    print(f"[DEBUG] 받은 파라미터들:")
+    print(f"[DEBUG] - plant_id: {plant_id} (타입: {type(plant_id)})")
+    print(f"[DEBUG] - disease_name: {disease_name} (타입: {type(disease_name)})")
+    print(f"[DEBUG] - confidence: {confidence} (타입: {type(confidence)})")
+    print(f"[DEBUG] - diagnosis_date: {diagnosis_date} (타입: {type(diagnosis_date)})")
+    print(f"[DEBUG] - health_status: {health_status} (타입: {type(health_status)})")
+    print(f"[DEBUG] - predictions: {predictions} (타입: {type(predictions)})")
+    print(f"[DEBUG] - image_url: {image_url}")
+    print(f"[DEBUG] - user: {user.get('user_id', 'unknown')}")
+    print(f"[DEBUG] ==============================================")
     """
     병충해 진단 결과를 저장합니다.
     
@@ -156,15 +169,33 @@ async def save_disease_diagnosis(
         print(f"[DEBUG] ===== 진단 결과 저장 요청 시작 =====")
         print(f"[DEBUG] 사용자: {user.get('user_id', 'unknown')}")
         print(f"[DEBUG] 저장 데이터: plant_id={plant_id}, disease_name={disease_name}, confidence={confidence}, diagnosis_date={diagnosis_date}")
-        print(f"[DEBUG] 이미지 파일: {image.filename if image else 'None'}")
+        print(f"[DEBUG] 건강 상태: {health_status}")
+        print(f"[DEBUG] 예측 결과: {predictions}")
+        print(f"[DEBUG] 이미지 URL: {image_url}")
         print(f"[DEBUG] ======================================")
         
-        # 이미지 저장 (있는 경우)
-        image_url = None
-        if image and image.filename:
-            print(f"[DEBUG] 이미지 저장 중: {image.filename}")
-            image_url = await save_uploaded_image(image, "disease_diagnosis_save")
-            print(f"[DEBUG] 저장된 이미지 URL: {image_url}")
+        # 필수 파라미터 검증
+        if not health_status:
+            print(f"[ERROR] health_status가 비어있음")
+            raise HTTPException(status_code=400, detail="health_status가 필요합니다.")
+        
+        if not predictions:
+            print(f"[ERROR] predictions가 비어있음")
+            raise HTTPException(status_code=400, detail="predictions가 필요합니다.")
+        
+        # predictions JSON 문자열 파싱
+        import json
+        try:
+            predictions_list = json.loads(predictions)
+            print(f"[DEBUG] 파싱된 예측 결과: {predictions_list}")
+        except json.JSONDecodeError as e:
+            print(f"[ERROR] predictions JSON 파싱 실패: {e}")
+            predictions_list = []
+        
+        # 이미지 URL 확인 (이미 진단 API에서 저장됨)
+        print(f"[DEBUG] 받은 이미지 URL: {image_url}")
+        if not image_url:
+            print(f"[WARNING] 이미지 URL이 없습니다.")
         
         # DB 연결 및 사용자의 식물인지 확인
         async with get_db_connection() as (conn, cursor):
@@ -188,32 +219,53 @@ async def save_disease_diagnosis(
                     detail=f"해당 식물(ID: {plant_id})에 대한 권한이 없습니다."
                 )
             
-            # 병충해 ID 조회 (pest_wiki 테이블에서)
+            # 병충해 ID 조회 (pest_wiki 테이블에서) - 포함 검색으로 변경
             await cursor.execute(
-                "SELECT pest_id FROM pest_wiki WHERE pest_name = %s LIMIT 1",
-                (disease_name,)
+                "SELECT pest_id FROM pest_wiki WHERE pest_name LIKE %s LIMIT 1",
+                (f"%{disease_name}%",)
             )
             pest_result = await cursor.fetchone()
             
             if pest_result:
                 pest_id_db = pest_result["pest_id"]
-                print(f"[DEBUG] 병충해 ID 찾음: {pest_id_db}")
+                print(f"[DEBUG] 병충해 ID 찾음 (포함 검색): {pest_id_db}")
             else:
                 # 병충해가 DB에 없는 경우 새로운 병충해 추가
                 try:
-                    await cursor.execute(
-                        """
-                        INSERT INTO pest_wiki (pest_name, pathogen, symptom, cause, cure)
-                        VALUES (%s, %s, %s, %s, %s)
-                        """,
-                        (
-                            disease_name,
-                            "알 수 없음",
-                            "위키에 정보가 없습니다.",
-                            "위키에 정보가 없습니다.",
-                            "위키에 정보가 없습니다."
+                    # cause 컬럼이 있는지 확인하고 INSERT 쿼리 조정
+                    await cursor.execute("SHOW COLUMNS FROM pest_wiki LIKE 'cause'")
+                    cause_exists = await cursor.fetchone()
+                    
+                    if cause_exists:
+                        # cause 컬럼이 있는 경우
+                        await cursor.execute(
+                            """
+                            INSERT INTO pest_wiki (pest_name, pathogen, symptom, cause, cure)
+                            VALUES (%s, %s, %s, %s, %s)
+                            """,
+                            (
+                                disease_name,
+                                "알 수 없음",
+                                "위키에 정보가 없습니다.",
+                                "위키에 정보가 없습니다.",
+                                "위키에 정보가 없습니다."
+                            )
                         )
-                    )
+                    else:
+                        # cause 컬럼이 없는 경우
+                        await cursor.execute(
+                            """
+                            INSERT INTO pest_wiki (pest_name, pathogen, symptom, cure)
+                            VALUES (%s, %s, %s, %s)
+                            """,
+                            (
+                                disease_name,
+                                "알 수 없음",
+                                "위키에 정보가 없습니다.",
+                                "위키에 정보가 없습니다."
+                            )
+                        )
+                    
                     pest_id_db = cursor.lastrowid
                     print(f"[DEBUG] 새로운 병충해 추가됨: {disease_name} (ID: {pest_id_db})")
                 except Exception as e:
@@ -242,46 +294,103 @@ async def save_disease_diagnosis(
                 parsed_date = datetime.now().date()
                 print(f"[DEBUG] 날짜 파싱 실패, 오늘 날짜 사용: {parsed_date}")
             
-            # 진단 기록 저장 (여러 진단 결과 저장 가능)
-            await cursor.execute(
-                """
-                INSERT INTO user_plant_pest (
-                    plant_id, 
-                    pest_id, 
-                    pest_date
-                ) VALUES (%s, %s, %s)
-                """,
-                (
-                    plant_id,
-                    pest_id_db,
-                    parsed_date
+            # 건강한 상태는 저장하지 않음
+            if health_status == "healthy":
+                print(f"[DEBUG] 건강한 상태로 판정됨 - 저장하지 않음")
+                return JSONResponse(content={
+                    "success": True,
+                    "message": "식물이 건강한 상태입니다. 진단 기록을 저장하지 않습니다.",
+                    "health_status": health_status
+                })
+            
+            # 테이블 제약조건 확인 및 제거
+            await cursor.execute("SHOW CREATE TABLE user_plant_pest")
+            table_info = await cursor.fetchone()
+            print(f"[DEBUG] user_plant_pest 테이블 구조: {table_info}")
+            
+            # UNIQUE 제약조건 제거 시도
+            try:
+                await cursor.execute("ALTER TABLE user_plant_pest DROP INDEX plant_id")
+                print(f"[DEBUG] plant_id UNIQUE 제약조건 제거 성공")
+            except Exception as e:
+                print(f"[DEBUG] plant_id UNIQUE 제약조건 제거 실패 (이미 제거되었거나 없음): {e}")
+            
+            try:
+                await cursor.execute("ALTER TABLE user_plant_pest DROP INDEX pest_id")
+                print(f"[DEBUG] pest_id UNIQUE 제약조건 제거 성공")
+            except Exception as e:
+                print(f"[DEBUG] pest_id UNIQUE 제약조건 제거 실패 (이미 제거되었거나 없음): {e}")
+            
+            # 진단 기록 저장 (1순위만 저장)
+            diagnosis_id = None
+            if predictions_list and len(predictions_list) > 0:
+                # 1순위만 저장
+                prediction = predictions_list[0]
+                
+                # 병충해 ID 조회
+                await cursor.execute(
+                    "SELECT pest_id FROM pest_wiki WHERE pest_name LIKE %s LIMIT 1",
+                    (f"%{prediction['class_name']}%",)
                 )
-            )
-            
-            diagnosis_id = cursor.lastrowid
-            print(f"[DEBUG] 진단 기록 저장 완료 - 새 ID: {diagnosis_id}")
-            
-            # TODO: 여러 순위 저장을 위한 diagnosis_ranks 테이블 구현
-            # 현재는 1순위만 저장
+                pest_result = await cursor.fetchone()
+                
+                if pest_result:
+                    pest_id_rank = pest_result["pest_id"]
+                else:
+                    # 새로운 병충해 추가
+                    await cursor.execute(
+                        """
+                        INSERT INTO pest_wiki (pest_name, pathogen, symptom, cure)
+                        VALUES (%s, %s, %s, %s)
+                        """,
+                        (
+                            prediction['class_name'],
+                            "알 수 없음",
+                            "위키에 정보가 없습니다.",
+                            "위키에 정보가 없습니다."
+                        )
+                    )
+                    pest_id_rank = cursor.lastrowid
+                
+                # 진단 기록 저장 (기존 스키마에 맞춰 저장)
+                await cursor.execute(
+                    """
+                    INSERT INTO user_plant_pest (
+                        plant_id, 
+                        pest_id, 
+                        pest_date
+                    ) VALUES (%s, %s, %s)
+                    """,
+                    (
+                        plant_id,
+                        pest_id_rank,
+                        parsed_date
+                    )
+                )
+                diagnosis_id = cursor.lastrowid
+                print(f"[DEBUG] 1순위 진단 기록 저장 완료: {prediction['class_name']}")
+            else:
+                print(f"[WARNING] predictions_list가 비어있음 - 저장할 진단 결과가 없습니다.")
             
             # 진단 이미지를 img_address 테이블에 저장 (이미지가 있는 경우)
-            if image_url:
+            if image_url and diagnosis_id:
                 print(f"[DEBUG] 진단 이미지 URL 저장 중: {image_url}")
+                # pest_plant_idx를 사용해서 이미지 저장
                 await cursor.execute(
                     """
                     INSERT INTO img_address (
                         pest_plant_idx,
                         img_url
                     ) VALUES (%s, %s)
-                    ON DUPLICATE KEY UPDATE
-                        img_url = VALUES(img_url)
                     """,
                     (
-                        diagnosis_id,
+                        diagnosis_id,  # user_plant_pest의 idx 사용
                         image_url
                     )
                 )
-                print(f"[DEBUG] 진단 이미지 URL 저장 완료")
+                print(f"[DEBUG] 진단 이미지 URL 저장 완료 (pest_plant_idx: {diagnosis_id})")
+            elif image_url and not diagnosis_id:
+                print(f"[WARNING] 이미지는 있지만 diagnosis_id가 없어서 저장하지 않음")
         
         return DiseaseDiagnosisSaveResponse(
             success=True,

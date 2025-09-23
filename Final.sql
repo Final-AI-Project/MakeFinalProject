@@ -105,27 +105,3 @@ create table img_address (
     foreign key (pest_plant_idx)references user_plant_pest(idx) on delete cascade on update cascade,
     foreign key (pest_id) references pest_wiki(pest_id) on delete cascade on update cascade
 );
-select * from users;
-select * from user_plant;
-select * from user_plant_pest;
-select * from diary;
-select * from pest_wiki;
-select * from humid_info;
-select * from plant_wiki;
-select * from plant_tips;
-select * from img_address;
-select * from device_info;
-drop table users;
-drop table user_plant;
-drop table user_plant_pest;
-drop table diary;
-drop table pest_wiki;
-drop table humid_info;
-drop table plant_wiki;
-drop table plant_tips;
-drop table img_address;
-drop table device_info;
--- users.user_id 와 user_plant.user_id join으로 사용자의 식물 조회
-select u.user_id, u.nickname, up.plant_id, up.plant_name, up.species, up.meet_day from users u join user_plant up on u.user_id = up.user_id;
--- diary.img_url 와 img_address.img_url join으로 식물 이미지 조회
-select d.diary_id, d.user_id, ia.img_url from diary d join img_address ia on d.diary_id = ia.diary_id;
