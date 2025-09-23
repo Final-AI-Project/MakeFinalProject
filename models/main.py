@@ -33,6 +33,10 @@ CLASSES = [
 ]
 from healthy.healthy import predict_image as predict_health
 
+# humidity.py 임포트
+from humidity.humidity import META, PredictResp, PredictReq, S_REF_DEFAULT, S_DRY, hours_until_threshold, apply_eta_calibration
+
+
 # ------ FastAPI 앱
 app = FastAPI()
 
@@ -73,6 +77,7 @@ SEG_MODEL_PATH = "weight/seg_best.pt"
 SPECIES_MODEL_PATH = "classifier/cascade/weight/efficientnet_b0_best.pth"  # 품종 분류 모델
 HEALTH_MODEL_PATH = "healthy/healthy.pt"    # 건강 상태 모델
 PEST_MODEL_PATH = "classifier/pestcase/pestcase_best.pt"  # 병충해 분류 모델
+HUMID_MODEL_PATH = "humidity/model.joblib" # 급수 코치 모델
 
 # -------------------- 디바이스 결정 --------------------
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -406,3 +411,27 @@ async def health_check():
         ]
     }
     
+
+# -------------------------- 습도 코치 API
+
+@app.get("/humidmeta")
+def meta():
+    m = {k: META[k] for k in ["version", "feat_cols", "S_DRY", "S_REF_DEFAULT"]}
+    m["eta_calibration"] = META.get("eta_calibration")
+    return m
+
+@app.post("/predict", response_model=PredictResp)
+def predict(req: PredictReq):
+    S_ref = float(req.S_ref) if req.S_ref is not None else S_REF_DEFAULT
+    if S_ref - S_DRY < 5:  # 너무 좁은 정규화 방지
+        raise HTTPException(400, detail="S_ref와 S_dry 차이가 너무 작습니다. 앵커를 점검하세요.")
+    eta, Rn, Rm, rhat = hours_until_threshold(req.S_now, req.S_min_user, req.temp_C, req.hour_of_day, S_ref)
+    eta_cal, used_cal = apply_eta_calibration(eta)
+    return PredictResp(
+        eta_h=float(round(eta_cal, 2)),
+        rstar_now=float(round(Rn, 4)),
+        rstar_min=float(round(Rm, 4)),
+        loss_rate_per_h=float(round(rhat, 6)),
+        used_S_ref=float(round(S_ref, 2)),
+        calibrated=bool(used_cal),
+    )

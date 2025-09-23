@@ -23,6 +23,7 @@ tqdm==4.67.1
 pandas==2.2.3
 albumentations==1.4.24
 timm==1.0.12
+joblib==1.5.2
 
 # LangChain dependencies for LLM functionality
 langchain==0.3.7
