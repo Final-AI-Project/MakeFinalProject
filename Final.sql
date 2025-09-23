@@ -21,8 +21,8 @@ create table user_plant (
 );
 create table user_plant_pest (
 	idx int auto_increment primary key,
-    plant_id int not null unique,
-    pest_id int not null unique,
+    plant_id int not null,
+    pest_id int not null,
     pest_date date,
     foreign key (plant_id) references user_plant(plant_id) on delete cascade on update cascade,
     foreign key (pest_id) references pest_wiki(pest_id) on delete cascade on update cascade
