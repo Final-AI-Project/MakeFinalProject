@@ -63,10 +63,10 @@ uvicorn main:app --reload --host 127.0.0.1 --port 5000
 ## 🤖 AI 모델 기능
 
 - ✅ **잎 탐지 및 세그멘테이션** (`POST /detector`)
-- ✅ **식물 품종 분류** (`POST /species`)
+- ✅ **식물 품종 분류** (`POST /species`) - MobileNetV3-Large 기반
 - ✅ **건강 상태 분류** (`POST /health`)
-- ✅ **질병 분류** (`POST /disease`)
-- 🔄 **식물 관련 질문 답변** (`POST /llm`)
+- ✅ **질병 분류** (`POST /disease`) - 상위 3개 결과 제공
+- ✅ **식물 관련 질문 답변** (`POST /llm`)
 - ✅ **서버 상태 확인** (`GET /health`)
 
 ## 📁 프로젝트 구조
@@ -77,9 +77,11 @@ models/
 ├── requirements.txt         # Python 의존성 (최신 버전)
 ├── venv/                    # 가상환경
 ├── classifier/              # 식물 분류 모델
-│   ├── cascade/            # 캐스케이드 분류기
-│   │   ├── cascade.py      # 메인 분류기
-│   │   └── weight/         # 모델 가중치
+│   ├── cascade/            # 캐스케이드 분류기 (품종 분류)
+│   │   ├── plant_classifier.py  # MobileNetV3-Large 기반 분류기
+│   │   ├── weight/         # 모델 가중치
+│   │   │   └── mobilenet_v3_large_best.pth
+│   │   └── labels.txt      # 식물 종류 라벨
 │   └── pestcase/           # 해충 분류기
 │       ├── plant_classifier.py
 │       └── pestcase_best.pt
@@ -96,10 +98,10 @@ models/
 ## 🔧 모델 정보
 
 - **세그멘테이션**: YOLO 기반 잎 탐지 및 크롭
-- **품종 분류**: EfficientNet B0 (13개 식물 종류)
+- **품종 분류**: MobileNetV3-Large (13개 식물 종류) - 최적화된 모델
 - **건강 상태**: YOLO 기반 건강/비건강/질병 분류
 - **해충 분류**: 전용 해충 탐지 모델
-- **질병 분류**: 건강 상태 모델 활용 (예비 진단)
+- **질병 분류**: 상위 3개 결과 제공, 건강 상태 모델 활용
 
 ## 🛠️ 개발 환경 설정
 
@@ -141,6 +143,22 @@ curl -X POST "http://localhost:8001/disease" -H "Content-Type: multipart/form-da
 
 ## 🔗 연동 서비스
 
-- **Backend Server**: http://localhost:8000 (API 연동)
+- **Backend Server**: http://localhost:8000 (또는 3000) - API 연동
 - **Frontend**: React Native (이미지 업로드)
 - **Database**: MySQL (진단 결과 저장)
+
+## 🆕 **최근 개선사항**
+
+### 🤖 **모델 통합 및 최적화**
+
+- **품종 분류 모델**: MobileNetV3-Large로 업그레이드
+- **모델 서버 통합**: cascade 폴더의 기능을 main.py에 통합
+- **가중치 경로 최적화**: 상대 경로 사용으로 이식성 향상
+- **에러 처리 개선**: PyTorch 2.6 호환성 및 상세 로깅
+
+### 🏥 **병충해 진단 시스템**
+
+- **상위 3개 결과**: 더 정확한 진단을 위한 다중 결과 제공
+- **이미지 처리 개선**: 진단 이미지 저장 및 표시 최적화
+- **건강 상태 처리**: 건강한 진단 결과 필터링
+- **API 응답 형식**: 표준화된 JSON 응답 구조
