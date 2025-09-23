@@ -628,3 +628,142 @@ async def get_plant_diaries(
             status_code=500,
             detail=f"일기 목록 조회 중 오류가 발생했습니다: {str(e)}"
         )
+
+@router.get("/humidity/{plant_id}")
+async def get_plant_humidity(
+    plant_id: int,
+    user: dict = Depends(get_current_user)
+):
+    """
+    특정 식물의 최근 습도 데이터를 조회합니다.
+    
+    - **plant_id**: 식물 ID
+    - **기본값**: 습도 데이터가 없으면 50% 반환
+    """
+    try:
+        print(f"[DEBUG] 식물 습도 조회 - plant_id: {plant_id}, user: {user['user_id']}")
+        
+        async with get_db_connection() as (conn, cursor):
+            # 사용자가 해당 식물에 대한 권한이 있는지 확인
+            await cursor.execute(
+                """
+                SELECT plant_id FROM user_plant 
+                WHERE plant_id = %s AND user_id = %s
+                """,
+                (plant_id, user['user_id'])
+            )
+            
+            if not await cursor.fetchone():
+                raise HTTPException(
+                    status_code=403,
+                    detail="해당 식물에 대한 권한이 없습니다."
+                )
+            
+            # 해당 식물의 최근 습도 데이터 조회
+            await cursor.execute(
+                """
+                SELECT 
+                    hi.humidity,
+                    hi.humid_date,
+                    hi.device_id
+                FROM humid_info hi
+                JOIN device_info di ON hi.device_id = di.device_id
+                WHERE di.plant_id = %s
+                ORDER BY hi.humid_date DESC
+                LIMIT 1
+                """,
+                (plant_id,)
+            )
+            
+            result = await cursor.fetchone()
+            
+            if result:
+                print(f"[DEBUG] 습도 데이터 발견: {result['humidity']}%")
+                return {
+                    "plant_id": plant_id,
+                    "humidity": result['humidity'],
+                    "humid_date": result['humid_date'].strftime("%Y-%m-%d %H:%M:%S") if result['humid_date'] else None,
+                    "device_id": result['device_id'],
+                    "has_data": True
+                }
+            else:
+                print(f"[DEBUG] 습도 데이터 없음 - 기본값 50% 반환")
+                return {
+                    "plant_id": plant_id,
+                    "humidity": 50,  # 기본값
+                    "humid_date": None,
+                    "device_id": None,
+                    "has_data": False
+                }
+                
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[ERROR] 습도 조회 중 오류: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"습도 조회 중 오류가 발생했습니다: {str(e)}"
+        )
+
+@router.get("/humidity/batch")
+async def get_plants_humidity_batch(
+    user: dict = Depends(get_current_user)
+):
+    """
+    사용자의 모든 식물에 대한 습도 데이터를 일괄 조회합니다.
+    
+    - **기본값**: 습도 데이터가 없으면 50% 반환
+    """
+    try:
+        print(f"[DEBUG] 식물들 습도 일괄 조회 - user: {user['user_id']}")
+        
+        async with get_db_connection() as (conn, cursor):
+            # 사용자의 모든 식물과 각각의 최근 습도 데이터 조회
+            await cursor.execute(
+                """
+                SELECT 
+                    up.plant_id,
+                    up.plant_name,
+                    hi.humidity,
+                    hi.humid_date,
+                    hi.device_id
+                FROM user_plant up
+                LEFT JOIN device_info di ON up.plant_id = di.plant_id
+                LEFT JOIN humid_info hi ON di.device_id = hi.device_id
+                WHERE up.user_id = %s
+                AND (hi.humid_date IS NULL OR hi.humid_date = (
+                    SELECT MAX(hi2.humid_date) 
+                    FROM humid_info hi2 
+                    JOIN device_info di2 ON hi2.device_id = di2.device_id 
+                    WHERE di2.plant_id = up.plant_id
+                ))
+                ORDER BY up.plant_id
+                """,
+                (user['user_id'],)
+            )
+            
+            results = await cursor.fetchall()
+            print(f"[DEBUG] 습도 일괄 조회 결과: {len(results)}개")
+            
+            humidity_data = []
+            for result in results:
+                humidity_data.append({
+                    "plant_id": result['plant_id'],
+                    "plant_name": result['plant_name'],
+                    "humidity": result['humidity'] if result['humidity'] is not None else 50,  # 기본값
+                    "humid_date": result['humid_date'].strftime("%Y-%m-%d %H:%M:%S") if result['humid_date'] else None,
+                    "device_id": result['device_id'],
+                    "has_data": result['humidity'] is not None
+                })
+            
+            return {
+                "plants": humidity_data,
+                "count": len(humidity_data)
+            }
+                
+    except Exception as e:
+        print(f"[ERROR] 습도 일괄 조회 중 오류: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"습도 일괄 조회 중 오류가 발생했습니다: {str(e)}"
+        )

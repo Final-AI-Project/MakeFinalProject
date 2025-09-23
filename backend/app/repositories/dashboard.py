@@ -11,8 +11,7 @@ async def get_user_plants_with_status(user_id: str) -> DashboardResponse:
     """
     async with get_db_connection() as (conn, cursor):
         
-        # 이미지 정보를 포함한 쿼리 (plant_id로 조인)
-        # Final.sql에 따르면 img_address 테이블에 plant_id 컬럼이 있음
+        # 이미지 정보와 습도 정보를 포함한 쿼리
         query = """
         SELECT 
             up.plant_id,
@@ -26,7 +25,23 @@ async def get_user_plants_with_status(user_id: str) -> DashboardResponse:
              FROM img_address ia 
              WHERE ia.plant_id = up.plant_id 
              ORDER BY ia.img_url 
-             LIMIT 1) as user_plant_image
+             LIMIT 1) as user_plant_image,
+            
+            -- 최근 습도 정보 (device_info와 humid_info 조인)
+            (SELECT hi.humidity 
+             FROM device_info di 
+             JOIN humid_info hi ON di.device_id = hi.device_id 
+             WHERE di.plant_id = up.plant_id 
+             ORDER BY hi.humid_date DESC 
+             LIMIT 1) as current_humidity,
+             
+            -- 최근 습도 측정 시간
+            (SELECT hi.humid_date 
+             FROM device_info di 
+             JOIN humid_info hi ON di.device_id = hi.device_id 
+             WHERE di.plant_id = up.plant_id 
+             ORDER BY hi.humid_date DESC 
+             LIMIT 1) as humidity_date
             
         FROM user_plant up
         WHERE up.user_id = %s
@@ -38,6 +53,9 @@ async def get_user_plants_with_status(user_id: str) -> DashboardResponse:
         
         plants = []
         for row in results:
+            # 습도 데이터가 없으면 기본값 50% 사용
+            humidity = row['current_humidity'] if row['current_humidity'] is not None else 50
+            
             plant = PlantStatusResponse(
                 idx=row['plant_id'],  # plant_id가 실제 primary key
                 user_id=row['user_id'],
@@ -47,8 +65,8 @@ async def get_user_plants_with_status(user_id: str) -> DashboardResponse:
                 pest_id=None,
                 meet_day=row['meet_day'],
                 on=None,  # location은 사용하지 않으므로 None
-                current_humidity=None,
-                humidity_date=None,
+                current_humidity=humidity,  # 실제 습도 데이터 또는 기본값 50%
+                humidity_date=row['humidity_date'],
                 wiki_img=None,
                 feature=None,
                 temp=None,

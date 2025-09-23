@@ -358,7 +358,7 @@ export default function Home() {
             setActiveIndex(Math.round(abs));
           }}
           renderItem={({ item, index }) => {
-            // 급수계(%) → 각도(0~180deg) 변환
+            // 습도(%) → 각도(0~180deg) 변환
             const percent = Math.max(0, Math.min(100, item.waterLevel ?? 0));
             const targetDeg = percent * 1.8; // (percent / 100) * 180
 
