@@ -33,11 +33,33 @@ uvicorn server:app --host 0.0.0.0 --port 4000
 python export_to_onnx.py --weights weight\mobilenet_v3_large_best.pth --labels labels.txt --out mobilenet_v3_large_best.onnx --verify
 
 
+# 페이지에 필요한 소스
+## 1) import 추가
+import { classifyImage } from "../../libs/classifier"; // ← 서버 추론 호출(공통)
+import ClassifierResultModal, { ClassifyResult } from "../../components/common/ClassifierResultModal";
 
+## 2) 상태(state) 추가
+const [result, setResult] = useState<ClassifyResult | null>(null);
+const [modalMode, setModalMode] = useState<"result" | null>(null);
 
+## 3) 이미지 선택 후 분류 호출 (핵심)
+const handlePicked = async (pickedUri: string) => {
+  if (!pickedUri) return;
+  setUri(pickedUri);
+  setResult(null);
+  const r = await classifyImage(pickedUri); // ← 서버로 업로드 → species/confidence 수신
+  setResult(r);
+  setModalMode("result"); // ← 결과 모달 오픈
+};
 
-
-
+# 4) 결과 모달 표시
+<ClassifierResultModal
+  visible={modalMode === "result"}
+  theme={theme}
+  result={result}
+  onClose={() => setModalMode(null)}
+  onRetake={askCamera}
+/>
 
 ### 그 밖에 모델 테스트
 ### ShuffleNetV2
