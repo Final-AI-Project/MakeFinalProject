@@ -470,7 +470,7 @@ export default function Home() {
 			{/* Links */}
 			<View style={styles.linkList}>
 				{/* newPlant */}
-				<Link href="/(page)/(stackless)/plant-new" asChild>
+				<Link href="/(page)/(stackless)/timelapse" asChild>
 					<Pressable style={styles.cardBase}>
 						<LinearGradient
 							colors={["#F97794", "#623AA2"]}
@@ -478,7 +478,7 @@ export default function Home() {
 							end={{ x: 1, y: 1 }}
 							style={StyleSheet.absoluteFillObject}
 						/>
-						<Text style={styles.cardTextLight}>타임랩스를 경험해 보세요</Text>
+						<Text style={styles.cardTextLight}>타임랩스를{"\n"}경험해 보세요</Text>
 					</Pressable>
 				</Link>
 
@@ -491,7 +491,7 @@ export default function Home() {
 							end={{ x: 1, y: 1 }}
 							style={StyleSheet.absoluteFillObject}
 						/>
-						<Text style={styles.cardTextLight}>식물 정보방</Text>
+						<Text style={styles.cardTextLight}>식물{"\n"}정보방</Text>
 					</Pressable>
 				</Link>
 			</View>
