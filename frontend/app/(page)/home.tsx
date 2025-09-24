@@ -403,14 +403,11 @@ export default function Home() {
 												targetDeg={targetDeg}
 												style={styles.slot2}
 											/>
-											<View
-												style={[styles.slot3, { backgroundColor: theme.bg }]}
-											/>
+											<View style={[styles.slot3, { backgroundColor: theme.bg }]}/>
+											<View style={styles.slot5}/>
 										</View>
 
-										<View
-											style={[styles.slot4, { backgroundColor: theme.bg }]}
-										/>
+										<View style={[styles.slot4, { backgroundColor: theme.bg }]}/>
 
 										{/* Plant image */}
 										<View style={styles.photoBox}>
@@ -473,7 +470,7 @@ export default function Home() {
 			{/* Links */}
 			<View style={styles.linkList}>
 				{/* newPlant */}
-				<Link href="/(page)/(stackless)/plant-new" asChild>
+				<Link href="/(page)/(stackless)/timelapse" asChild>
 					<Pressable style={styles.cardBase}>
 						<LinearGradient
 							colors={["#F97794", "#623AA2"]}
@@ -481,7 +478,7 @@ export default function Home() {
 							end={{ x: 1, y: 1 }}
 							style={StyleSheet.absoluteFillObject}
 						/>
-						<Text style={styles.cardTextLight}>타임랩스를 경험해 보세요</Text>
+						<Text style={styles.cardTextLight}>타임랩스를{"\n"}경험해 보세요</Text>
 					</Pressable>
 				</Link>
 
@@ -494,7 +491,7 @@ export default function Home() {
 							end={{ x: 1, y: 1 }}
 							style={StyleSheet.absoluteFillObject}
 						/>
-						<Text style={styles.cardTextLight}>식물 정보방</Text>
+						<Text style={styles.cardTextLight}>식물{"\n"}정보방</Text>
 					</Pressable>
 				</Link>
 			</View>
@@ -543,6 +540,7 @@ const styles = StyleSheet.create({
 		height: 120,
 		borderRadius: 60,
 		marginTop: 75,
+		zIndex:100,
 	},
 	plantImage: {
 		width: 120,
@@ -612,6 +610,7 @@ const styles = StyleSheet.create({
 		width: 170,
 		height: 170,
 		borderRadius: 85,
+		zIndex:1,
 	},
 	slot4: {
 		position: "absolute",
@@ -620,6 +619,22 @@ const styles = StyleSheet.create({
 		height: 290,
 		transform: [{ translateX: -20 }],
 	},
+	slot5: {
+		position: "absolute",
+		top: 0,
+		left: "50%",
+		width: 0,
+		height: 0,
+		borderLeftWidth: 75,
+		borderRightWidth: 75,
+		borderTopWidth: 150,
+		borderLeftColor: "transparent",
+		borderRightColor: "transparent",
+		borderTopColor: "#8EDC73",
+		borderStyle: "solid",
+		transform: [{ translateX: -75 }],
+	},
+
 
 	// ── Carousel wrapper
 	carouselRoot: {

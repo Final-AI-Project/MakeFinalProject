@@ -273,42 +273,58 @@ export default function WeatherBox(props: WeatherBoxProps) {
 /** ========= 스타일 ========= */
 const styles = StyleSheet.create({
 	weatherBoxRoot: {
-		minHeight: 150,
 		borderRadius: 14,
-		padding: 16,
 		marginBottom: 12,
+		minHeight: 150,
+		padding: 16,
 	},
 	weatherBoxRootDay: {
-		backgroundColor: "#abf5ff", borderWidth: 1, borderColor: "#dfe9f2",
+		backgroundColor: "#abf5ff", 
+		borderColor: "#dfe9f2",
+		borderWidth: 1,
 	},
 	weatherBoxRootDayCloudy: {
-		backgroundColor: "#E6E9EF", borderWidth: 1, borderColor: "#cfd6df",
+		backgroundColor: "#E6E9EF",
+		borderColor: "#cfd6df",
+		borderWidth: 1,
 	},
 	weatherBoxRootNight: {
-		backgroundColor: "#151A22", borderWidth: 1, borderColor: "#293043",
-		shadowColor: "#000", shadowOpacity: 0.25, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 3,
+		backgroundColor: "#151A22", 
+		borderColor: "#293043",
+		borderWidth: 1, 
+		elevation: 3,
+		shadowColor: "#000", 
+		shadowOffset: { width: 0, height: 3 }, 
+		shadowOpacity: 0.25, 
+		shadowRadius: 8, 
 	},
 
 	weatherBoxCenter: { alignItems: "center", justifyContent: "center" },
-	weatherBoxDim: { marginTop: 6, color: "#9aa4b2" },
+	weatherBoxDim: { color: "#9aa4b2", marginTop: 6 },
 	weatherBoxError: { color: "#ff6b6b", marginBottom: 8 },
 
-	weatherBoxIcon: { width: 80, height: 80, position: "absolute", top: 12, right: 12, opacity: 0.95 },
+	weatherBoxIcon: { 
+		height: 80, 
+		opacity: 0.95,
+		position: "absolute", 
+		right: 12, 
+		top: 12, 
+		width: 80, 
+	},
 
-	weatherBoxLocationLabel: { color: "#fff", fontSize: 16, fontWeight: "700" },
+	weatherBoxLocationLabel: { color: "#fff", fontSize: 16, fontWeight: 700 },
 	weatherBoxStatus: { color: "#e7edf6", fontSize: 14, marginTop: 6 },
 	weatherBoxTemp: { color: "#fff", fontSize: 36, fontWeight: "800", marginTop: 8 },
 	weatherBoxTime: { color: "#c7d2e1", marginTop: 4, fontSize: 12 },
-
 	weatherBoxTextOnDay: { color: "#0e1a2b" },
 
 	weatherBoxButton: {
+		alignItems: "center",
+		backgroundColor: "#1f6feb",
+		borderRadius: 10,
 		marginTop: 12,
 		paddingHorizontal: 14,
 		paddingVertical: 10,
-		borderRadius: 10,
-		backgroundColor: "#1f6feb",
-		alignItems: "center",
 	},
 	weatherBoxButtonText: { color: "white", fontWeight: "600" },
 });

@@ -15,7 +15,7 @@ export default function AuthLayout() {
 					contentStyle: { backgroundColor: theme.bg },
 				}}
 			/>
-			<GlobalAlertHost /> {/* ← (auth) 트리에도 장착 */}
+			<GlobalAlertHost />
 		</>
 	);
 }

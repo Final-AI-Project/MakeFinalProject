@@ -1,17 +1,17 @@
 // frontend/app/(page)/(stackless)/info-room.tsx
 import React, { useMemo, useRef, useState } from "react";
 import {
-    ScrollView,
-    View,
-    Text,
-    StyleSheet,
-    useColorScheme,
-    Image,
-    Pressable,
-    LayoutAnimation,
-    Platform,
-    UIManager,
-    Animated,
+	ScrollView,
+	View,
+	Text,
+	StyleSheet,
+	useColorScheme,
+	Image,
+	Pressable,
+	LayoutAnimation,
+	Platform,
+	UIManager,
+	Animated,
 } from "react-native";
 import { useRouter } from "expo-router";
 import Colors from "../../../constants/Colors";
@@ -20,173 +20,542 @@ import arrowDownD from "../../../assets/images/d_arrow_down.png";
 
 // Android 레이아웃 애니메이션 활성화
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
-    UIManager.setLayoutAnimationEnabledExperimental(true);
+	UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
 type Item = { name: string; img: string };
 
 export default function InfoRoom() {
-    const scheme = useColorScheme();
-    const theme = Colors[scheme === "dark" ? "dark" : "light"];
-    const router = useRouter();
+	const scheme = useColorScheme();
+	const theme = Colors[scheme === "dark" ? "dark" : "light"];
+	const router = useRouter();
 
-    const [openItem, setOpenItem] = useState<string | null>(null);
+	const [openItem, setOpenItem] = useState<string | null>(null);
 
-    // 데이터
-    const species: Item[] = useMemo(
-        () => [
-            { name: "몬스테라", img: "https://picsum.photos/seed/plant1/80/80" },
-            { name: "스투키", img: "https://picsum.photos/seed/plant2/80/80" },
-            { name: "금전수", img: "https://picsum.photos/seed/plant3/80/80" },
-            { name: "선인장/다육", img: "https://picsum.photos/seed/plant4/80/80" },
-            { name: "호접란", img: "https://picsum.photos/seed/plant5/80/80" },
-            { name: "테이블야자", img: "https://picsum.photos/seed/plant6/80/80" },
-            { name: "홍콩야자", img: "https://picsum.photos/seed/plant7/80/80" },
-            { name: "스파티필럼", img: "https://picsum.photos/seed/plant8/80/80" },
-            { name: "관음죽", img: "https://picsum.photos/seed/plant9/80/80" },
-            { name: "벵갈고무나무", img: "https://picsum.photos/seed/plant10/80/80" },
-            { name: "올리브나무", img: "https://picsum.photos/seed/plant11/80/80" },
-            { name: "디펜바키아", img: "https://picsum.photos/seed/plant12/80/80" },
-            { name: "보스턴고사리", img: "https://picsum.photos/seed/plant13/80/80" },
-        ],
-        []
-    );
-    const pests: Item[] = useMemo(
-        () => [{ name: "추후 추가 예정", img: "https://picsum.photos/seed/pest1/80/80" }],
-        []
-    );
+	// 데이터
+	// species만 이 블록으로 교체
+	const species: Item[] = useMemo(
+		() => [
+			{ name: "몬스테라",	     img: Image.resolveAssetSource(require("../../../assets/images/mon.jpg")).uri },
+			{ name: "스투키",		 img: Image.resolveAssetSource(require("../../../assets/images/stk.jpg")).uri },
+			{ name: "금전수",		 img: Image.resolveAssetSource(require("../../../assets/images/zz.jpg")).uri  },
+			{ name: "선인장/다육",	  img: Image.resolveAssetSource(require("../../../assets/images/cac.jpg")).uri },
+			{ name: "호접란",		 img: Image.resolveAssetSource(require("../../../assets/images/pha.jpg")).uri },
+			{ name: "테이블야자",	 img: Image.resolveAssetSource(require("../../../assets/images/lad.jpg")).uri },
+			{ name: "홍콩야자",	     img: Image.resolveAssetSource(require("../../../assets/images/sch.jpg")).uri },
+			{ name: "스파티필럼",	 img: Image.resolveAssetSource(require("../../../assets/images/spa.jpg")).uri },
+			{ name: "관음죽",		 img: Image.resolveAssetSource(require("../../../assets/images/cha.jpg")).uri },
+			{ name: "벵갈고무나무",   img: Image.resolveAssetSource(require("../../../assets/images/fic.jpg")).uri },
+			{ name: "올리브나무",	 img: Image.resolveAssetSource(require("../../../assets/images/oli.jpg")).uri },
+			{ name: "디펜바키아",	 img: Image.resolveAssetSource(require("../../../assets/images/die.jpg")).uri },
+			{ name: "보스턴고사리",   img: Image.resolveAssetSource(require("../../../assets/images/bos.jpg")).uri },
+		],
+		[]
+	);
+	const pests: Item[] = useMemo(
+		() => [
+			{ name: "탄저병",			 img: Image.resolveAssetSource(require("../../../assets/images/pest01.jpg")).uri },
+			{ name: "잎마름병",		      img: Image.resolveAssetSource(require("../../../assets/images/pest02.jpg")).uri },
+			{ name: "잎반점병",		      img: Image.resolveAssetSource(require("../../../assets/images/pest03.jpg")).uri },
+			{ name: "잎굴파리 피해",	  img: Image.resolveAssetSource(require("../../../assets/images/pest04.jpg")).uri },
+			{ name: "녹색진드기 피해",	   img: Image.resolveAssetSource(require("../../../assets/images/pest05.jpg")).uri },
+			{ name: "잎벌래 피해",		  img: Image.resolveAssetSource(require("../../../assets/images/pest06.jpg")).uri },
+			{ name: "가을거세미나방 피해", img: Image.resolveAssetSource(require("../../../assets/images/pest07.jpg")).uri },
+		],
+		[]
+	);
 
-    // 각 아이템별 회전 애니메이션 값을 메모리에 저장 (필요 시 생성)
-    const rotateMap = useRef<Map<string, Animated.Value>>(new Map()).current;
-    const getRotate = (key: string) => {
-        if (!rotateMap.has(key)) rotateMap.set(key, new Animated.Value(0)); // 0: 닫힘, 1: 열림
-        return rotateMap.get(key)!;
-    };
+	// === 여기부터 엑셀 기반 상세 내용 하드코딩 ===
+const PLANT_DETAILS: Record<string, Record<string, string>> = {
+	"몬스테라": {
+			"학명": `몬스테라`,
+			"종": `몬스테라 (Monstera deliciosa)`,
+			"속": `몬스테라속`,
+			"과": `천남성과`,
+			"목": `택사목`,
+			"강": `백합식물강`,
+			"문": `관속식물문`,
+			"특징": `몬스테라(Monstera deliciosa)는 천남성과의 상록 덩굴식물이다. 멕시코 남부에서 파나마에 이르는 열대 지역이 원산지이며 온대 지역에선 온실이나 비닐하우스에서 실내 화초로 키운다. 9m까지 자라는 몬스테라는 영어의 monstrous에서 따온 이름으로, 괴물처럼 거대하다는 뜻을 담고 있다.`,
+			"적정 온도": `20~41℃`,
+			"급수 주기": `매주`,
+			"개화 시기": `봄, 여름`,
+			"곷 색깔": `흰색, 크림색`,
+			"꽅 지름": `15~30cm`,
+			"비료 팁": `몬스테라에게 성장기 동안 4-6주마다 질소가 풍부한 비료를 주고 겨울에는 줄입니다. 과도한 비료 사용을 방지하기 위해 반 농도의 균형 잡힌 액체 비료를 사용하세요. 염분 축적과 잎 버닝을 모니터링하며 가끔 토양을 헹궈 영양소 독성을 피해야 합니다.`,
+			"가지치기 팁": `몬스테라는 크기를 유지하고 울창함을 향상시키기 위해 이른 봄에서 늦은 봄 사이에 정기적으로 가지치기를 해야 합니다. 깨끗한 도구를 사용하여 잎 마디 위에서 잘라내고 손상된 부분을 제거하세요. 이 방법은 식물의 건강을 촉진하고 늘어짐을 방지합니다. 수액 자극으로부터 보호하기 위해 항상 장갑을 착용하세요.`,
+			"분갈이 팁": `봄에 몬스테라를 매년 새로 심어야 하며, 한 사이즈 큰 화분으로 옮겨 성장 지원을 합니다. 화분 바꾼 후에는 몬스테라을 안정된 환경에 두고 새로운 성장이 나타날 때까지 적게 물을 줘 매끄러운 전환을 보장해야 합니다.`,
+			"독성 여부": `독성`
+	},
+	"스투키": {
+			"학명": `스투키(Dracaena stuckyi)`,
+			"종": `스투키 (stuckyi)`,
+			"속": `드라세나속`,
+			"과": `아스파라거스과`,
+			"목": `아스파라거스목`,
+			"강": `외떡잎식물강`,
+			"문": `피자식물문`,
+			"특징": `스투키(Dracaena stuckyi)는 잎이 둥글고 길게 뻗어 하늘을 향하는 독특한 모양을 지녀 ‘봉의창’이라 불린다. 공기 정화 능력이 뛰어나 실내 공기질 개선에 도움을 주며, 강한 생명력 덕분에 물을 자주 주지 않아도 잘 자란다. 지금은 주로 관상용 실내 식물로 재배된다.`,
+			"적정 온도": `18~27℃`,
+			"급수 주기": `3주`,
+			"개화 시기": `여름`,
+			"곷 색깔": `흰색, 연한 녹색`,
+			"꽅 지름": `2~3cm`,
+			"비료 팁": `성장 시즌(봄과 여름) 동안 3~4주마다 다육식물 전용 비료를 반 강도로 사용하세요. 겨울철에는 비료 사용을 피해야 합니다. 항상 흙이 약간 촉촉할 때 비료를 주어 영양소 흡수를 돕고 뿌리를 보호합니다.`,
+			"가지치기 팁": `스투키는 성장 속도가 비교적 느리지만, 노란색이 되거나 마른 잎은 즉시 잘라내어 새로운 성장 공간을 확보하고 깔끔한 외관을 유지하세요.`,
+			"분갈이 팁": `뿌리가 화분을 가득 채우면 2년마다 분갈이를 해주세요. 배수가 잘 되는 흙과 약간 큰 화분을 사용하며, 옮겨 심은 직후에는 물을 적게 주어 뿌리가 안정될 수 있도록 합니다.`,
+			"독성 여부": `독성`
+	},
+	"금전수": {
+			"학명": `금전수 (돈나무)`,
+			"종": `금전수 (Zamioculcas zamiifolia)`,
+			"속": `금전초속`,
+			"과": `전남성과`,
+			"목": `택사목`,
+			"강": `백합식물강`,
+			"문": `관속식물문`,
+			"특징": `금전수는 반들반들한 윤기 있는 잎과 관리가 비교적 수월하기에 실내 장식용 화초로 인기가 좋다. 과습 상태에서 저온이 되면 뿌리가 썩기 쉬우므로 물 빠짐이 좋은 흙에서 키워야 한다. 토양의 표면이 말랐을 때 물을 주며 겨울철에는 흙이 완전히 말랐을 때 관수를 해야 한다.`,
+			"적정 온도": `20~38℃`,
+			"급수 주기": `3주`,
+			"개화 시기": `여름`,
+			"곷 색깔": `흰색, 초록색, 크림색`,
+			"꽅 지름": `5~7cm`,
+			"비료 팁": `금전수를 분기별로 반 농도의 고질소 비료로 비료를 주면 성장에 도움이 되지만, 겨울 휴면기에 들어가면 중단해야 합니다. 과도한 비료는 식물에 해를 끼칠 수 있으므로 라벨 지침을 반드시 준수하세요. 일관되고 정확한 급여가 건강한 금전수 식물을 보장합니다.`,
+			"가지치기 팁": `금전수는 윤기 나는 짙은 녹색의 잎을 가지고 있으며 최소한의 전정만 필요합니다. 손상된 잎을 제거하고 공기 순환을 개선하며 식물의 모양을 다듬기 위해 이른 봄에 전정을 수행하세요. 건강을 위해 깨끗하고 날카로운 도구를 사용하여 풍부한 잎을 촉진하고 과밀을 방지하여 오랜 생명을 유지합니다.`,
+			"분갈이 팁": `성장을 돕기 위해 매년 봄에 금전수를 다시 심어주세요. 튜브 뿌리를 위한 더 큰 화분을 선택하고 적절한 배수를 보장하세요. 다시 심은 후에는 과습하지 않도록 보습된 토양을 유지하세요. 이러한 강인한 식물은 세심한 관리로 번성합니다.`,
+			"독성 여부": `독성`
+	},
+	"선인장/다육": {
+			"학명": `비화옥 (난쟁이 턱 선인장)`,
+			"종": `비화옥 (Gymnocalycium baldianum)`,
+			"속": `비모란속`,
+			"과": `선인장과`,
+			"목": `석죽목`,
+			"강": `목련강`,
+			"문": `관속식물문`,
+			"특징": `구상 또는 약간 평평하고 직경 8 cm 이하, 진한 녹색, 때로는 갈색 인 구형의 선인장입니다. 그것은 8-10 개의 갈비뼈가 결절 모양의 구멍을 가지고 있으며, 6-8 개의 연한 회색의 곡선 가시로 그룹으로 덮여 있으며 종에게 거미 선인장의 일반적인 이름을 부여합니다. 많은 선인장과 마찬가지로 분할되지 않지만 몇 년 후에 오프셋을 형성 할 수 있습니다. 깔때기 모양의 꽃은 지름 6 cm에 이르며 식물의 정점 근처에서 자라며 빨강, 분홍 또는 주황색입니다.`,
+			"적정 온도": `15~38℃`,
+			"급수 주기": `3주`,
+			"개화 시기": `봄, 여름`,
+			"곷 색깔": `분홍색, 빨간색, 흰색, 보라색, 오렌지색`,
+			"꽅 지름": `2.5~5cm`,
+			"비료 팁": `비화옥에 대해 봄과 여름 동안 특정 다육식물 및 선인장 비료를 희석하여 매월 비료를 주십시오. 질소가 적고 칼륨이 높은 영양소를 사용하고 과도한 비료 주기를 피하십시오. 최적의 성장과 화려한 꽃을 위해 비화옥의 휴면기에 맞춰 가을과 겨울에는 비료를 중단하십시오.`,
+			"가지치기 팁": `비화옥은 최소한의 가지치기가 필요합니다. 건강한 성장을 촉진하기 위해 시든 꽃과 가지를 제거하여 식물이 더 중요한 부분에 영양을 집중할 수 있도록 합니다.`,
+			"분갈이 팁": `비화옥을 봄에 2-3년에 한 번, 낮은 성장 형태에 맞는 한 사이즈 큰 화분으로 재화분 해주십시오. 뿌리썩음을 피하기 위해 좋은 배수를 보장하십시오. 재화분 후에는 밝은 간접광을 제공하고, 토양이 손으로 만졌을 때 마른 경우에만 물을 주어 최적의 회복을 도와주십시오.`,
+			"독성 여부": `무독성`
+	},
+	"호접란": {
+			"학명": `팔레놉시스 아마빌리스`,
+			"종": `팔레놉시스 아마빌리스 (Phalaenopsis amabilis)`,
+			"속": `나도풍란속`,
+			"과": `난초과`,
+			"목": `아스파라거스목`,
+			"강": `백합식물강`,
+			"문": `관속식물문`,
+			"특징": `팔레놉시스 아마빌리스는 착생식물로 나무에 붙어 뿌리를 내놓고 자란다. 지름 10 cm의 하얀 꽃은 비행하는 나비의 모습을 닮았으며, 언제든지 꽃이 필 수 있어 개화시기가 따로 정해져있지 않다. 아름답고 향기가 좋아 관상용으로 많이 재배되며, 꽃이 핀 줄기는 부케로 만들거나 개별 꽃으로 코르사주를 만들기도 한다.`,
+			"적정 온도": `20~38℃`,
+			"급수 주기": `매주`,
+			"개화 시기": `늦은 봄, 여름, 초가을`,
+			"곷 색깔": `흰색, 노란색`,
+			"꽅 지름": `5~13cm`,
+			"비료 팁": `팔레놉시스 아마빌리스에 고포스 농합 비료를 주면 꽃이 잘 피고 전반적인 건강이 증진됩니다. 성장 중에는 희석된 균형 비료를 2주마다, 겨울에는 덜 주고, 뿌리 손상을 방지하기 위해 물을 주고 나서 비료를 적용하세요. 최적의 결과를 위해 성장 단계와 계절에 따라 적용량을 조절하세요.`,
+			"가지치기 팁": `팔레놉시스 아마빌리스는 정기적인 가지치기로 잘 자라며, 이상적으로는 이른 봄부터 늦겨울까지 진행하는 것이 좋습니다. 새로운 성장을 지원하기 위해 시든 꽃과 노란 잎을 제거하세요. 꽃 줄기 위에서 가지치기를 하여 추가적인 꽃봉오리를 유도하고, 공기 순환을 개선하며, 질병의 위험을 줄이고 전반적인 생명력을 증진시킵니다.`,
+			"분갈이 팁": `팔레놉시스 아마빌리스는 건강하게 자라기 위해 화분에서 우수한 배수가 필요하며, 과도한 물이 고여 있지 않도록 하는 것이 중요합니다.`,
+			"독성 여부": `무독성`
+	},
+	"테이블야자": {
+			"학명": `테이블야자`,
+			"종": `테이블야자 (Chamaedorea elegans)`,
+			"속": `카메도레아속`,
+			"과": `야자과`,
+			"목": `야자목`,
+			"강": `백합식물강`,
+			"문": `관속식물문`,
+			"특징": `테이블야자는 현재 전 세계에서 가장 많이 팔리는 실내장식용 야자나무이다. 한국에서는 실내 조명만으로도 잘 자라 책상 위에 올려놓고 키운다고 하여 탁상야자라고도 부른다. 실내 화분 재배 시 약 30 cm 가량 자라지만 야생에서는 2 m까지 자란다. 자라는 속도는 느린 편으로 병충해에 강해 실내에서 키우기가 쉬우며 환경적응이 빠른 식물이다.`,
+			"적정 온도": `20~38℃`,
+			"급수 주기": `1~2주`,
+			"개화 시기": `봄, 여름, 가을`,
+			"곷 색깔": `노란색, 초록색`,
+			"꽅 지름": `2.5cm`,
+			"비료 팁": `테이블야자에 균형 잡힌 수용성 비료를 봄과 여름에는 3-4주 간격으로, 가을과 겨울에는 6-8주 간격으로 주십시오. 푸르른 잎사귀를 위해 질소 함량이 높은 비료를 사용하고, 뿌리 손상을 방지하기 위해 1/4 농도의 비료를 적용하십시오. 효과적인 영양 공급을 위해 라벨의 지침을 따르십시오.`,
+			"가지치기 팁": `테이블야자는 잔잔한 잎사귀를 가진 저조도 내성의 열대 식물입니다. 최소한의 가지치기가 필요하며, 성장을 촉진하고 건강을 유지하기 위해 이른 봄에 죽은 잎을 잘라주세요. 깨끗하고 날카로운 가위를 사용하여 손상을 방지하고 질병과 해충의 위험을 줄이세요.`,
+			"분갈이 팁": `테이블야자는 성장 주기에 맞춰 봄마다 2년마다 다시 심어주며, 약간 더 큰 화분을 사용하십시오. 다시 심은 후에는 간접광을 제공하고 일관된 습기를 유지하여 회복을 도와주십시오. 이 관대 한 종의 야자 식물은 모든 수준의 식물 애호가들에게 적합합니다.`,
+			"독성 여부": `독성`
+	},
+	"홍콩야자": {
+			"학명": `홍콩야자`,
+			"종": `홍콩야자 (Schefflera arboricola)`,
+			"속": `셰플레라속`,
+			"과": `두릅나무과`,
+			"목": `미나리목`,
+			"강": `목련강`,
+			"문": `관속식물문`,
+			"특징": `홍콩야자(Schefflera arboricola)는 중국이 원산지인 상록수 다엽 관목이다. 왕성한 번식력을 자랑해 실내에서 쉽게 기를 수 있다. 잎이 우산 모양처럼 생겨 우산 나무라고도 불린다. 짙은 자색의 열매가 달린다.`,
+			"적정 온도": `20~38℃`,
+			"급수 주기": `1~2주`,
+			"개화 시기": `늦여름, 가을, 초겨울`,
+			"곷 색깔": `노란색, 흰색, 빨간색, 초록색`,
+			"꽅 지름": `5mm~1cm`,
+			"비료 팁": `홍콩야자를 봄과 여름에 희석된 고질소 비료로 매달 비료를 주어 풍부한 성장을 촉진하세요. 가을과 겨울에는 비료 주기를 두 달에 한 번으로 줄입니다. 뿌리 손상을 방지하기 위해 촉촉한 토양에 적용하고, 물 한 갤런에 티스푼 하나를 사용하여 홍콩야자의 반응을 모니터링하며 과비료를 피하세요.`,
+			"가지치기 팁": `홍콩야자는 광택이 나는 손바닥 모양의 잎과 아담한 성장 습성을 가지고 있습니다. 형태를 유지하고 새로운 성장을 촉진하기 위해 겨울 초반에서 말기에 가지치기를 하며, 죽은 가지나 혼잡한 가지를 제거합니다. 정밀한 절단을 위해 깨끗하고 날카로운 도구를 사용하여 신속한 회복과 스트레스를 줄이도록 합니다.`,
+			"분갈이 팁": `홍콩야자를 봄에 2-3년마다 뿌리 성장을 위해 조금 더 큰 화분으로 옮겨 심습니다. 분갈이 후에는 홍콩야자을/를 밝고 간접적인 빛이 드는 곳에 두고 회복을 돕기 위해 지속적으로 촉촉함을 유지하세요. 분갈이 시에는 건강한 성장을 촉진하기 위해 부드럽게 다루세요.`,
+			"독성 여부": `독성`
+	},
+	"스파티필럼": {
+			"학명": `스파티필룸`,
+			"종": `스파티필룸 (Spathiphyllum wallisii)`,
+			"속": `스파티필룸속`,
+			"과": `천남성과`,
+			"목": `택사목`,
+			"강": `쌍떡잎식물강`,
+			"문": `관속식물문`,
+			"특징": `스파티필룸은 마치 꽃처럼 보이는 커다란 흰 잎인 불염포가 아름다운 식물이다. 꽃은 불염포와 함께 길쭉한 모양으로 자란다. 실내에서 잘 자라기 때문에 관상용 식물로 좋다. 빛이 너무 모자랄 경우 잎의 크기가 작아진다.`,
+			"적정 온도": `20~41℃`,
+			"급수 주기": `매주`,
+			"개화 시기": `봄, 여름`,
+			"곷 색깔": `흰색`,
+			"꽅 지름": `8~10cm`,
+			"비료 팁": `스파티필룸에 비료를 주는 것은 생기 있는 잎과 꽃을 위해 필수적입니다. 성장기 동안 6-8주마다 고인산 비료를 사용하고, 반강도로 희석하여 사용하십시오. 겨울철 비료 주기는 피하고, 봄에 다시 시작하여 성장 지원을 하세요. 정확한 측정을 통해 영양 과다를 방지함으로써 건강하고 생기 있는 잎과 인상적인 흰 꽃을 유지할 수 있습니다.`,
+			"가지치기 팁": `스파티필룸은 무성한 녹색 잎과 우아한 흰 꽃을 가지고 있습니다. 이른 봄에서 늦겨울까지 가지치기를 할 때는 노랗거나 죽은 잎을 제거하고 꽃을 다듬어 공기 순환을 개선하고 건강한 성장을 장려하며 활기를 유지하도록 하며 질병을 예방합니다.`,
+			"분갈이 팁": `매년 봄에 스파티필룸을 재배식하여 뿌리 확장을 위해 1-2인치 더 큰 화분을 사용하세요. 회복을 위해 배수성이 좋은 흙과 간접적인 빛을 확보하세요. 과습을 피하고 정기적으로 물을 주어 스트레스를 예방해야 합니다.`,
+			"독성 여부": `독성`
+	},
+	"관음죽": {
+			"학명": `관음죽`,
+			"종": `관음죽 (Rhapis excelsa)`,
+			"속": `종려죽속`,
+			"과": `야자과`,
+			"목": `야자목`,
+			"강": `백합식물강`,
+			"문": `관속식물문`,
+			"특징": `관음죽은 동양적인 매력이 있어 널리 재배되며 반들반들한 잎은 손바닥 모양 겹잎으로 5~7갈래로 갈라지는 게 특징이다. 관음죽이라는 이름은 일본 관음산에서 자생하는 대나무 같은 식물이라 하여 붙여진 이름이다. 한국에서는 대나무 느낌이 나서 고가구와 잘 어울려 실내장식용 화초로 인기가 많다.`,
+			"적정 온도": `20~38℃`,
+			"급수 주기": `1~2주`,
+			"개화 시기": `여름`,
+			"곷 색깔": `노란색`,
+			"꽅 지름": `2.5cm`,
+			"비료 팁": `관음죽은 균형 잡힌 영양을 필요로 하며, 봄-여름에는 격월로 비료를 주고 가을-겨울에는 분얼로 비료를 줘야 합니다. 묽은 용액으로 비료를 주고, 뿌리 손상을 방지하기 위해 과비료를 피해야 합니다. 성장 단계에 따라 급여량을 조절하고, 항상 안전 가이드라인을 따르십시오.`,
+			"가지치기 팁": `관음죽은 우아한 부채 모양의 잎을 가지고 있습니다. 건강한 성장 유도를 위해 이른 봄에 시들거나 손상된 잎을 잘라주세요. 덤불을 유지하고 빛의 접근성을 향상시키기 위해 건강한 줄기는 자르는 것을 피하세요. 정기적인 가지치기는 식물의 활력을 증가시키고 해충 침입을 방지합니다.`,
+			"분갈이 팁": `관음죽은 매 1-2년마다 봄에 새로운 토양으로 환심해야 하며, 뿌리덩어리에 비해 약간 더 큰 화분을 선택하십시오. 환심 후에는 간접광에 두고 일관된 수분을 유지하여 최적의 성장과 건강을 위해 물빠짐을 피해야 합니다.`,
+			"독성 여부": `무독성`
+	},
+	"벵갈고무나무": {
+			"학명": `뱅갈고무나무`,
+			"종": `뱅갈고무나무 (Ficus benghalensis)`,
+			"속": `무화과속`,
+			"과": `뽕나무과`,
+			"목": `장미목`,
+			"강": `쌍떡잎식물강`,
+			"문": `속씨식물문`,
+			"특징": `뱅갈고무나무(Ficus benghalensis)는 굵고 넓은 잎이 달리는 상록수로, 인도와 동남아시아 지역에서 자생한다. 잎은 타원형에 광택이 있어 관상 가치가 높으며, 뿌리에서 내려오는 공중뿌리가 숲처럼 퍼져 웅장한 자태를 이룬다. 강한 생명력과 공기 정화 능력 덕분에 실내 관엽식물로 널리 재배되며, 따뜻하고 밝은 환경에서 잘 자란다.`,
+			"적정 온도": `18~30℃`,
+			"급수 주기": `매주`,
+			"개화 시기": `여름`,
+			"곷 색깔": `흰색, 연한 황색`,
+			"꽅 지름": `2~3mm`,
+			"비료 팁": `성장기인 봄과 여름에는 한 달에 1회 정도 액체 비료나 완효성 비료를 사용하면 좋습니다. 겨울철에는 비료를 피하세요.`,
+			"가지치기 팁": `성장이 빠른 편이라 모양을 유지하려면 봄이나 여름에 가지치기를 해주는 것이 좋습니다. 불필요하게 길게 뻗은 가지나 약한 가지를 잘라주면 수형을 안정적으로 유지할 수 있습니다.`,
+			"분갈이 팁": `뿌리 발달이 빠르므로 어린 나무는 매년, 성체가 되면 2~3년에 한 번 분갈이를 권장합니다. 큰 화분과 배수성이 좋은 토양을 사용하면 좋습니다.`,
+			"독성 여부": `독성`
+	},
+	"올리브나무": {
+			"학명": `올리브나무`,
+			"종": `올리브나무 (Olea europaea)`,
+			"속": `올리브나무속`,
+			"과": `물푸레나무과`,
+			"목": `꿀풀목`,
+			"강": `목련강`,
+			"문": `관속식물문`,
+			"특징": `올리브나무(Olea europaea)는 건조한 환경에 강해 지중해 지역에서 널리 재배된다. 나무의 가지는 평화의 상징으로 사용된다. 자가수분할 수 없으며 DNA가 같은 꽃가루는 반응하지 않고 열매를 맺지 않는다.`,
+			"적정 온도": `15~35℃`,
+			"급수 주기": `1~2주`,
+			"개화 시기": `봄 중순, 늦은 봄`,
+			"곷 색깔": `흰색, 노란색`,
+			"꽅 지름": `2~4cm`,
+			"비료 팁": `올리브나무는 정착을 위해 균형 잡힌 비료(10-10-10)가 필요하며, 개화 전에는 질소 비료가 많이 필요합니다. 봄과 가을에 연 2회 비료를 주며, 어린 나무에는 0.5~1kg을 적용합니다. 비료 과다 사용은 뿌리 화상의 위험이 있으므로 계절에 따라 영양소의 가용성을 조절하세요. 최적의 흡수를 위해 비료를 적용한 후 충분히 물을 주십시오.`,
+			"가지치기 팁": `올리브나무는 은회색 잎을 가진 상록수입니다. 모양을 개선하고 고사목을 제거하며 공기 순환을 촉진하기 위해 겨울 초에서 늦까지 가지치기를 하세요. 가벼운 정기적인 가지치기는 더 건강한 성장과 더 나은 열매 생산을 촉진하며, 과도한 가지치기로 인한 스트레스를 피합니다.`,
+			"분갈이 팁": `올리브나무는 최적의 성장을 위해 봄에 2-3년마다 분갈이를 해야 합니다. 뿌리가 확장할 수 있도록 더 큰 화분을 선택하고, 배수를 잘 하는 토양을 사용하세요. 새싹이 나올 때까지는 분갈이 후 물을 적게 주십시오. 햇빛이 잘 드는 장소를 제공하고, 올리브나무의 분갈이 주기 동안 인내가 중요하다는 점을 잊지 마세요.`,
+			"독성 여부": `무독성`
+	},
+	"디펜바키아": {
+			"학명": `디펜바키아 세구이네`,
+			"종": `디펜바키아 세구이네 (Dieffenbachia seguine)`,
+			"속": `디펜바키아속`,
+			"과": `천남성과`,
+			"목": `택사목`,
+			"강": `백합식물강`,
+			"문": `관속식물문`,
+			"특징": `디펜바키아 세구이네는 장식용 및 관상용으로 실내에서 많이 재배한다. 초록색의 잎에 하얀색의 얼룩덜룩한 무늬가 특징이며, 흰 꽃이 핀다. 실내 재배 시 주의할 점은 너무 많은 물을 주지 않아야 하며 강한 직사광선을 피해 화분을 놓아야 한다. 식물의 수액에 유독성이 있어 주의해야 한다.`,
+			"적정 온도": `20~38℃`,
+			"급수 주기": `매주`,
+			"개화 시기": `봄, 여름, 가을`,
+			"곷 색깔": `초록색, 흰색, 노란색`,
+			"꽅 지름": `8cm`,
+			"비료 팁": `디펜바키아 세구이네의 경우, 최적의 잎 성장 위해 고질소 비료를 사용하고 겨울에는 분기별 또는 반년마다 적용합니다. 활발한 성장 기간 동안 6주마다 희석된 용액으로 급여하여 뿌리 태움을 방지합니다. 초보자는 비료 사용 지침을 따라서 오버 비료를 피해야 하며, 숙련된 정원사는 디펜바키아 세구이네의 반응에 따라 조절할 수 있습니다.`,
+			"가지치기 팁": `디펜바키아 세구이네는 넓고 다채로운 잎을 가지고 있으며, 덤불 모양으로 자생합니다. 성장을 촉진하고 형태를 유지하기 위해 깨끗한 도구를 사용하여 이른 봄에서 늦은 봄에 가지치기를 합니다. 이는 크기를 줄이고, 풍성하게 만들며, 건강을 촉진합니다. 디펜바키아 세구이네의 수액에 자극 물질이 있을 수 있으므로 장갑을 착용하세요.`,
+			"분갈이 팁": `디펜바키아 세구이네은 건강한 성장을 위해 매년 초봄에 다시 화분에 심습니다. 뿌리를 수용할 수 있도록 약간 더 큰 화분을 선택하고, 뿌리 부패를 방지하기 위해 배수가 잘되는 환경을 마련해야 합니다. 다시 심은 후에는 토양을 지속적으로 촉촉하게 유지하고 회복 기간 동안 직사광선을 피해야 합니다.`,
+			"독성 여부": `독성`
+	},
+	"보스턴고사리": {
+			"학명": `보스턴고사리`,
+			"종": `보스턴고사리 (Nephrolepis exaltata)`,
+			"속": `검정고사리속`,
+			"과": `검정고사리과`,
+			"목": `고사리목`,
+			"강": `양치식물강`,
+			"문": `양치식물문`,
+			"특징": `보스턴고사리(Nephrolepis exaltata)는 열대 지역에 주로 서식하며 현재 원예에 쓰이는 고사리들 중에서 건조한 기후에 가장 강하기 때문에 실내에서 많이 키우고 있는 인기 식물이다. 하지만 아무리 건조에 내성이 있다고 해도 고사리기 때문에 축축한 습기 있는 흙을 좋아하기 때문에 특히 아주 더운 여름날에는 물을 많이 줘서 흙이 마르지 않아야 한다.`,
+			"적정 온도": `20~38℃`,
+			"급수 주기": `일주일데 두 번`,
+			"개화 시기": `꽃 없음`,
+			"곷 색깔": `꽃 없음`,
+			"꽅 지름": `꽃 없음`,
+			"비료 팁": `보스턴고사리를 성장 시즌(봄에서 초가을) 동안 희석된 고질소 비료로 격주로 시비하세요. 겨울에는 월 1회로 줄이고, 뿌리 화상을 예방하기 위해 과다 시비를 피해야 합니다. 액체형 또는 알갱이형 비료 모두 사용할 수 있으며, 고르게 분배하세요. 보스턴고사리의 성장 상태를 모니터링하여 비료 공급을 조절하세요.`,
+			"가지치기 팁": `보스턴고사리는 무성하고 아치형의 잎을 자랑합니다. 초봄에 가지치기를 통해 죽거나 손상된 잎을 제거하고 모양을 조절하세요. 깔끔한 절단을 위해 소독된 도구를 사용합니다. 적절한 가지치기는 공기 흐름을 개선하고 해충을 줄이며 식물의 건강을 증진하면서 균형 잡힌 외관을 유지하는 데 도움이 됩니다.`,
+			"분갈이 팁": `보스턴고사리는 2-3년마다 새로 심는 것이 좋으며, 이상적으로는 봄에 살짝 더 큰 화분으로 옮겨 심으세요. 배수가 잘 되는 토양을 사용하고, 물빠짐 없이 일정한 습도를 유지하며 간접적인 빛과 높은 습도를 제공하여 최적의 회복 및 성장을 도모하세요.`,
+			"독성 여부": `무독성`
+	}
+};
 
-    const animateArrow = (key: string, to: 0 | 1) => {
-        const v = getRotate(key);
-        Animated.timing(v, { toValue: to, duration: 220, useNativeDriver: true }).start();
-    };
+const PEST_DETAILS: Record<string, Record<string, string>> = {
+	"탄저병": {
+			"이름": `탄저병`,
+			"병원균": `Colletotrichum truncatum`,
+			"증상": `잎, 줄기, 꼬투리, 종자에 발생한다. 잎에서는 처음에 갈색의 다각형 병반으로 나타나고, 병이 진전되면 갈색 내지 암갈색의 부정형 병반으로 확대된다. 심하게 병든 줄기는 검게 변색되고, 말라죽는다. 오래된 병반에는 황색 내지 담홍색의 분생포자 덩어리가 형성된다. 심하게 병든 꼬투리는 생장이 정지되고, 기형으로 변하며, 일찍 말라죽는다. 성숙한 꼬투리에 병이 심하게 진전되면 꼬투리 내의 종자에도 갈색 내지 흑색의 부정형 병반이 형성되고, 후에 종자가 전체적으로 변색되어 썩는다. 잎의 병징은 습한 기후가 지속될 때 나타난다. 탄저병에 감염되면 조기 낙엽으로 인하여 심각한 수량 감소가 초래될 수 있다. 꼬투리가 심하게 감염될 경우 종자는 짙은 갈색으로 쭈그러진 모양이 된다.`,
+			"치료법": `무병지에서 채종한 종자를 파종한다. 수확 후 병든 식물체를 제거하여 불에 태워버리거나 깊게 경운한다. 병 발생이 심한 포장은 화본과 등 다른 비기주 작물과 돌려짓기를 한다.`
+	},
+	"잎마름병": {
+			"이름": `잎마름병`,
+			"병원균": `Corynespora cassiicola`,
+			"증상": `병원균은 병든 부위에서 균사나 분생포자의 형태로 겨울을 지낸 후, 분생포자를 형성하여 공기전염 한다. 감염은 16～32℃ 에서 일어나며, 병 발생 적온은 20～28℃이다. 이 병은 참깨, 콩 등의 다른 작물에서도 발생한다. 로 잎과 잎자루에 발생하며, 간혹 줄기와 과실에도 발생한다. 잎에서는 처음 수침상의 둥근 점무늬로 나타나고, 진전되면 갈색의 원형 내지 부정형 병반으로 확대된다. 심하게 감염된 잎은 누렇게 변하여 말라 죽는다. 잎자루와 줄기에서는 처음에 작은 점무늬로 나타나고, 진전되면 병반이 감염 부위를 둘러싸게 되고, 그 위쪽은 말라 죽게 된다. 과실에서는 처음에 갈색의 원형반점이 약간 움푹 들어간 형태로 나타나며, 진전되면 분화구처럼 확대되고, 후에 감염부위가 쪼개지기도 한다.`,
+			"치료법": `건전한 종자를 선별하고, 소독하여 파종한다. 퇴비를 시용하여 작물의 초세를 좋게 한다. 재배 시 균형시비를 한다.`
+	},
+	"잎반점병": {
+			"이름": `잎반점병`,
+			"병원균": `Apple chlorotic leaf spot virus`,
+			"증상": `이 바이러스병은 사과 나무에 잠복감염된다. 이병성 대목에 감염된 접수가 접목되었을 때 고접병증상을 일으키는 병으로 알려져 왔으나 최근에는 인과류 이외에 핵과류에도 심한 피해를 주는 병으로 알려져있다. 1959년 최초로 Platycarpa line pattern virus로 명명되었다. 우리나라 사과나무에 많이 잠복감염되어 있음이 밝혀졌다. 아접, 접목, 삭아접에 의하여 전염되며 즙액전염에 의하여 명아주 등 초본식물에, 순화된 바이러스로 사과 어린 유묘에 즙액전염이 가능하다. 수체내 바이러스 분포는 불균일하며 5~10개의 눈을 가진 단가지에서는 거의 전부가 감염되어 있으나, 20~40개의 눈을 가진 장가지에는 건전 부분이 많으며 가지 끝으로 갈수록 건전 눈이 많다. 꽃이나 열매에 바이러스의 농도가 높으며 잎에는 농도가 낮다. 재식된 나무와 나무의 접촉이나 사람에 의하여 전염되지 않으며 토양 전염은 되지 않는다.`,
+			"치료법": `가장 기본적인 방제 방법은 건전묘를 육성해서 재배하는 방법이며 건전여부가 부정확할 때는 이 병에 잘 걸리는 품종 대목의 이용을 회피하는 것이 좋다. 건전묘를 만드는 방법으로는 37~38℃에서 30~40일 열처리로 생장점을 분리하여 조직배양하는 것이 가장 확실한 방법이나 ribavirin 등을 처리 후에 접수를 채집하여 건전묘로 사용하는 경우도 있다. 이 바이러스는 사과에는 저항성 대목을 사용하였을 경우는 병징이 은폐되어 피해가 크지 않으나 피해가 나타나는 경우 심할 경우에는 다시 심는 것이 좋으며 심하지 않을 경우에는 비배관리로 수세증진에 노력하여야 한다.`
+	},
+	"잎굴파리 피해": {
+			"이름": `잎굴파리 피해`,
+			"병원균": `-`,
+			"증상": `유충이 잎살 속을 갉아 먹으면서 가늘고 구불구불한 선(굴 모양의 흔적)이 나타납니다. 잎 조직이 손상되어 잎이 제 기능을 못 하고, 식물의 생장이 저해됩니다. 피해가 심하면 잎이 갈색으로 변해 마르고 조기 낙엽이 발생할 수 있습니다.`,
+			"치료법": `유충이 잎 내부에서 가해하므로, 피해 잎을 조기에 따내어 소각하거나 폐기하면 확산을 줄일 수 있습니다. 성충의 유입을 막기 위해 미세방충망을 설치하면 효과적입니다. 농약 사용을 줄이고 천적 곤충(기생벌, 포식성 곤충)이 잘 살아남을 수 있는 환경을 유지하는 것이 중요합니다.`
+	},
+	"녹색진드기 피해": {
+			"이름": `녹색진드기 피해`,
+			"병원균": `-`,
+			"증상": `어린 잎, 새순, 꽃봉오리에서 즙을 빨아먹어 잎이 오그라들거나 말리고, 새순의 성장이 억제됩니다. 잎과 꽃의 형태가 비틀리거나 왜소해집니다. 흡즙 후 배출하는 감로(달콤한 분비물)에 곰팡이가 번식해 잎이 검게 덮여 광합성을 저해합니다.`,
+			"치료법": `진딧물이 집중된 잎이나 새순을 조기 제거합니다. 하우스에서는 방충망(미세망)을 설치해 외부 유입을 차단합니다. 진딧물은 잎 뒷면이나 새순에 군집하므로, 침투·이행성이 좋은 약제 사용이 효과적입니다.`
+	},
+	"잎벌래 피해": {
+			"이름": `잎벌래 피해`,
+			"병원균": `-`,
+			"증상": `성충이나 유충이 잎의 표피나 조직을 씹어 먹어 구멍이 뚫리거나 가장자리부터 불규칙하게 갉아집니다. 심한 경우 잎맥만 남고 잎 전체가 망사 모양이 됩니다. 잎의 녹색 부분이 사라지면서 광합성이 제대로 이루어지지 않아 생육이 지연됩니다.`,
+			"치료법": `발생 초기라면 피해 잎이나 해충이 붙은 부분을 직접 따내어 폐기합니다. 잡초를 제거하고, 환기와 토양 관리로 벌레의 은신처를 줄이는 것이 중요합니다. 기생봉이나 포식성 곤충(무당벌레, 거미 등)을 보존하여 잎벌레 밀도를 억제할 수 있습니다.`
+	},
+	"가을거세미나방 피해": {
+			"이름": `가을거세미나방 피해`,
+			"병원균": `-`,
+			"증상": `유충이 옥수수, 벼, 수수, 채소 등 다양한 작물의 잎을 갉아먹습니다. 초기에는 잎에 창문 모양의 투명한 피해 흔적이 나타나며, 성장하면서 구멍이 커지고 불규칙한 모양으로 잎이 손상됩니다. 피해가 누적되면 작물이 정상적으로 자라지 못하고, 어린 포기에서는 고사 현상이 발생할 수 있습니다.`,
+			"치료법": `유충은 야간에 활동하므로, 저녁 무렵 잎이나 줄기를 관찰해 조기에 발견하는 것이 중요합니다. 기생벌, 무당벌레, 거미 등 천적 곤충이 살아남을 수 있도록 불필요한 농약 살포를 줄여야 합니다. 침투이행성이 좋은 약제를 피해 초기(유충이 어릴 때) 살포하는 것이 효과적입니다.`
+	}
+};
 
-    const toggleItem = (name: string) => {
-        LayoutAnimation.easeInEaseOut();
-        const willOpen = openItem !== name;
-        setOpenItem(willOpen ? name : null);
-        // 현재 눌린 아이템은 목표 상태로 애니메이션
-        animateArrow(name, willOpen ? 1 : 0);
-        // 이전에 열려있던 아이템의 화살표는 닫힘(0)으로 되돌림
-        if (openItem && openItem !== name) animateArrow(openItem, 0);
-    };
 
-    const Arrow = ({ itemName }: { itemName: string }) => {
-        const v = getRotate(itemName);
-        const arrowRotate = v.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "180deg"] });
-        return (
-            <Animated.View style={{ transform: [{ rotate: arrowRotate }] }}>
-                <Image
-                    source={scheme === "dark" ? arrowDownD : arrowDownW}
-                    style={styles.arrowImg}
-                    resizeMode="contain"
-                />
-            </Animated.View>
-        );
-    };
+	const rotateMap = useRef<Map<string, Animated.Value>>(new Map()).current;
+	const getRotate = (key: string) => {
+		if (!rotateMap.has(key)) rotateMap.set(key, new Animated.Value(0)); // 0: 닫힘, 1: 열림
+		return rotateMap.get(key)!;
+	};
 
-    const renderCard = (item: Item) => {
-        const isOpen = openItem === item.name;
-        return (
-            <View key={item.name}>
-                <Pressable
-                    onPress={() => toggleItem(item.name)}
-                    style={[
-                        styles.card,
-                        { borderColor: theme.border, backgroundColor: theme.card },
-                        isOpen && {
-                            borderColor: theme.primary,
-                            backgroundColor: scheme === "dark" ? (theme.primary + "22") : (theme.primary + "18"),
-                        },
-                    ]}
-                >
-                    <Image source={{ uri: item.img }} style={[styles.image, isOpen && styles.imageActive]} />
-                    <View style={styles.cardTextArea}>
-                        <Text style={[styles.item, { color: theme.text }, isOpen && styles.itemActive]}>
-                            {item.name}
-                        </Text>
-                    </View>
-                    {/* 회전 화살표 */}
-                    <Arrow itemName={item.name} />
-                </Pressable>
+	const animateArrow = (key: string, to: 0 | 1) => {
+		const v = getRotate(key);
+		Animated.timing(v, { toValue: to, duration: 220, useNativeDriver: true }).start();
+	};
 
-                {isOpen && (
-                    <View style={[styles.detailBox, { borderColor: theme.border }]}>
-                        <Text style={[styles.detailText, { color: theme.text }]}>
-                            {item.name}에 대한 상세 설명은 추후 추가될 예정입니다.
-                        </Text>
-                    </View>
-                )}
-            </View>
-        );
-    };
+	const toggleItem = (name: string) => {
+		LayoutAnimation.easeInEaseOut();
+		const willOpen = openItem !== name;
+		setOpenItem(willOpen ? name : null);
+		animateArrow(name, willOpen ? 1 : 0);
+		if (openItem && openItem !== name) animateArrow(openItem, 0);
+	};
 
-    return (
-        <ScrollView style={[styles.container, { backgroundColor: theme.bg }]}>
-            {/* 품종 관련 정보 */}
-            <Text style={[styles.title, { color: theme.text }]}>품종 관련 정보</Text>
-            {species.map(renderCard)}
+	const Arrow = ({ itemName }: { itemName: string }) => {
+		const v = getRotate(itemName);
+		const arrowRotate = v.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "180deg"] });
+		return (
+			<Animated.View style={{ transform: [{ rotate: arrowRotate }] }}>
+				<Image
+					source={scheme === "dark" ? arrowDownD : arrowDownW}
+					style={styles.arrowImg}
+					resizeMode="contain"
+				/>
+			</Animated.View>
+		);
+	};
 
-            {/* 병충해 관련 정보 */}
-            <Text style={[styles.title, { color: theme.text, marginTop: 24 }]}>병충해 관련 정보</Text>
-            {pests.map(renderCard)}
+	const renderPlantDetails = (name: string) => {
+		const d = PLANT_DETAILS[name];
+		if (!d) return null;
+		const groups = [
+			{ title: "기초 정보", keys: ["학명","종","속","과","목","강","문"] },
+			{ title: "생육 · 개화", keys: ["적정 온도","급수 주기","개화 시기"] },
+			{ title: "꽃 정보", keys: ["곷 색깔","꽅 지름"] },
+			{ title: "관리 팁", keys: ["비료 팁","가지치기 팁","분갈이 팁"] },
+			{ title: "기타", keys: ["특징","독성 여부"] },
+		];
+		return (
+			<View>
+				{groups.map(g => {
+					const hasAny = g.keys.some(k => !!d[k]);
+					if (!hasAny) return null;
+					return (
+						<View key={g.title} style={styles.group}>
+							<Text style={[styles.groupTitle, { color: theme.text }]}>{g.title}</Text>
+							{g.keys.map(k => d[k] ? (
+								<View key={k} style={styles.kv}>
+									<Text style={[styles.k, { color: theme.text }]}>{k}</Text>
+									<Text style={[styles.v, { color: theme.text }]}>{d[k]}</Text>
+								</View>
+							) : null)}
+						</View>
+					);
+				})}
+			</View>
+		);
+	};
 
-            {/* 뒤로가기 버튼 */}
-            <Pressable
-                style={[styles.backButton, { borderColor: theme.border, backgroundColor: theme.card }]}
-                onPress={() => router.back()}
-            >
-                <Text style={[styles.backText, { color: theme.text }]}>뒤로가기</Text>
-            </Pressable>
-        </ScrollView>
-    );
+	const renderPestDetails = (name: string) => {
+		const d = PEST_DETAILS[name];
+		if (!d) return null;
+		const groups = [
+			{ title: "개요", keys: ["이름","병원균"] },
+			{ title: "증상", keys: ["증상"] },
+			{ title: "치료법", keys: ["치료법"] },
+		];
+		return (
+			<View>
+				{groups.map(g => {
+					const hasAny = g.keys.some(k => !!d[k]);
+					if (!hasAny) return null;
+					return (
+						<View key={g.title} style={styles.group}>
+							<Text style={[styles.groupTitle, { color: theme.text }]}>{g.title}</Text>
+							{g.keys.map(k => d[k] ? (
+								<View key={k} style={styles.kv}>
+									<Text style={[styles.k, { color: theme.text }]}>{k}</Text>
+									<Text style={[styles.v, { color: theme.text }]}>{d[k]}</Text>
+								</View>
+							) : null)}
+						</View>
+					);
+				})}
+			</View>
+		);
+	};
+
+	const plantNameSet = new Set(species.map(s => s.name));
+
+	const renderCard = (item: Item) => {
+		const isOpen = openItem === item.name;
+		const isPlant = plantNameSet.has(item.name);
+		return (
+			<View key={item.name}>
+				<Pressable
+					onPress={() => toggleItem(item.name)}
+					style={[
+						styles.card,
+						{ borderColor: theme.border, backgroundColor: theme.bg },
+						isOpen && {
+							borderColor: theme.primary,
+							backgroundColor: scheme === "dark" ? (theme.primary + "22") : (theme.primary + "18"),
+						},
+					]}
+				>
+					<Image source={{ uri: item.img }} style={[styles.image, isOpen && styles.imageActive]} />
+					<View style={styles.cardTextArea}>
+						<Text style={[styles.item, { color: theme.text }, isOpen && styles.itemActive]}>
+							{item.name}
+						</Text>
+					</View>
+					<Arrow itemName={item.name} />
+				</Pressable>
+
+				{isOpen && (
+					<View style={[styles.detailBox, { borderColor: theme.border }]}>
+						{isPlant ? renderPlantDetails(item.name) : renderPestDetails(item.name)}
+					</View>
+				)}
+			</View>
+		);
+	};
+
+	return (
+		<ScrollView style={[styles.container, { backgroundColor: theme.bg }]}>
+			{/* 품종 관련 정보 */}
+			<Text style={[styles.title, { color: theme.text }]}>품종 관련 정보</Text>
+			{species.map(renderCard)}
+
+			{/* 병충해 관련 정보 */}
+			<Text style={[styles.title, { color: theme.text, marginTop: 24 }]}>병충해 관련 정보</Text>
+			{pests.map(renderCard)}
+
+			{/* 뒤로가기 버튼 */}
+			<Pressable
+				style={[styles.backButton, { borderColor: theme.border, backgroundColor: theme.bg }]}
+				onPress={() => router.back()}
+			>
+				<Text style={[styles.backText, { color: theme.text }]}>뒤로가기</Text>
+			</Pressable>
+		</ScrollView>
+	);
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, paddingTop: 10, paddingHorizontal: 20 },
-    title: { fontSize: 18, fontWeight: "800", marginBottom: 12 },
+	container: { flex: 1, paddingTop: 10, paddingHorizontal: 20 },
+	title: { fontSize: 18, fontWeight: "800", marginBottom: 12 },
 
-    card: {
-        flexDirection: "row",
-        alignItems: "center",
-        borderWidth: 1,
-        borderRadius: 20,
-        paddingVertical: 12,
-        paddingHorizontal: 12,
-        marginBottom: 10,
-    },
-    image: { width: 60, height: 60, borderRadius: 12, marginRight: 12, opacity: 0.95 },
-    imageActive: { opacity: 1 },
+	card: {
+		flexDirection: "row",
+		alignItems: "center",
+		borderWidth: 1,
+		borderRadius: 20,
+		paddingVertical: 12,
+		paddingHorizontal: 12,
+		marginBottom: 10,
+	},
+	image: { width: 60, height: 60, borderRadius: 12, marginRight: 12, opacity: 0.95 },
+	imageActive: { opacity: 1 },
 
-    cardTextArea: { flex: 1 },
-    item: { fontSize: 15, fontWeight: "600" },
-    itemActive: { fontWeight: "800" },
+	cardTextArea: { flex: 1 },
+	item: { fontSize: 15, fontWeight: "600" },
+	itemActive: { fontWeight: "800" },
 
-    arrowImg: { width: 20, height: 20, marginLeft: 6, opacity: 0.9 },
+	arrowImg: { width: 20, height: 20, marginLeft: 6, opacity: 0.9 },
 
-    detailBox: {
-        borderWidth: 1,
-        borderRadius: 16,
-        padding: 16,
-        marginBottom: 10,
-    },
-    detailText: { fontSize: 14, lineHeight: 20 },
+	detailBox: {
+		borderWidth: 1,
+		borderRadius: 16,
+		padding: 16,
+		marginBottom: 10,
+	},
+	group: { marginBottom: 12 },
+	groupTitle: { fontSize: 14, fontWeight: "800", marginBottom: 6 },
+	kv: { flexDirection: "row", gap: 8, marginBottom: 4, alignItems: "flex-start" },
+	k: { width: 92, fontSize: 12, fontWeight: "600" },
+	v: { flex: 1, fontSize: 13, lineHeight: 20 },
 
-    backButton: {
-        marginTop: 30,
-        paddingVertical: 14,
-        marginBottom: 40,
-        borderWidth: 1,
-        borderRadius: 8,
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    backText: { fontSize: 16, fontWeight: "700" },
+	detailText: { fontSize: 14, lineHeight: 20 },
+
+	backButton: {
+		marginTop: 30,
+		paddingVertical: 14,
+		marginBottom: 40,
+		borderWidth: 1,
+		borderRadius: 8,
+		alignItems: "center",
+		justifyContent: "center",
+	},
+	backText: { fontSize: 16, fontWeight: "700" },
 });
