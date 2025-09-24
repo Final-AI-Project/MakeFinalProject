@@ -169,3 +169,19 @@ class PlantPestRecordAddResponse(BaseModel):
     pest_id: int
     pest_date: str
     message: str
+
+class WateringPredictionRequest(BaseModel):
+    """급수 예측 요청 스키마"""
+    plant_idx: int
+    current_humidity: float
+    temperature: float
+    hour_of_day: float
+
+class WateringPredictionResponse(BaseModel):
+    """급수 예측 응답 스키마"""
+    success: bool
+    plant_idx: int
+    current_humidity: float
+    predicted_hours: float
+    next_watering_date: str
+    message: str

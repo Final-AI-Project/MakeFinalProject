@@ -25,6 +25,11 @@ import Animated, {
 } from "react-native-reanimated";
 import Colors from "../../constants/Colors";
 import { classifyImage } from "../../libs/classifier";
+import { useRouter, Href } from "expo-router";
+import { getApiUrl, API_ENDPOINTS } from "../../config/api";
+import { getToken } from "../../libs/auth";
+import { showAlert } from "../../components/common/appAlert";
+import { startLoading, stopLoading } from "../../components/common/loading";
 
 // 결과 모달(프로젝트 컴포넌트 유지)
 import ClassifierResultModal, {

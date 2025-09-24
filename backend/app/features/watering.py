@@ -4,7 +4,9 @@ from schemas.plant_detail import (
     WateringRecordResponse, 
     WateringRecordRequest,
     WateringSettingsRequest,
-    WateringSettingsResponse
+    WateringSettingsResponse,
+    WateringPredictionRequest,
+    WateringPredictionResponse
 )
 from repositories.plant_detail import (
     check_humidity_increase_and_record_watering,
@@ -13,6 +15,11 @@ from repositories.plant_detail import (
     update_watering_settings,
     get_watering_settings
 )
+from clients.humidity_prediction import humidity_client
+import logging
+from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/plant-detail", tags=["plant-detail-watering"])
 
@@ -184,4 +191,54 @@ async def update_plant_watering_settings(plant_idx: int, user_id: str, settings_
         raise HTTPException(
             status_code=500,
             detail=f"물주기 설정 업데이트 중 오류가 발생했습니다: {str(e)}"
+        )
+
+@router.post("/{plant_idx}/watering-prediction", response_model=WateringPredictionResponse)
+async def predict_next_watering(plant_idx: int, user_id: str, prediction_request: WateringPredictionRequest):
+    """
+    습도 모델을 사용하여 다음 급수 시기를 예측합니다.
+    """
+    try:
+        logger.info(f"급수 예측 요청 - 식물 ID: {plant_idx}, 사용자: {user_id}")
+        
+        # 현재 시간 계산
+        current_time = datetime.now()
+        hour_of_day = current_time.hour + current_time.minute / 60.0
+        
+        # 프론트엔드에서 받은 온도 사용 (기본값: 20도)
+        temperature = prediction_request.temperature
+        
+        # 습도 예측 모델 호출
+        # 기본 최소 습도 임계값 (식물별로 다를 수 있음)
+        min_humidity = 30.0  # 기본값, 실제로는 식물별 최적값 사용
+        
+        prediction_result = await humidity_client.predict_watering_time(
+            current_humidity=prediction_request.current_humidity,
+            min_humidity=min_humidity,
+            temperature=temperature,
+            hour_of_day=hour_of_day
+        )
+        
+        # 예측 결과에서 시간 추출
+        eta_hours = prediction_result.get("eta_h", 24.0)  # 기본값: 24시간
+        
+        # 다음 급수 날짜 계산
+        next_watering_date = humidity_client.calculate_next_watering_date(eta_hours)
+        
+        logger.info(f"급수 예측 완료 - 예상 시간: {eta_hours}시간, 다음 급수: {next_watering_date}")
+        
+        return WateringPredictionResponse(
+            success=True,
+            plant_idx=plant_idx,
+            current_humidity=prediction_request.current_humidity,
+            predicted_hours=eta_hours,
+            next_watering_date=next_watering_date,
+            message=f"다음 급수 예상 시기: {next_watering_date}"
+        )
+        
+    except Exception as e:
+        logger.error(f"급수 예측 중 오류 발생: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"급수 예측 중 오류가 발생했습니다: {str(e)}"
         )

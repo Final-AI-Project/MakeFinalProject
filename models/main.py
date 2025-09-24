@@ -93,7 +93,7 @@ print("🔧 Loading Species Classification Model...")
 try:
     species_service = get_plant_service()
     print(f"[DEBUG] species_service 타입: {type(species_service)}")
-    print(f"[DEBUG] species_service.model: {species_service.model}")
+    # print(f"[DEBUG] species_service.model: {species_service.model}")  # 모델 구조 출력 비활성화
     
     if species_service.model is not None:
         print("✅ 품종 분류 모델 로드 완료")

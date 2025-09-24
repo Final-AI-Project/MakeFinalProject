@@ -22,6 +22,7 @@ import Colors from "../../../constants/Colors";
 import { getApiUrl, API_ENDPOINTS } from "../../../config/api";
 import { getToken } from "../../../libs/auth";
 import { showAlert } from "../../../components/common/appAlert";
+import WateringPredictionBox from "../../../components/common/WateringPredictionBox";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ② Types & Constants
@@ -695,6 +696,15 @@ export default function PlantDetail() {
             ))
           )}
         </View>
+
+        {/* 급수 예측 박스 */}
+        {params.id && (
+          <WateringPredictionBox
+            plantIdx={parseInt(params.id)}
+            currentHumidity={50} // 기본값, 실제로는 센서 데이터에서 가져올 수 있음
+            temperature={20} // 기본값, 실제로는 날씨 API에서 가져올 수 있음
+          />
+        )}
 
         {/* 내 식물 품종 정보 */}
         <View style={styles.card}>

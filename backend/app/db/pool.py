@@ -32,7 +32,12 @@ async def init_pool():
     global _pool
     if _pool is None:
         config = _get_mysql_config()
-        _pool = await aiomysql.create_pool(**config)
+        try:
+            _pool = await aiomysql.create_pool(**config)
+            print(f"[DB] host = '{config['host']}'")
+        except Exception as e:
+            print(f"[DB] 연결 실패: {e}")
+            raise
     return _pool
 
 async def get_pool() -> aiomysql.Pool:
@@ -40,6 +45,18 @@ async def get_pool() -> aiomysql.Pool:
     if _pool is None:
         await init_pool()
     return _pool
+
+async def recreate_pool():
+    """연결 풀 재생성 (연결 문제 해결용)"""
+    global _pool
+    if _pool:
+        try:
+            _pool.close()
+            await _pool.wait_closed()
+        except Exception as e:
+            print(f"[DB] 기존 풀 종료 중 오류: {e}")
+        _pool = None
+    await init_pool()
 
 async def close_pool():
     """데이터베이스 연결 풀 종료"""
@@ -55,13 +72,31 @@ async def get_db_connection():
     if _pool is None:
         await init_pool()
     
-    async with _pool.acquire() as conn:
-        async with conn.cursor(aiomysql.DictCursor) as cursor:
-            try:
-                yield conn, cursor
-                await conn.commit()
-            except Exception:
-                await conn.rollback()
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            async with _pool.acquire() as conn:
+                async with conn.cursor(aiomysql.DictCursor) as cursor:
+                    try:
+                        yield conn, cursor
+                        await conn.commit()
+                        return
+                    except Exception:
+                        # 연결 상태를 확인하고 안전하게 rollback
+                        try:
+                            if conn and not conn._closed:
+                                await conn.rollback()
+                        except Exception as rollback_error:
+                            # rollback 실패 시 로그만 출력하고 계속 진행
+                            print(f"Rollback failed: {rollback_error}")
+                        raise
+        except Exception as e:
+            if attempt < max_retries - 1:
+                print(f"[DB] 연결 시도 {attempt + 1} 실패, 재시도 중...: {e}")
+                await recreate_pool()
+                continue
+            else:
+                print(f"[DB] 최대 재시도 횟수 초과: {e}")
                 raise
 
 async def get_db() -> AsyncGenerator[tuple[aiomysql.Connection, aiomysql.DictCursor], None]:
