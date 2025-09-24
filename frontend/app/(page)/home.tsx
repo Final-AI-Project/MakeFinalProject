@@ -51,6 +51,8 @@ type Slide = {
   type?: "action";
   waterLevel?: number;
   health?: "좋음" | "주의" | "나쁨";
+  optimalMinHumidity?: number;
+  optimalMaxHumidity?: number;
 };
 
 // 백엔드 API 응답 타입
@@ -65,6 +67,9 @@ type PlantStatusResponse = {
   on?: string;
   current_humidity?: number;
   humidity_date?: string;
+  optimal_min_humidity?: number;
+  optimal_max_humidity?: number;
+  humidity_status?: string; // "안전", "주의", "위험"
   wiki_img?: string;
   feature?: string;
   temp?: string;
@@ -183,6 +188,17 @@ export default function Home() {
 
       const data: DashboardResponse = await response.json();
       console.log("✅ 데이터 받음:", data);
+      console.log(
+        "🔍 식물 데이터 상세:",
+        data.plants.map((p) => ({
+          plant_name: p.plant_name,
+          species: p.species,
+          current_humidity: p.current_humidity,
+          optimal_min_humidity: p.optimal_min_humidity,
+          optimal_max_humidity: p.optimal_max_humidity,
+          humidity_status: p.humidity_status,
+        }))
+      );
       setDashboardData(data);
     } catch (e) {
       console.error("❌ refetchUserPlantsSilently error:", e);
@@ -221,13 +237,45 @@ export default function Home() {
     }, [refetchUserPlantsSilently, dashboardData, loading])
   );
 
-  // 3-6) 백엔드 데이터를 UI 데이터로 변환
+  // 3-6) 적정 습도 범위 각도 계산 함수
+  const calculateOptimalRangeDegrees = (
+    minHumidity: number,
+    maxHumidity: number
+  ) => {
+    // 습도 0% = 180도, 습도 100% = 0도
+    const minDeg = 180 - minHumidity * 1.8;
+    const maxDeg = 180 - maxHumidity * 1.8;
+    return { minDeg, maxDeg };
+  };
+
+  // 3-7) 백엔드 데이터를 UI 데이터로 변환
   const convertToSlide = (plant: PlantStatusResponse): Slide => {
-    // 건강 상태 결정 (병해충이 있으면 "나쁨", 품종별 습도 범위에 따라 상태 결정)
+    // 건강 상태 결정 (병해충이 있으면 "나쁨", 백엔드에서 계산된 습도 상태 사용)
     let health: "좋음" | "주의" | "나쁨" = "좋음";
+
     if (plant.pest_id) {
+      // 병해충이 있으면 "나쁨"
       health = "나쁨";
+    } else if (plant.humidity_status) {
+      // 백엔드에서 계산된 습도 상태 사용
+      console.log(
+        `🌱 ${plant.plant_name}: 백엔드 상태 사용 - ${plant.humidity_status}`
+      );
+      switch (plant.humidity_status) {
+        case "안전":
+          health = "좋음";
+          break;
+        case "주의":
+          health = "주의";
+          break;
+        case "위험":
+          health = "나쁨";
+          break;
+        default:
+          health = "좋음";
+      }
     } else if (plant.current_humidity && plant.species) {
+      // 백엔드 상태가 없는 경우 기존 로직 사용 (fallback)
       const humidityRange = getPlantHumidityRange(plant.species);
       const currentHumidity = plant.current_humidity;
 
@@ -270,6 +318,8 @@ export default function Home() {
       startedAt: plant.meet_day,
       photoUri: photoUri,
       health: health,
+      optimalMinHumidity: plant.optimal_min_humidity,
+      optimalMaxHumidity: plant.optimal_max_humidity,
     };
   };
 
@@ -379,10 +429,40 @@ export default function Home() {
             const percent = Math.max(0, Math.min(100, item.waterLevel ?? 0));
             const targetDeg = percent * 1.8; // (percent / 100) * 180
 
-            // 적정 습도 범위 계산
-            const humidityRange = getPlantHumidityRange(item.species);
-            const optimalMinDeg = humidityRange.min * 1.8;
-            const optimalMaxDeg = humidityRange.max * 1.8;
+            // 적정 습도 범위 각도 계산 (항상 표시되도록)
+            let optimalMinDeg = 0;
+            let optimalMaxDeg = 0;
+            console.log(
+              `🎯 ${item.label}: optimalMinHumidity=${item.optimalMinHumidity}, optimalMaxHumidity=${item.optimalMaxHumidity}`
+            );
+
+            if (item.optimalMinHumidity && item.optimalMaxHumidity) {
+              // 백엔드에서 가져온 품종별 최적 습도 범위 사용
+              const rangeDegrees = calculateOptimalRangeDegrees(
+                item.optimalMinHumidity,
+                item.optimalMaxHumidity
+              );
+              optimalMinDeg = rangeDegrees.minDeg;
+              optimalMaxDeg = rangeDegrees.maxDeg;
+              console.log(
+                `✅ ${item.label}: 백엔드 데이터 사용 - ${item.optimalMinHumidity}-${item.optimalMaxHumidity}% (${optimalMinDeg}-${optimalMaxDeg}도)`
+              );
+            } else if (item.species) {
+              // 백엔드 데이터가 없는 경우 기존 로직 사용 (fallback)
+              const humidityRange = getPlantHumidityRange(item.species);
+              optimalMinDeg = humidityRange.min * 1.8;
+              optimalMaxDeg = humidityRange.max * 1.8;
+              console.log(
+                `⚠️ ${item.label}: fallback 데이터 사용 - ${humidityRange.min}-${humidityRange.max}% (${optimalMinDeg}-${optimalMaxDeg}도)`
+              );
+            } else {
+              // 모든 데이터가 없는 경우 표시하지 않음
+              console.log(
+                `❌ ${item.label}: 적정 습도 범위 데이터 없음 - 표시하지 않음`
+              );
+              optimalMinDeg = 0;
+              optimalMaxDeg = 0;
+            }
 
             return (
               <View
@@ -443,8 +523,8 @@ export default function Home() {
                         style={[styles.slot3, { backgroundColor: theme.bg }]}
                       />
 
-                      {/* 적정 습도 범위 테두리 */}
-                      {item.species && (
+                      {/* 적정 습도 범위 테두리 (데이터가 있을 때만 표시) */}
+                      {optimalMinDeg > 0 && optimalMaxDeg > 0 && (
                         <View
                           style={[
                             styles.optimalRangeBorder,
@@ -469,6 +549,35 @@ export default function Home() {
                           />
                         </View>
                       )}
+
+                      {/* V자 표시 - 최고점과 최저점 (데이터가 있을 때만 표시) */}
+                      {optimalMinDeg > 0 && optimalMaxDeg > 0 && (
+                        <>
+                          {/* 최저점 (V자 아래) */}
+                          <View
+                            style={[
+                              styles.rangeMarker,
+                              {
+                                transform: [{ rotate: `${optimalMinDeg}deg` }],
+                              },
+                            ]}
+                          >
+                            <View style={styles.rangeMarkerV} />
+                          </View>
+
+                          {/* 최고점 (V자 위) */}
+                          <View
+                            style={[
+                              styles.rangeMarker,
+                              {
+                                transform: [{ rotate: `${optimalMaxDeg}deg` }],
+                              },
+                            ]}
+                          >
+                            <View style={styles.rangeMarkerV} />
+                          </View>
+                        </>
+                      )}
                     </View>
 
                     <View
@@ -489,14 +598,16 @@ export default function Home() {
                         </View>
                       )}
 
-                      {/* ✨ 상태에 따라 표시 */}
-                      {(item.health === "주의" || item.health === "나쁨") && (
+                      {/* ✨ 상태에 따라 표시 (초록점, 노란점, 빨간점) */}
+                      {item.health && (
                         <View
                           style={[
                             styles.medicalInfo,
-                            item.health === "주의"
-                              ? { backgroundColor: "#ffc900" }
-                              : { backgroundColor: "#d32f2e" },
+                            item.health === "좋음"
+                              ? { backgroundColor: "#4CAF50" } // 초록점
+                              : item.health === "주의"
+                              ? { backgroundColor: "#ffc900" } // 노란점
+                              : { backgroundColor: "#d32f2e" }, // 빨간점
                           ]}
                         />
                       )}
@@ -707,6 +818,30 @@ const styles = StyleSheet.create({
     borderBottomColor: "transparent",
     borderRadius: 125,
     transformOrigin: "center center",
+  },
+
+  // V자 표시 스타일
+  rangeMarker: {
+    position: "absolute",
+    top: 125,
+    left: 125,
+    width: 250,
+    height: 250,
+    transformOrigin: "center center",
+    zIndex: 1001,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  rangeMarkerV: {
+    width: 0,
+    height: 0,
+    borderLeftWidth: 6,
+    borderRightWidth: 6,
+    borderBottomWidth: 12,
+    borderLeftColor: "transparent",
+    borderRightColor: "transparent",
+    borderBottomColor: "#4CAF50", // 녹색 V자
+    marginTop: -125, // 원의 가장자리로 이동
   },
 
   // ── Carousel wrapper

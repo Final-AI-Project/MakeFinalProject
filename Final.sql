@@ -19,6 +19,9 @@ create table user_plant (
     meet_day date,
 	foreign key (user_id) references users(user_id) on delete cascade on update cascade
 );
+SET SQL_SAFE_UPDATES = 1;
+DELETE FROM user_plant
+WHERE plant_name = '더미마이플랜트';
 create table user_plant_pest (
 	idx int auto_increment primary key,
     plant_id int not null,
@@ -49,23 +52,23 @@ create table pest_wiki (
     pest_name varchar(100) not null,
     pathogen varchar(300),
     symptom text not null,
-    cause text,
     cure text not null
 );
 create table device_info (
-	plant_id int not null,
-    device_id int not null unique,
+	idx int auto_increment primary key,
+	plant_id int not null unique,
+    device_id int not null,
     foreign key (plant_id) references user_plant(plant_id) on delete cascade on update cascade
 );
 create table humid_info (
+	idx int auto_increment primary key,
+    device_fk int not null,
 	device_id int not null,
-    humidity varchar(50) not null,
+    humidity int not null,
     sensor_digit int not null,
     humid_date datetime default now(),
-    foreign key (device_id) references device_info(device_id) on delete cascade on update cascade
+    foreign key (device_fk) references device_info(idx) on delete cascade on update cascade
 );
-alter table humid_info
-modify column humidity int not null;
 create table plant_wiki (
 	wiki_plant_id int auto_increment primary key,
     sci_name varchar(100),
@@ -104,4 +107,16 @@ create table img_address (
     foreign key (wiki_plant_id) references plant_wiki(wiki_plant_id) on delete cascade on update cascade,
     foreign key (pest_plant_idx)references user_plant_pest(idx) on delete cascade on update cascade,
     foreign key (pest_id) references pest_wiki(pest_id) on delete cascade on update cascade
+);
+create table best_humid (
+	wiki_plant_id int,
+    min_humid int,
+    max_humid int,
+    foreign key (wiki_plant_id) references plant_wiki(wiki_plant_id) on delete cascade on update cascade
+);
+create table best_humid_cali (
+	wiki_plant_id int,
+    min_humid int,
+    max_humid int,
+    foreign key (wiki_plant_id) references plant_wiki(wiki_plant_id) on delete cascade on update cascade
 );

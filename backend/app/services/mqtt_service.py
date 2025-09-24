@@ -198,8 +198,8 @@ class MQTTService:
 
                 await cursor.execute(
                     """
-                    INSERT INTO humid_info (device_id, humidity, sensor_digit, humid_date)
-                    VALUES (%s, %s, %s, %s)
+                    INSERT INTO humid_info (device_fk, device_id, humidity, sensor_digit, humid_date)
+                    VALUES (21, %s, %s, %s, %s)
                     """,
                     (device_id, humidity, sensor_digit_for_db, dt_date)
                 )

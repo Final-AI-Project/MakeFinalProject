@@ -59,6 +59,20 @@ async def create_plant(
             
             print(f"[DEBUG] 생성된 plant_idx: {plant_idx}")
             
+            # device_info 테이블에 device_id=1로 등록
+            try:
+                await cursor.execute(
+                    """
+                    INSERT INTO device_info (plant_id, device_id)
+                    VALUES (%s, %s)
+                    """,
+                    (plant_idx, 1)
+                )
+                print(f"[DEBUG] device_info 등록 성공: plant_id={plant_idx}, device_id=1")
+            except Exception as device_error:
+                print(f"[WARNING] device_info 등록 실패: {device_error}")
+                # device_info 등록 실패해도 식물 등록은 성공으로 처리
+            
             # 생성된 식물 정보 조회 (plant_id로 조회)
             await cursor.execute(
                 "SELECT * FROM user_plant WHERE plant_id = %s",

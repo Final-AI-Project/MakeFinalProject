@@ -17,6 +17,11 @@ class PlantStatusResponse(BaseModel):
     current_humidity: Optional[float] = None
     humidity_date: Optional[datetime] = None
     
+    # 품종별 최적 습도 범위
+    optimal_min_humidity: Optional[int] = None
+    optimal_max_humidity: Optional[int] = None
+    humidity_status: Optional[str] = None  # "안전", "주의", "위험"
+    
     # 식물 위키 정보
     wiki_img: Optional[str] = None  # 위키 이미지
     feature: Optional[str] = None
