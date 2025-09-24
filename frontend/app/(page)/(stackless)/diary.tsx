@@ -26,7 +26,7 @@ import { useColorScheme } from "react-native";
 import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import Colors from "../../../constants/Colors";
 import { fetchSimpleWeather } from "../../../components/common/weatherBox";
-import { startLoading } from "../../../components/common/loading";
+import { startLoading, stopLoading } from "../../../components/common/loading";
 import { showAlert } from "../../../components/common/appAlert";
 import { getToken } from "../../../libs/auth";
 import { getApiUrl } from "../../../config/api";
@@ -354,6 +354,9 @@ export default function Diary() {
   // ✅ 일기 작성 중복 방지
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // ✅ AI 답변 생성 중 상태
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+
   // 수정 모드 관련 상태 제거 (새 일기 작성 전용)
 
   // 내 식물(별명) - 실제 API에서 가져오기
@@ -460,7 +463,9 @@ export default function Diary() {
           console.log("✅ 날씨 조회 성공:", w);
           setWeather(w as Weather);
           setWeatherLoading(false);
+          console.log("🔍 날씨 상태 업데이트 완료:", w);
         } else {
+          console.log("❌ 날씨 데이터가 null입니다");
           throw new Error("날씨 데이터가 null입니다");
         }
       } catch (e) {
@@ -565,6 +570,10 @@ export default function Diary() {
         return;
       }
 
+      // AI 답변 생성 시작
+      setIsGeneratingAI(true);
+      startLoading("식물이 답변을 생각하고 있어요...");
+
       // 선택된 식물의 상세 정보 찾기
       const selectedPlantData = plantsData.find(
         (plant) => plant.plant_id.toString() === selectedPlant
@@ -636,8 +645,14 @@ export default function Diary() {
         setPhotoUri(result.diary.img_url);
         console.log("이미지 경로 업데이트:", result.diary.img_url);
       }
+
+      // AI 답변 생성 완료
+      setIsGeneratingAI(false);
+      stopLoading();
     } catch (error) {
       console.error("일기 작성 오류:", error);
+      setIsGeneratingAI(false);
+      stopLoading();
       showAlert({
         title: "일기 작성 실패",
         message: "일기 작성 중 문제가 발생했습니다.",
@@ -861,6 +876,10 @@ export default function Diary() {
                 { color: theme.text, borderColor: theme.border, opacity: 0.85 },
               ]}
             />
+            {/* 디버깅용 날씨 상태 표시 */}
+            <Text style={{ fontSize: 10, color: "#999", marginTop: 2 }}>
+              Debug: weather={weather}, loading={weatherLoading.toString()}
+            </Text>
           </View>
 
           {/* 오늘 한 일 (체크박스 스타일 토글) */}
@@ -972,7 +991,7 @@ export default function Diary() {
             {/* 삭제 버튼 제거 (새 일기 작성 전용) */}
 
             <Pressable
-              disabled={!canSubmit || isSubmitting}
+              disabled={!canSubmit || isSubmitting || isGeneratingAI}
               onPress={() => {
                 Keyboard.dismiss();
                 primaryOnPress();
@@ -981,12 +1000,18 @@ export default function Diary() {
                 styles.submitBtn,
                 {
                   backgroundColor:
-                    !canSubmit || isSubmitting ? theme.graybg : theme.primary,
+                    !canSubmit || isSubmitting || isGeneratingAI
+                      ? theme.graybg
+                      : theme.primary,
                 },
               ]}
             >
               <Text style={[styles.submitText, { color: "#fff" }]}>
-                {isSubmitting ? "처리 중..." : primaryLabel}
+                {isGeneratingAI
+                  ? "식물이 답변을 생각하고 있어요..."
+                  : isSubmitting
+                  ? "처리 중..."
+                  : primaryLabel}
               </Text>
             </Pressable>
           </View>

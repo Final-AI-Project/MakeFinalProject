@@ -106,15 +106,6 @@ class MQTTService:
             print("[MQTT] WARNING: _loop is None; did you call mqtt_service.start(loop)?", flush=True)
             return
 
-        try:
-            self._loop.call_soon_threadsafe(
-                self._queue.put_nowait,
-                {"topic": msg.topic, "data": data, "received_at": datetime.now(timezone.utc)},
-            )
-        except asyncio.QueueFull:
-            print("[MQTT] ERROR: queue full; dropping message", flush=True)
-
-
         # 스레드 → asyncio 루프에 안전하게 enqueue
         if self._loop:
             try:
@@ -127,8 +118,7 @@ class MQTTService:
                     },
                 )
             except asyncio.QueueFull:
-                # TODO: 로깅/메트릭
-                pass
+                print("[MQTT] ERROR: queue full; dropping message", flush=True)
 
     # ---------- 비동기 컨슈머(INSERT) ----------
     async def _consumer(self) -> None:
@@ -191,24 +181,39 @@ class MQTTService:
         # INSERT
         sensor_digit_for_db = 0 if sensor_digit is None else sensor_digit
 
-        async with get_cursor() as cursor:
+        try:
+            async with get_cursor() as cursor:
+                print(f"[MQTT→DB] insert try: device_id={device_id}, humidity={humidity}, " f"sensor_digit={sensor_digit_for_db}, humid_date={dt_date}", flush=True)
 
-            print(f"[MQTT→DB] insert try: device_id={device_id}, humidity={humidity}, " f"sensor_digit={sensor_digit_for_db}, humid_date={dt_date}", flush=True)
+                # 먼저 device_id가 device_info 테이블에 존재하는지 확인
+                await cursor.execute(
+                    "SELECT device_id FROM device_info WHERE device_id = %s",
+                    (device_id,)
+                )
+                device_exists = await cursor.fetchone()
+                
+                if not device_exists:
+                    print(f"[MQTT→DB] WARNING: device_id={device_id} not found in device_info table, skipping insert", flush=True)
+                    return
 
-            await cursor.execute(
-                """
-                INSERT INTO humid_info (device_id, humidity, sensor_digit, humid_date)
-                VALUES (%s, %s, %s, %s)
-                """,
-                (device_id, humidity, sensor_digit_for_db, dt_date)
-            )
-            conn = getattr(cursor, "connection", None) or getattr(cursor, "_connection", None)
-            if conn is not None and hasattr(conn, "commit"):
-                await conn.commit()
-                print("[MQTT→DB] commit ok", flush=True)
-            else:
-                await cursor.execute("COMMIT")
-                print("[MQTT→DB] commit via SQL ok", flush=True)
+                await cursor.execute(
+                    """
+                    INSERT INTO humid_info (device_id, humidity, sensor_digit, humid_date)
+                    VALUES (%s, %s, %s, %s)
+                    """,
+                    (device_id, humidity, sensor_digit_for_db, dt_date)
+                )
+                
+                # 커서가 자동으로 커밋되므로 별도 커밋 불필요
+                print("[MQTT→DB] insert ok", flush=True)
+                
+        except Exception as e:
+            print(f"[MQTT→DB] insert error: {e}", flush=True)
+            # 외래키 제약 조건 오류는 무시하고 계속 진행
+            if "foreign key constraint fails" in str(e):
+                print(f"[MQTT→DB] SKIP: device_id={device_id} not registered, ignoring humidity data", flush=True)
+                return
+            raise
 
 
 # 싱글톤 인스턴스

@@ -156,17 +156,6 @@ export default function WateringPredictionBox({
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
       <View style={styles.header}>
         <Text style={[styles.title, { color: theme.text }]}>💧 급수 예측</Text>
-        <TouchableOpacity
-          style={[styles.refreshButton, { backgroundColor: theme.primary }]}
-          onPress={fetchWateringPrediction}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator size="small" color="#fff" />
-          ) : (
-            <Text style={styles.refreshButtonText}>🔄</Text>
-          )}
-        </TouchableOpacity>
       </View>
 
       {loading && !prediction ? (
@@ -252,17 +241,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: "bold",
-  },
-  refreshButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  refreshButtonText: {
-    fontSize: 16,
-    color: "#fff",
   },
   loadingContainer: {
     flexDirection: "row",

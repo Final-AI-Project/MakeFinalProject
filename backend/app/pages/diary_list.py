@@ -347,6 +347,26 @@ async def create_diary_entry(
         print(f"[DEBUG] 일기 작성 요청 받음 - 사용자: {user.get('user_id', 'unknown')}")
         print(f"[DEBUG] user_title: {user_title}")
         print(f"[DEBUG] user_content: {user_content[:100]}...")
+        
+        # 내용 검증 - 제목이나 내용이 비어있으면 알림 메시지 반환
+        if not user_title.strip() and not user_content.strip():
+            return DiaryWriteResponse(
+                success=False,
+                message="제목과 내용을 모두 입력해주세요.",
+                diary_id=None
+            )
+        elif not user_title.strip():
+            return DiaryWriteResponse(
+                success=False,
+                message="제목을 입력해주세요.",
+                diary_id=None
+            )
+        elif not user_content.strip():
+            return DiaryWriteResponse(
+                success=False,
+                message="내용을 입력해주세요.",
+                diary_id=None
+            )
         print(f"[DEBUG] plant_id: {plant_id}")
         print(f"[DEBUG] 이미지 파일: {image.filename if image else 'None'}")
         
@@ -535,6 +555,26 @@ async def update_diary_entry(
         print(f"[DEBUG] plant_id: {plant_id}")
         print(f"[DEBUG] 이미지 파일: {image.filename if image else 'None'}")
         
+        # 내용 검증 - 제목이나 내용이 비어있으면 알림 메시지 반환
+        if not user_title.strip() and not user_content.strip():
+            return DiaryWriteResponse(
+                success=False,
+                message="제목과 내용을 모두 입력해주세요.",
+                diary_id=diary_id
+            )
+        elif not user_title.strip():
+            return DiaryWriteResponse(
+                success=False,
+                message="제목을 입력해주세요.",
+                diary_id=diary_id
+            )
+        elif not user_content.strip():
+            return DiaryWriteResponse(
+                success=False,
+                message="내용을 입력해주세요.",
+                diary_id=diary_id
+            )
+        
         # 이미지 저장
         image_url = None
         if image and image.filename:
@@ -559,6 +599,22 @@ async def update_diary_entry(
                 raise HTTPException(
                     status_code=403,
                     detail="이 일기를 수정할 권한이 없습니다."
+                )
+            
+            # 기존 내용과 비교하여 변경사항 확인
+            content_changed = (
+                existing_diary.user_title != user_title or
+                existing_diary.user_content != user_content or
+                existing_diary.hashtag != hashtag or
+                existing_diary.weather != weather or
+                (image and image.filename)  # 새 이미지가 있는 경우
+            )
+            
+            if not content_changed:
+                return DiaryWriteResponse(
+                    success=False,
+                    message="변경된 내용이 없습니다. 수정할 내용을 입력해주세요.",
+                    diary_id=diary_id
                 )
             
             # AI 모델 호출하여 새로운 식물 답변 생성

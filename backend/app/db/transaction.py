@@ -15,11 +15,16 @@ async def get_connection() -> AsyncGenerator[aiomysql.Connection, None]:
 
 @asynccontextmanager
 async def get_cursor() -> AsyncGenerator[aiomysql.Cursor, None]:
-    """커서 획득"""
+    """커서 획득 (자동 커밋)"""
     pool = await get_pool()
     async with pool.acquire() as conn:
-        async with conn.cursor(aiomysql.DictCursor) as cursor:
-            yield cursor
+        try:
+            async with conn.cursor(aiomysql.DictCursor) as cursor:
+                yield cursor
+                await conn.commit()  # 자동 커밋
+        except Exception:
+            await conn.rollback()  # 오류 시 롤백
+            raise
 
 @asynccontextmanager
 async def transaction() -> AsyncGenerator[aiomysql.Connection, None]:

@@ -18,6 +18,7 @@ import Colors from "../../constants/Colors";
 import WeatherBox from "../../components/common/weatherBox";
 import Carousel from "react-native-reanimated-carousel";
 import { LinearGradient } from "expo-linear-gradient";
+import { getPlantHumidityRange } from "../../utils/plantHumidityRanges";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -222,12 +223,28 @@ export default function Home() {
 
   // 3-6) 백엔드 데이터를 UI 데이터로 변환
   const convertToSlide = (plant: PlantStatusResponse): Slide => {
-    // 건강 상태 결정 (병해충이 있으면 "나쁨", 습도가 낮으면 "주의", 그 외는 "좋음")
+    // 건강 상태 결정 (병해충이 있으면 "나쁨", 품종별 습도 범위에 따라 상태 결정)
     let health: "좋음" | "주의" | "나쁨" = "좋음";
     if (plant.pest_id) {
       health = "나쁨";
-    } else if (plant.current_humidity && plant.current_humidity < 30) {
-      health = "주의";
+    } else if (plant.current_humidity && plant.species) {
+      const humidityRange = getPlantHumidityRange(plant.species);
+      const currentHumidity = plant.current_humidity;
+
+      // 적정 범위를 벗어나면 위험
+      if (
+        currentHumidity < humidityRange.min ||
+        currentHumidity > humidityRange.max
+      ) {
+        health = "나쁨";
+      }
+      // 적정 범위 ±5% 가까워지면 주의
+      else if (
+        currentHumidity < humidityRange.min + 5 ||
+        currentHumidity > humidityRange.max - 5
+      ) {
+        health = "주의";
+      }
     }
 
     // 이미지 URL을 완전한 URL로 변환
@@ -362,6 +379,11 @@ export default function Home() {
             const percent = Math.max(0, Math.min(100, item.waterLevel ?? 0));
             const targetDeg = percent * 1.8; // (percent / 100) * 180
 
+            // 적정 습도 범위 계산
+            const humidityRange = getPlantHumidityRange(item.species);
+            const optimalMinDeg = humidityRange.min * 1.8;
+            const optimalMaxDeg = humidityRange.max * 1.8;
+
             return (
               <View
                 style={[styles.carouselSlide, { backgroundColor: item.bg }]}
@@ -420,6 +442,33 @@ export default function Home() {
                       <View
                         style={[styles.slot3, { backgroundColor: theme.bg }]}
                       />
+
+                      {/* 적정 습도 범위 테두리 */}
+                      {item.species && (
+                        <View
+                          style={[
+                            styles.optimalRangeBorder,
+                            {
+                              transform: [{ rotate: `${optimalMinDeg}deg` }],
+                            },
+                          ]}
+                        >
+                          <View
+                            style={[
+                              styles.optimalRangeArc,
+                              {
+                                transform: [
+                                  {
+                                    rotate: `${
+                                      optimalMaxDeg - optimalMinDeg
+                                    }deg`,
+                                  },
+                                ],
+                              },
+                            ]}
+                          />
+                        </View>
+                      )}
                     </View>
 
                     <View
@@ -633,6 +682,31 @@ const styles = StyleSheet.create({
     width: 290,
     height: 290,
     transform: [{ translateX: -20 }],
+  },
+
+  // ── 적정 습도 범위 테두리
+  optimalRangeBorder: {
+    position: "absolute",
+    top: 125,
+    left: 125,
+    width: 250,
+    height: 250,
+    transformOrigin: "center center",
+    zIndex: 1000,
+  },
+  optimalRangeArc: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: 250,
+    height: 250,
+    borderWidth: 3,
+    borderColor: "#4CAF50", // 녹색 테두리
+    borderTopColor: "transparent",
+    borderRightColor: "transparent",
+    borderBottomColor: "transparent",
+    borderRadius: 125,
+    transformOrigin: "center center",
   },
 
   // ── Carousel wrapper

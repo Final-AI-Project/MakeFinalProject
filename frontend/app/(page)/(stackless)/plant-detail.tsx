@@ -88,11 +88,19 @@ export default function PlantDetail() {
   const [loadingPestRecord, setLoadingPestRecord] = useState(false);
   const [loadingDiaryList, setLoadingDiaryList] = useState(false);
 
-  // 컴포넌트 마운트 시 위키 정보, 병충해 기록, 일기 목록 가져오기
+  // 식물 상세 정보 상태 (습도 데이터 포함)
+  const [plantDetail, setPlantDetail] = useState<{
+    current_humidity: number | null;
+    humidity_date: string | null;
+  } | null>(null);
+  const [loadingPlantDetail, setLoadingPlantDetail] = useState(false);
+
+  // 컴포넌트 마운트 시 위키 정보, 병충해 기록, 일기 목록, 식물 상세 정보 가져오기
   useEffect(() => {
     fetchWikiInfo();
     fetchPestRecord();
     fetchDiaryList();
+    fetchPlantDetail();
   }, [params.id]); // params.id가 변경될 때마다 실행
 
   // 페이지가 포커스될 때마다 상태 초기화 (React Navigation 캐싱 문제 해결)
@@ -109,10 +117,11 @@ export default function PlantDetail() {
       setSpecies(params.species ?? "");
       setStartedAt(params.startedAt ?? "");
 
-      // 위키 정보, 병충해 기록, 일기 목록 새로고침
+      // 위키 정보, 병충해 기록, 일기 목록, 식물 상세 정보 새로고침
       fetchWikiInfo();
       fetchPestRecord();
       fetchDiaryList();
+      fetchPlantDetail();
     }, [
       params.id,
       params.imageUri,
@@ -201,6 +210,37 @@ export default function PlantDetail() {
       console.error("일기 목록 조회 오류:", error);
     } finally {
       setLoadingDiaryList(false);
+    }
+  }
+
+  // 식물 상세 정보 가져오기 (습도 데이터 포함)
+  async function fetchPlantDetail() {
+    const plantId = params.id || params.plantId;
+    if (!plantId) return;
+
+    try {
+      setLoadingPlantDetail(true);
+      const token = await getToken();
+      const apiUrl = getApiUrl(`/plant-detail/${plantId}`);
+
+      const response = await fetch(apiUrl, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log("🔍 식물 상세 정보 API 응답:", data);
+        setPlantDetail({
+          current_humidity: data.current_humidity,
+          humidity_date: data.humidity_date,
+        });
+      }
+    } catch (error) {
+      console.error("식물 상세 정보 조회 오류:", error);
+    } finally {
+      setLoadingPlantDetail(false);
     }
   }
 
@@ -701,7 +741,7 @@ export default function PlantDetail() {
         {params.id && (
           <WateringPredictionBox
             plantIdx={parseInt(params.id)}
-            currentHumidity={50} // 기본값, 실제로는 센서 데이터에서 가져올 수 있음
+            currentHumidity={plantDetail?.current_humidity || 50} // 실제 센서 데이터 사용
             temperature={20} // 기본값, 실제로는 날씨 API에서 가져올 수 있음
           />
         )}

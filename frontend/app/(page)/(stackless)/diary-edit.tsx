@@ -27,7 +27,7 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import Colors from "../../../constants/Colors";
 import { fetchSimpleWeather } from "../../../components/common/weatherBox";
 import { useFocusEffect } from "@react-navigation/native";
-import { startLoading } from "../../../components/common/loading";
+import { startLoading, stopLoading } from "../../../components/common/loading";
 import { Alert } from "react-native";
 import { getToken } from "../../../libs/auth";
 import { getApiUrl } from "../../../config/api";
@@ -356,6 +356,9 @@ export default function DiaryEdit() {
 
   // ✅ 일기 작성 중복 방지
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // ✅ AI 답변 생성 중 상태
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
 
   // ✅ 수정 모드 상태
   const [isLoadingDiary, setIsLoadingDiary] = useState(false);
@@ -696,6 +699,10 @@ export default function DiaryEdit() {
         return;
       }
 
+      // AI 답변 생성 시작
+      setIsGeneratingAI(true);
+      startLoading("식물이 답변을 생각하고 있어요...");
+
       // 선택된 식물의 상세 정보 찾기
       const selectedPlantData = plantsData.find(
         (plant) => plant.plant_id.toString() === selectedPlant
@@ -761,8 +768,14 @@ export default function DiaryEdit() {
       if (result.diary?.plant_reply) {
         setAiText(result.diary.plant_reply);
       }
+
+      // AI 답변 생성 완료
+      setIsGeneratingAI(false);
+      stopLoading();
     } catch (error) {
       console.error("일기 작성 오류:", error);
+      setIsGeneratingAI(false);
+      stopLoading();
       Alert.alert("일기 작성 실패", "일기 작성 중 문제가 발생했습니다.", [
         { text: "확인" },
       ]);
@@ -1189,7 +1202,7 @@ export default function DiaryEdit() {
             </Pressable>
 
             <Pressable
-              disabled={!canSubmit || isSubmitting}
+              disabled={!canSubmit || isSubmitting || isGeneratingAI}
               onPress={() => {
                 Keyboard.dismiss();
                 primaryOnPress();
@@ -1198,12 +1211,18 @@ export default function DiaryEdit() {
                 styles.submitBtn,
                 {
                   backgroundColor:
-                    !canSubmit || isSubmitting ? theme.graybg : theme.primary,
+                    !canSubmit || isSubmitting || isGeneratingAI
+                      ? theme.graybg
+                      : theme.primary,
                 },
               ]}
             >
               <Text style={[styles.submitText, { color: "#fff" }]}>
-                {isSubmitting ? "처리 중..." : primaryLabel}
+                {isGeneratingAI
+                  ? "식물이 답변을 생각하고 있어요..."
+                  : isSubmitting
+                  ? "처리 중..."
+                  : primaryLabel}
               </Text>
             </Pressable>
           </View>

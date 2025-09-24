@@ -16,12 +16,43 @@ from repositories.plant_detail import (
     get_watering_settings
 )
 from clients.humidity_prediction import humidity_client
+from services.auth_service import get_current_user
+from fastapi import Depends
 import logging
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/plant-detail", tags=["plant-detail-watering"])
+
+def calculate_default_watering_time(current_humidity: float, min_humidity: float, temperature: float) -> float:
+    """
+    습도 모델 서버 연결 실패 시 사용하는 기본 급수 시간 계산 로직
+    """
+    # 현재 습도가 최소 습도보다 낮으면 즉시 급수 필요
+    if current_humidity < min_humidity:
+        return 0.5  # 30분 후
+    
+    # 습도 차이에 따른 기본 계산
+    humidity_diff = current_humidity - min_humidity
+    
+    # 온도 보정 (온도가 높을수록 물이 빨리 증발)
+    temp_factor = 1.0 + (temperature - 20) * 0.05  # 20도 기준
+    
+    # 기본 시간 계산 (습도가 낮을수록 빨리 급수 필요)
+    if humidity_diff < 10:
+        base_hours = 12  # 12시간
+    elif humidity_diff < 20:
+        base_hours = 24  # 24시간
+    elif humidity_diff < 30:
+        base_hours = 48  # 48시간
+    else:
+        base_hours = 72  # 72시간
+    
+    # 온도 보정 적용
+    adjusted_hours = base_hours / temp_factor
+    
+    return max(0.5, adjusted_hours)  # 최소 30분
 
 @router.post("/{plant_idx}/check-humidity-watering")
 async def check_humidity_and_record_watering(plant_idx: int, user_id: str):
@@ -194,11 +225,12 @@ async def update_plant_watering_settings(plant_idx: int, user_id: str, settings_
         )
 
 @router.post("/{plant_idx}/watering-prediction", response_model=WateringPredictionResponse)
-async def predict_next_watering(plant_idx: int, user_id: str, prediction_request: WateringPredictionRequest):
+async def predict_next_watering(plant_idx: int, prediction_request: WateringPredictionRequest, user: dict = Depends(get_current_user)):
     """
     습도 모델을 사용하여 다음 급수 시기를 예측합니다.
     """
     try:
+        user_id = user.get("user_id")
         logger.info(f"급수 예측 요청 - 식물 ID: {plant_idx}, 사용자: {user_id}")
         
         # 현재 시간 계산
@@ -212,15 +244,24 @@ async def predict_next_watering(plant_idx: int, user_id: str, prediction_request
         # 기본 최소 습도 임계값 (식물별로 다를 수 있음)
         min_humidity = 30.0  # 기본값, 실제로는 식물별 최적값 사용
         
-        prediction_result = await humidity_client.predict_watering_time(
-            current_humidity=prediction_request.current_humidity,
-            min_humidity=min_humidity,
-            temperature=temperature,
-            hour_of_day=hour_of_day
-        )
-        
-        # 예측 결과에서 시간 추출
-        eta_hours = prediction_result.get("eta_h", 24.0)  # 기본값: 24시간
+        try:
+            prediction_result = await humidity_client.predict_watering_time(
+                current_humidity=prediction_request.current_humidity,
+                min_humidity=min_humidity,
+                temperature=temperature,
+                hour_of_day=hour_of_day
+            )
+            
+            # 예측 결과에서 시간 추출
+            eta_hours = prediction_result.get("eta_h", 24.0)  # 기본값: 24시간
+        except Exception as model_error:
+            logger.warning(f"습도 모델 서버 연결 실패, 기본값 사용: {str(model_error)}")
+            # 모델 서버 연결 실패 시 기본 예측 로직 사용
+            eta_hours = calculate_default_watering_time(
+                prediction_request.current_humidity, 
+                min_humidity, 
+                temperature
+            )
         
         # 다음 급수 날짜 계산
         next_watering_date = humidity_client.calculate_next_watering_date(eta_hours)
