@@ -29,9 +29,10 @@ import { useRouter } from "expo-router";
 import { useColorScheme } from "react-native";
 import Colors from "../../../constants/Colors";
 import { getApiUrl } from "../../../config/api";
-import { getToken, refreshToken } from "../../../libs/auth";
+import { getToken } from "../../../libs/auth";
 import { useFocusEffect } from "@react-navigation/native";
 import { showAlert } from "../../../components/common/appAlert";
+import { classifyImage } from "../../../libs/classifier";
 
 // 공통 모달
 import ClassifierResultModal, {

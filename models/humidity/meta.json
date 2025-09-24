@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "saved_at_epoch": 1758638329,
+  "model_type": "HuberRegressor",
+  "feat_cols": [
+    "temp_c",
+    "Rstar",
+    "sin1",
+    "cos1"
+  ],
+  "S_DRY": 12.0,
+  "S_REF_DEFAULT": 31.643781739130436,
+  "anchors": {
+    "theta_wet": 56.0,
+    "theta_dry": 10.0,
+    "S_wet": 65.0,
+    "S_dry": 12.0
+  },
+  "smoothing_hours": 3,
+  "used_watering_mask": false,
+  "stab_hours": 8,
+  "eta_calibration": {
+    "A": -0.38292779522579923,
+    "B": 127.59347916990369
+  }
+}

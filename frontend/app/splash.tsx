@@ -53,25 +53,25 @@ export default function SplashScreen() {
 
 const styles = StyleSheet.create({
 	opningBox: {
-		display:'flex',
-		justifyContent:'center',
 		alignItems: 'center',
-		position:'fixed',
+		display:'flex',
+		height:'100%',
+		justifyContent:'center',
 		left:0,
+		padding:0,
+		position:'absolute',
 		top:0,
 		width:'100%',
-		height:'100%',
-		padding:0,
 	},
 	opningImage: {
-		width: 140,
 		height:140,
 		marginBottom:10,
 		transformOrigin:'bottom',
+		width: 140,
 	},
 	opningText: {
-		width: 140,
 		height:30,
 		transformOrigin:'right',
+		width: 140,
 	}
 });

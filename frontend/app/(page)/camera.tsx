@@ -1,7 +1,8 @@
 // app/(page)/(stackless)/camera.tsx
 // ─────────────────────────────────────────────────────────────────────────────
-// ① Imports
+// Expo Go에서 구동: 온디바이스 ONNX 제거, 서버(포트 4000) 추론 업로드 방식
 // ─────────────────────────────────────────────────────────────────────────────
+
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   View,
@@ -14,7 +15,6 @@ import {
   AccessibilityInfo,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
-import { useRouter, Href } from "expo-router";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -23,18 +23,17 @@ import Animated, {
   withSequence,
   Easing,
 } from "react-native-reanimated";
-
 import Colors from "../../constants/Colors";
-import { API_ENDPOINTS, getApiUrl } from "../../config/api";
-import { getToken } from "../../libs/auth";
-import { showAlert } from "../../components/common/appAlert";
-import { startLoading } from "../../components/common/loading";
+import { classifyImage } from "../../libs/classifier";
+
+// 결과 모달(프로젝트 컴포넌트 유지)
 import ClassifierResultModal, {
   ClassifyResult,
 } from "../../components/common/ClassifierResultModal";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ② Constants & Helpers
+// 서버 분류 API (FastAPI/uvicorn이 4000번에서 동작 중)
+// 필요 시 로컬 네트워크 IP로 교체
 // ─────────────────────────────────────────────────────────────────────────────
 // 더미데이터 제거 - 실제 API 응답만 사용
 
@@ -89,10 +88,13 @@ function pickResult(data: any): { species?: string; confidence?: number } {
   return {};
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Types
+// ─────────────────────────────────────────────────────────────────────────────
 type ModalMode = "result" | null;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ③ Component
+// Component
 // ─────────────────────────────────────────────────────────────────────────────
 export default function CameraScreen() {
   const router = useRouter();
@@ -352,7 +354,7 @@ export default function CameraScreen() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ④ Styles
+// Styles
 // ─────────────────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   container: { flex: 1, paddingHorizontal: 24, paddingBottom: 72 },
