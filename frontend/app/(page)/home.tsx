@@ -492,9 +492,8 @@ export default function Home() {
                         targetDeg={targetDeg}
                         style={styles.slot2}
                       />
-                      <View
-                        style={[styles.slot3, { backgroundColor: theme.bg }]}
-                      />
+                      <View style={[styles.slot3, { backgroundColor: theme.bg }]}/>
+                      <View style={styles.slot5}/>
 
                       {/* 적정 습도 범위 - 초록색 실선 (slotBox 안에 올바르게 배치) */}
                       {true && (
@@ -743,6 +742,21 @@ const styles = StyleSheet.create({
     height: 290,
     transform: [{ translateX: -20 }],
   },
+  slot5: {
+		position: "absolute",
+		top: 0,
+		left: "50%",
+		width: 0,
+		height: 0,
+		borderLeftWidth: 75,
+		borderRightWidth: 75,
+		borderTopWidth: 150,
+		borderLeftColor: "transparent",
+		borderRightColor: "transparent",
+		borderTopColor: "#8EDC73",
+		borderStyle: "solid",
+		transform: [{ translateX: -75 }],
+	},
 
   // ── 적정 습도 범위 테두리
   optimalRangeBorder: {
