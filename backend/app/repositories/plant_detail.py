@@ -22,24 +22,32 @@ async def get_plant_detail(plant_idx: int, user_id: str) -> PlantDetailResponse:
     """
     특정 식물의 상세 정보를 조회합니다.
     """
-    connection = None
-    try:
-        connection = await get_db_connection()
+    async with get_db_connection() as (conn, cursor):
         
         query = """
         SELECT 
-            up.idx,
+            up.plant_id as idx,
             up.user_id,
             up.plant_id,
             up.plant_name,
             up.location,
             up.species,
             up.meet_day,
-            up.on,
             
-            -- 최신 습도 정보
-            hi.humidity as current_humidity,
-            hi.humid_date as humidity_date,
+            -- 최신 습도 정보 (device_info와 humid_info 조인)
+            (SELECT hi.humidity 
+             FROM device_info di 
+             JOIN humid_info hi ON di.device_id = hi.device_id 
+             WHERE di.plant_id = up.plant_id 
+             ORDER BY hi.humid_date DESC, hi.device_id DESC
+             LIMIT 1) as current_humidity,
+             
+            (SELECT hi.humid_date 
+             FROM device_info di 
+             JOIN humid_info hi ON di.device_id = hi.device_id 
+             WHERE di.plant_id = up.plant_id 
+             ORDER BY hi.humid_date DESC, hi.device_id DESC
+             LIMIT 1) as humidity_date,
             
             -- 식물 위키 정보 (새로운 기본키 사용)
             pw.feature,
@@ -52,101 +60,81 @@ async def get_plant_detail(plant_idx: int, user_id: str) -> PlantDetailResponse:
             pw.repot,
             pw.toxic,
             
+            -- 최적 습도 범위
+            bh.min_humid,
+            bh.max_humid,
+            
             -- 사용자 식물 사진 (img_address 테이블에서)
             ia.img_url as user_plant_image
             
         FROM user_plant up
-        LEFT JOIN (
-            SELECT 
-                plant_id,
-                humidity,
-                humid_date,
-                ROW_NUMBER() OVER (PARTITION BY plant_id ORDER BY humid_date DESC) as rn
-            FROM humid_info
-        ) hi ON up.plant_id = hi.plant_id AND hi.rn = 1
-        LEFT JOIN plant_wiki pw ON up.plant_id = pw.wiki_plant_id
+        LEFT JOIN plant_wiki pw ON (pw.sci_name LIKE CONCAT('%%', up.species, '%%') OR up.species LIKE CONCAT('%%', TRIM(SUBSTRING_INDEX(pw.sci_name, '(', 1)), '%%'))
+        LEFT JOIN best_humid bh ON pw.wiki_plant_id = bh.wiki_plant_id
         LEFT JOIN (
             SELECT 
                 ia.plant_id,
                 ia.img_url,
-                ROW_NUMBER() OVER (PARTITION BY ia.plant_id ORDER BY ia.idx DESC) as rn
+                ROW_NUMBER() OVER (PARTITION BY ia.plant_id ORDER BY ia.img_url) as rn
             FROM img_address ia
             WHERE ia.img_url IS NOT NULL AND ia.img_url != ''
         ) ia ON up.plant_id = ia.plant_id AND ia.rn = 1
-        WHERE up.idx = %s AND up.user_id = %s
+        WHERE up.plant_id = %s AND up.user_id = %s
         """
         
-        async with connection.cursor(aiomysql.DictCursor) as cursor:
-            await cursor.execute(query, (plant_idx, user_id))
-            result = await cursor.fetchone()
-            
-            if not result:
-                raise ValueError("식물 정보를 찾을 수 없습니다.")
-            
-            # 일기 개수 조회
-            diary_count = await get_plant_diary_count(plant_idx, user_id)
-            
-            return PlantDetailResponse(
-                idx=result['idx'],
-                user_id=result['user_id'],
-                plant_id=result['plant_id'],
-                plant_name=result['plant_name'],
-                species=result['species'],
-                meet_day=result['meet_day'],
-                pest_id=None,  # user_plant 테이블에서 pest_id 제거됨
-                on=result['on'],
-                current_humidity=result['current_humidity'],
-                humidity_date=result['humidity_date'],
-                wiki_img=None,  # plant_wiki 테이블에 wiki_img 컬럼 없음
-                feature=result['feature'],
-                temp=result['temp'],
-                watering=result['watering'],
-                flowering=result['flowering'],
-                flower_color=result['flower_color'],
-                fertilizer=result['fertilizer'],
-                pruning=result['pruning'],
-                repot=result['repot'],
-                toxic=result['toxic'],
-                pest_cause=None,  # 별도 테이블에서 조회 필요
-                pest_cure=None,  # 별도 테이블에서 조회 필요
-                user_plant_image=result['user_plant_image'],
-                diary_count=diary_count,
-                growing_location=result['location']  # location 컬럼 추가
-            )
-            
-    except Exception as e:
-        print(f"Error in get_plant_detail: {e}")
-        raise e
-    finally:
-        if connection:
-            connection.close()
+        await cursor.execute(query, (plant_idx, user_id))
+        result = await cursor.fetchone()
+        
+        if not result:
+            raise ValueError("식물 정보를 찾을 수 없습니다.")
+        
+        # 일기 개수 조회
+        diary_count = await get_plant_diary_count(plant_idx, user_id)
+        
+        return PlantDetailResponse(
+            idx=result['idx'],
+            user_id=result['user_id'],
+            plant_id=result['plant_id'],
+            plant_name=result['plant_name'],
+            species=result['species'],
+            meet_day=result['meet_day'],
+            pest_id=None,  # user_plant 테이블에서 pest_id 제거됨
+            on=None,  # user_plant 테이블에 on 컬럼 없음
+            current_humidity=result['current_humidity'],
+            humidity_date=result['humidity_date'],
+            optimal_min_humidity=result['min_humid'],
+            optimal_max_humidity=result['max_humid'],
+            wiki_img=None,  # plant_wiki 테이블에 wiki_img 컬럼 없음
+            feature=result['feature'],
+            temp=result['temp'],
+            watering=result['watering'],
+            flowering=result['flowering'],
+            flower_color=result['flower_color'],
+            fertilizer=result['fertilizer'],
+            pruning=result['pruning'],
+            repot=result['repot'],
+            toxic=result['toxic'],
+            pest_cause=None,  # 별도 테이블에서 조회 필요
+            pest_cure=None,  # 별도 테이블에서 조회 필요
+            user_plant_image=result['user_plant_image'],
+            diary_count=diary_count,
+            growing_location=result['location']  # location 컬럼 추가
+        )
 
 async def get_plant_diary_count(plant_idx: int, user_id: str) -> int:
     """
     특정 식물의 일기 개수를 조회합니다.
     """
-    connection = None
-    try:
-        connection = await get_db_connection()
-        
+    async with get_db_connection() as (conn, cursor):
         query = """
         SELECT COUNT(*) as count
         FROM diary d
         JOIN user_plant up ON d.user_id = up.user_id
-        WHERE up.idx = %s AND up.user_id = %s
+        WHERE up.plant_id = %s AND up.user_id = %s
         """
         
-        async with connection.cursor(aiomysql.DictCursor) as cursor:
-            await cursor.execute(query, (plant_idx, user_id))
-            result = await cursor.fetchone()
-            return result['count'] if result else 0
-            
-    except Exception as e:
-        print(f"Error in get_plant_diary_count: {e}")
-        raise e
-    finally:
-        if connection:
-            connection.close()
+        await cursor.execute(query, (plant_idx, user_id))
+        result = await cursor.fetchone()
+        return result['count'] if result else 0
 
 async def get_plant_diaries(plant_idx: int, user_id: str, limit: int = 10) -> List[PlantDiaryResponse]:
     """
@@ -169,7 +157,7 @@ async def get_plant_diaries(plant_idx: int, user_id: str, limit: int = 10) -> Li
             d.created_at
         FROM diary d
         JOIN user_plant up ON d.user_id = up.user_id
-        WHERE up.idx = %s AND up.user_id = %s
+        WHERE up.plant_id = %s AND up.user_id = %s
         ORDER BY d.created_at DESC
         LIMIT %s
         """
@@ -222,7 +210,7 @@ async def get_plant_pest_records(plant_idx: int, user_id: str) -> List[PlantPest
         FROM user_plant up
         JOIN user_plant_pest upp ON up.plant_id = upp.plant_id
         JOIN pest_wiki pw ON upp.pest_id = pw.pest_id
-        WHERE up.idx = %s AND up.user_id = %s
+        WHERE up.plant_id = %s AND up.user_id = %s
         ORDER BY upp.pest_date DESC
         """
         
@@ -263,7 +251,7 @@ async def get_plant_humidity_history(plant_idx: int, user_id: str, limit: int = 
             hi.humid_date
         FROM humid_info hi
         JOIN user_plant up ON hi.plant_id = up.plant_id
-        WHERE up.idx = %s AND up.user_id = %s
+        WHERE up.plant_id = %s AND up.user_id = %s
         ORDER BY hi.humid_date DESC
         LIMIT %s
         """
@@ -415,7 +403,7 @@ async def check_humidity_increase_and_record_watering(plant_idx: int, user_id: s
             hi.humid_date
         FROM humid_info hi
         JOIN user_plant up ON hi.plant_id = up.plant_id
-        WHERE up.idx = %s AND up.user_id = %s
+        WHERE up.plant_id = %s AND up.user_id = %s
         ORDER BY hi.humid_date DESC
         LIMIT 2
         """
@@ -507,7 +495,7 @@ async def get_watering_records(plant_idx: int, user_id: str, limit: int = 10) ->
             d.created_at
         FROM diary d
         JOIN user_plant up ON d.user_id = up.user_id
-        WHERE up.idx = %s AND up.user_id = %s 
+        WHERE up.plant_id = %s AND up.user_id = %s 
         AND (d.hashtag LIKE '%물주기%' OR d.user_title LIKE '%물주기%')
         ORDER BY d.created_at DESC
         LIMIT %s
@@ -762,7 +750,7 @@ async def get_plant_species_info(plant_idx: int, user_id: str) -> PlantSpeciesIn
             pw.toxic
         FROM user_plant up
         LEFT JOIN plant_wiki pw ON up.plant_id = pw.wiki_plant_id
-        WHERE up.idx = %s AND up.user_id = %s
+        WHERE up.plant_id = %s AND up.user_id = %s
         """
         
         async with connection.cursor(aiomysql.DictCursor) as cursor:
@@ -894,7 +882,7 @@ async def get_plant_pest_records_by_user_plant(plant_idx: int, user_id: str) -> 
         FROM user_plant up
         JOIN user_plant_pest upp ON up.plant_id = upp.plant_id
         JOIN pest_wiki pw ON upp.pest_id = pw.pest_id
-        WHERE up.idx = %s AND up.user_id = %s
+        WHERE up.plant_id = %s AND up.user_id = %s
         ORDER BY upp.pest_date DESC
         """
         
@@ -990,7 +978,7 @@ async def get_plant_recent_diary_summary(plant_idx: int, user_id: str) -> dict:
             d.created_at
         FROM diary d
         JOIN user_plant up ON d.user_id = up.user_id
-        WHERE up.idx = %s AND up.user_id = %s
+        WHERE up.plant_id = %s AND up.user_id = %s
         ORDER BY d.created_at DESC
         LIMIT 1
         """

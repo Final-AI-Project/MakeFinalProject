@@ -18,6 +18,10 @@ class PlantDetailResponse(BaseModel):
     humidity_date: Optional[datetime] = None
     humidity_history: Optional[List[dict]] = None
     
+    # 최적 습도 범위
+    optimal_min_humidity: Optional[int] = None
+    optimal_max_humidity: Optional[int] = None
+    
     # 식물 위키 정보 (품종 정보)
     wiki_img: Optional[str] = None  # plant_wiki 테이블에 없음
     feature: Optional[str] = None

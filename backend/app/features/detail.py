@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from typing import List
 from schemas.plant_detail import (
     PlantDetailResponse, 
@@ -14,17 +14,21 @@ from repositories.plant_detail import (
     get_plant_detail_summary,
     get_plant_species_info
 )
+from services.auth_service import get_current_user
 
 router = APIRouter(prefix="/plant-detail", tags=["plant-detail"])
 
 @router.get("/{plant_idx}", response_model=PlantDetailResponse)
-async def get_plant_detail_info(plant_idx: int, user_id: str):
+async def get_plant_detail_info(
+    plant_idx: int, 
+    user: dict = Depends(get_current_user)
+):
     """
     특정 식물의 상세 정보를 조회합니다.
     별명, 품종, 키우기 시작한날, 건강상태, 습도, 품종 정보 등을 포함합니다.
     """
     try:
-        result = await get_plant_detail(plant_idx, user_id)
+        result = await get_plant_detail(plant_idx, user['user_id'])
         return result
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
