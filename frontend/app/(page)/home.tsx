@@ -495,7 +495,9 @@ export default function Home() {
               end={{ x: 1, y: 1 }}
               style={StyleSheet.absoluteFillObject}
             />
-            <Text style={styles.cardTextLight}>타임랩스를{"\n"}경험해 보세요</Text>
+            <Text style={styles.cardTextLight}>
+              타임랩스를{"\n"}경험해 보세요
+            </Text>
           </Pressable>
         </Link>
 
