@@ -21,26 +21,24 @@ from services.auth_service import get_current_user
 from clients.plant_llm import get_plant_reply
 
 async def get_latest_humidity_for_plant(conn, plant_id: int) -> Optional[int]:
-    """특정 식물의 가장 최근 습도 정보를 가져옵니다."""
+    """특정 식물의 가장 최근 습도 정보를 가져옵니다. (humid 테이블 사용, device_id=1 공통)"""
     try:
         async with conn.cursor() as cursor:
-            # device_info를 통해 plant_id로 device_id를 찾고, 
-            # humid_info에서 가장 최근 습도 정보를 가져옵니다
+            # humid 테이블에서 device_id=1의 가장 최근 습도 정보를 가져옵니다
             await cursor.execute("""
-                SELECT hi.humidity 
-                FROM device_info di 
-                JOIN humid_info hi ON di.device_id = hi.device_id 
-                WHERE di.plant_id = %s 
-                ORDER BY hi.humid_date DESC 
+                SELECT h.humidity 
+                FROM humid h 
+                WHERE h.device_id = 1 
+                ORDER BY h.humid_date DESC 
                 LIMIT 1
-            """, (plant_id,))
+            """)
             
             result = await cursor.fetchone()
             if result:
-                print(f"[DEBUG] 식물 {plant_id}의 최근 습도: {result[0]}%")
+                print(f"[DEBUG] 공통 습도 센서 최근 습도: {result[0]}%")
                 return result[0]
             else:
-                print(f"[DEBUG] 식물 {plant_id}의 습도 정보 없음")
+                print(f"[DEBUG] 습도 정보 없음")
                 return None
     except Exception as e:
         print(f"[DEBUG] 습도 정보 조회 실패: {e}")

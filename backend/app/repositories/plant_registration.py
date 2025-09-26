@@ -59,19 +59,20 @@ async def create_plant(
             
             print(f"[DEBUG] 생성된 plant_idx: {plant_idx}")
             
-            # device_info 테이블에 device_id=1로 등록
-            try:
-                await cursor.execute(
-                    """
-                    INSERT INTO device_info (plant_id, device_id)
-                    VALUES (%s, %s)
-                    """,
-                    (plant_idx, 1)
-                )
-                print(f"[DEBUG] device_info 등록 성공: plant_id={plant_idx}, device_id=1")
-            except Exception as device_error:
-                print(f"[WARNING] device_info 등록 실패: {device_error}")
-                # device_info 등록 실패해도 식물 등록은 성공으로 처리
+            # device_info 테이블 자동 매핑 비활성화 (humid 테이블로 통합)
+            # try:
+            #     await cursor.execute(
+            #         """
+            #         INSERT INTO device_info (plant_id, device_id)
+            #         VALUES (%s, %s)
+            #         """,
+            #         (plant_idx, 1)
+            #     )
+            #     print(f"[DEBUG] device_info 등록 성공: plant_id={plant_idx}, device_id=1")
+            # except Exception as device_error:
+            #     print(f"[WARNING] device_info 등록 실패: {device_error}")
+            #     # device_info 등록 실패해도 식물 등록은 성공으로 처리
+            print(f"[DEBUG] device_info 자동 매핑 비활성화됨: plant_id={plant_idx}")
             
             # 생성된 식물 정보 조회 (plant_id로 조회)
             await cursor.execute(
@@ -253,82 +254,37 @@ async def update_plant(
         raise e
 
 async def delete_plant(plant_idx: int, user_id: str) -> bool:
-    """식물을 삭제합니다."""
+    """식물을 삭제합니다. (외래키 CASCADE로 자동 삭제 처리)"""
     try:
         print(f"[DEBUG] delete_plant 시작 - plant_idx: {plant_idx}, user_id: {user_id}")
         
+        # 단순한 삭제 방식 사용 (외래키 CASCADE로 관련 데이터 자동 삭제)
         async with get_db_connection() as (conn, cursor):
             print(f"[DEBUG] DB 연결 성공")
             
-            # 트랜잭션 시작
-            await conn.begin()
-            print(f"[DEBUG] 트랜잭션 시작")
+            # 1. 먼저 식물이 존재하는지 확인
+            print(f"[DEBUG] 식물 존재 확인 중...")
+            await cursor.execute(
+                "SELECT plant_id FROM user_plant WHERE plant_id = %s AND user_id = %s",
+                (plant_idx, user_id)
+            )
+            plant = await cursor.fetchone()
+            print(f"[DEBUG] 식물 조회 결과: {plant}")
             
-            try:
-                # 1. 먼저 식물이 존재하는지 확인 (plant_id 사용)
-                print(f"[DEBUG] 식물 존재 확인 중...")
-                await cursor.execute(
-                    "SELECT plant_id FROM user_plant WHERE plant_id = %s AND user_id = %s",
-                    (plant_idx, user_id)
-                )
-                plant = await cursor.fetchone()
-                print(f"[DEBUG] 식물 조회 결과: {plant}")
-                
-                if not plant:
-                    print(f"[DEBUG] 식물을 찾을 수 없음 - 롤백")
-                    await conn.rollback()
-                    return False
-                
-                # 실제 plant_id 값 사용
-                actual_plant_id = plant['plant_id']
-                print(f"[DEBUG] 실제 plant_id: {actual_plant_id}")
-                
-                # 2. 관련된 이미지 데이터 삭제 (img_address 테이블에서)
-                print(f"[DEBUG] 관련 이미지 데이터 삭제 중...")
-                try:
-                    await cursor.execute(
-                        "DELETE FROM img_address WHERE plant_id = %s",
-                        (actual_plant_id,)
-                    )
-                    img_deleted = cursor.rowcount
-                    print(f"[DEBUG] 삭제된 이미지 수: {img_deleted}")
-                except Exception as e:
-                    print(f"[DEBUG] 이미지 삭제 중 오류: {e}")
-                    img_deleted = 0
-                
-                # 3. 관련된 진단 데이터 삭제 (medical_diagnosis 테이블이 있는 경우에만)
-                print(f"[DEBUG] 관련 진단 데이터 삭제 중...")
-                try:
-                    await cursor.execute(
-                        "DELETE FROM medical_diagnosis WHERE plant_id = %s",
-                        (actual_plant_id,)
-                    )
-                    diagnosis_deleted = cursor.rowcount
-                    print(f"[DEBUG] 삭제된 진단 수: {diagnosis_deleted}")
-                except Exception as e:
-                    print(f"[DEBUG] medical_diagnosis 테이블이 없거나 오류 발생: {e}")
-                    diagnosis_deleted = 0
-                
-                # 4. 마지막으로 식물 삭제 (plant_id로 삭제)
-                print(f"[DEBUG] 식물 삭제 중...")
-                await cursor.execute(
-                    "DELETE FROM user_plant WHERE plant_id = %s AND user_id = %s",
-                    (plant_idx, user_id)
-                )
-                plant_deleted = cursor.rowcount
-                print(f"[DEBUG] 삭제된 식물 수: {plant_deleted}")
-                
-                # 트랜잭션 커밋
-                await conn.commit()
-                print(f"[DEBUG] 트랜잭션 커밋 완료")
-                
-                return plant_deleted > 0
-                
-            except Exception as e:
-                # 오류 발생 시 롤백
-                print(f"[DEBUG] 오류 발생 - 롤백: {e}")
-                await conn.rollback()
-                raise e
+            if not plant:
+                print(f"[DEBUG] 식물을 찾을 수 없음")
+                return False
+            
+            # 2. 식물 삭제 (외래키 CASCADE로 관련 데이터 자동 삭제)
+            print(f"[DEBUG] 식물 삭제 중... (CASCADE로 관련 데이터 자동 삭제)")
+            await cursor.execute(
+                "DELETE FROM user_plant WHERE plant_id = %s AND user_id = %s",
+                (plant_idx, user_id)
+            )
+            plant_deleted = cursor.rowcount
+            print(f"[DEBUG] 삭제된 식물 수: {plant_deleted}")
+            
+            return plant_deleted > 0
             
     except Exception as e:
         print(f"Error in delete_plant: {e}")

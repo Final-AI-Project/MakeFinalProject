@@ -16,23 +16,21 @@ from db.pool import execute_query, execute_one
 async def get_humidity_plant_mapping():
     """습도 정보와 매칭된 식물 조회"""
     try:
-        # 습도 정보와 매칭된 식물 조회 쿼리
+        # 습도 정보 조회 쿼리 (humid 테이블 사용, device_id=1 공통)
         query = """
         SELECT 
-            hi.device_id,
-            hi.humidity,
-            hi.sensor_digit,
-            hi.humid_date,
-            up.plant_id,
-            up.plant_name,
-            up.location,
-            up.species,
-            u.nickname as user_nickname
-        FROM humid_info hi
-        JOIN device_info di ON hi.device_id = di.device_id
-        JOIN user_plant up ON di.plant_id = up.plant_id
-        JOIN users u ON up.user_id = u.user_id
-        ORDER BY hi.humid_date DESC
+            h.device_id,
+            h.humidity,
+            h.sensor_digit,
+            h.humid_date,
+            '공통' as plant_id,
+            '모든 식물' as plant_name,
+            '공통 센서' as location,
+            '공통 데이터' as species,
+            '시스템' as user_nickname
+        FROM humid h
+        WHERE h.device_id = 1
+        ORDER BY h.humid_date DESC
         LIMIT 50
         """
         

@@ -5,11 +5,12 @@ import json
 import ssl
 from datetime import datetime, timezone, timedelta, date
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 
 import paho.mqtt.client as mqtt
 
 from core.config import settings         
+from db.pool import get_pool
 from db.transaction import get_cursor   
 
 # UTC <> KST
@@ -22,8 +23,9 @@ class MQTTService:
     - FastAPI 이벤트 루프에서 컨슈머 태스크가 DB INSERT (db.transaction.get_cursor 사용)
     - payload 예:
       {"ts":1758176544,"deviceId":"1","moisture_raw":823,"moisture_pct":48}
-    - humid_info 테이블 컬럼:
-      device_id(INT), humidity(varchar(50)), sensor_digit(INT), humid_date(DATETIME)
+    - humid 테이블 컬럼:
+      device_id(INT), humidity(INT), sensor_digit(INT), humid_date(DATETIME)
+    - 모든 식물에 공통으로 사용되는 습도 데이터 (device_id=1)
     """
 
     def __init__(self) -> None:
@@ -43,6 +45,8 @@ class MQTTService:
         self._loop: Optional[asyncio.AbstractEventLoop] = None
         self._queue: asyncio.Queue[Dict[str, Any]] = asyncio.Queue(maxsize=1000)
         self._consumer_task: Optional[asyncio.Task] = None
+
+        # 배치 처리 제거 - 즉시 저장으로 변경
 
         # 디버그/상태 확인용
         self.last: Optional[Dict[str, Any]] = None
@@ -120,100 +124,63 @@ class MQTTService:
             except asyncio.QueueFull:
                 print("[MQTT] ERROR: queue full; dropping message", flush=True)
 
-    # ---------- 비동기 컨슈머(INSERT) ----------
+    # ---------- 비동기 컨슈머(즉시 저장) ----------
     async def _consumer(self) -> None:
         while True:
             item = await self._queue.get()
             try:
-                await self._save_row(item)
+                # MQTT 데이터 수신 시 즉시 저장
+                await self._save_row_immediate(item)
             except Exception as e:
-                # TODO: proper logging
                 print("[MQTT→DB] error:", e)
             finally:
                 self._queue.task_done()
 
-    async def _save_row(self, item: Dict[str, Any]) -> None:
-        data: Dict[str, Any] = item["data"]
-
-        # 1. device_id → INT
-        dv = data.get("deviceId")
-        if isinstance(dv, int):
-            device_id = dv
-        elif isinstance(dv, str) and dv.strip().isdigit():
-            device_id = int(dv.strip())
-        else:
-            print("[MQTT→DB] skip: deviceId not numeric:", dv)
-            return
+    async def _save_row_immediate(self, item: Dict[str, Any]) -> None:
+        """MQTT 데이터를 즉시 저장 (humid 테이블 사용)"""
+        data = item["data"]
         
-
-        # 2. humidity → INT(0~100)
-        hv = data.get("moisture_pct")
-        if hv is None:
-            return
-        try:
-            humidity = max(0, min(100, int(round(float(hv)))))
-        except Exception:
-            return
+        # 데이터 파싱
+        device_id = int(data.get("deviceId", 1))
+        humidity = max(0, min(100, int(round(float(data.get("moisture_pct", 0))))))
+        sensor_digit = int(float(data.get("moisture_raw", 0)))
         
-        # 3. sensor_digit → INT
-        sv_raw = data.get("moisture_raw")
-        sensor_digit: int | None
-        if sv_raw is None:
-            sensor_digit = None
-        else:
-            try:
-                sensor_digit = int(float(sv_raw))  # 숫자/문자 모두 시도
-            except (TypeError, ValueError):
-                sensor_digit = None
-
-
-        # 4. humid_date → DATETIME (KST 기준)
-        # 지금은 DATE로 저장 중 (추후 수정 가능성 있음)
+        # datetime 변환
         ts = data.get("ts")
         if isinstance(ts, (int, float)):
             dt_utc = datetime.fromtimestamp(int(ts), tz=timezone.utc)
         else:
             dt_utc = item["received_at"]
-        dt_date = dt_utc.astimezone(KST).date()
-        # datetime 수정 시 .date() 삭제
-
-
-        # INSERT
-        sensor_digit_for_db = 0 if sensor_digit is None else sensor_digit
-
+        dt_datetime = dt_utc.astimezone(KST)
+        
         try:
+            print(f"[MQTT→DB] immediate save: device_id={device_id}, humidity={humidity}, sensor_digit={sensor_digit}", flush=True)
+            
+            # 기존 백엔드의 연결 풀 사용 (간단하고 안정적)
             async with get_cursor() as cursor:
-                print(f"[MQTT→DB] insert try: device_id={device_id}, humidity={humidity}, " f"sensor_digit={sensor_digit_for_db}, humid_date={dt_date}", flush=True)
-
-                # 먼저 device_id가 device_info 테이블에 존재하는지 확인
-                await cursor.execute(
-                    "SELECT device_id FROM device_info WHERE device_id = %s",
-                    (device_id,)
-                )
-                device_exists = await cursor.fetchone()
-                
-                if not device_exists:
-                    print(f"[MQTT→DB] WARNING: device_id={device_id} not found in device_info table, skipping insert", flush=True)
-                    return
-
+                # humid 테이블에 직접 INSERT (device_fk 불필요)
                 await cursor.execute(
                     """
-                    INSERT INTO humid_info (device_fk, device_id, humidity, sensor_digit, humid_date)
-                    VALUES (21, %s, %s, %s, %s)
+                    INSERT INTO humid (device_id, humidity, sensor_digit, humid_date)
+                    VALUES (%s, %s, %s, %s)
                     """,
-                    (device_id, humidity, sensor_digit_for_db, dt_date)
+                    (device_id, humidity, sensor_digit, dt_datetime)
                 )
                 
-                # 커서가 자동으로 커밋되므로 별도 커밋 불필요
-                print("[MQTT→DB] insert ok", flush=True)
+                print("[MQTT→DB] INSERT query executed successfully", flush=True)
+                print("[MQTT→DB] immediate save ok", flush=True)
                 
-        except Exception as e:
-            print(f"[MQTT→DB] insert error: {e}", flush=True)
-            # 외래키 제약 조건 오류는 무시하고 계속 진행
-            if "foreign key constraint fails" in str(e):
-                print(f"[MQTT→DB] SKIP: device_id={device_id} not registered, ignoring humidity data", flush=True)
+        except Exception as db_error:
+            print(f"[MQTT→DB] database error: {db_error}", flush=True)
+            # 락 타임아웃 오류는 재시도하지 않고 무시
+            if "Lock wait timeout" in str(db_error):
+                print(f"[MQTT→DB] SKIP: Lock timeout for device_id={device_id}, ignoring this message", flush=True)
                 return
-            raise
+            # 기타 오류도 무시하고 계속 진행 (MQTT 데이터 손실 방지)
+            print(f"[MQTT→DB] SKIP: Other error for device_id={device_id}, ignoring this message", flush=True)
+            return
+
+
 
 
 # 싱글톤 인스턴스

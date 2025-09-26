@@ -43,7 +43,7 @@ def predict_loss_rate(temp_C: float, S_now: float, hour_of_day: float, S_ref: fl
     Rstar = rstar_from_S(S_now, S_ref)
     feats = []
     for c in FEAT_COLS:
-        if c == "temp_C":
+        if c == "temp_c":  # meta.json에서 소문자로 정의됨
             feats.append(float(temp_C))
         elif c == "Rstar":
             feats.append(float(Rstar))

@@ -659,17 +659,16 @@ async def get_plant_humidity(
                     detail="해당 식물에 대한 권한이 없습니다."
                 )
             
-            # 해당 식물의 최근 습도 데이터 조회
+            # 해당 식물의 최근 습도 데이터 조회 (humid 테이블에서 직접 조회, device_id=1 공통 사용)
             await cursor.execute(
                 """
                 SELECT 
-                    hi.humidity,
-                    hi.humid_date,
-                    hi.device_id
-                FROM humid_info hi
-                JOIN device_info di ON hi.device_id = di.device_id
-                WHERE di.plant_id = %s
-                ORDER BY hi.humid_date DESC
+                    h.humidity,
+                    h.humid_date,
+                    h.device_id
+                FROM humid h
+                WHERE h.device_id = 1
+                ORDER BY h.humid_date DESC
                 LIMIT 1
                 """,
                 (plant_id,)
@@ -718,24 +717,22 @@ async def get_plants_humidity_batch(
         print(f"[DEBUG] 식물들 습도 일괄 조회 - user: {user['user_id']}")
         
         async with get_db_connection() as (conn, cursor):
-            # 사용자의 모든 식물과 각각의 최근 습도 데이터 조회
+            # 사용자의 모든 식물과 공통 습도 데이터 조회
             await cursor.execute(
                 """
                 SELECT 
                     up.plant_id,
                     up.plant_name,
-                    hi.humidity,
-                    hi.humid_date,
-                    hi.device_id
+                    h.humidity,
+                    h.humid_date,
+                    h.device_id
                 FROM user_plant up
-                LEFT JOIN device_info di ON up.plant_id = di.plant_id
-                LEFT JOIN humid_info hi ON di.device_id = hi.device_id
+                LEFT JOIN humid h ON h.device_id = 1
                 WHERE up.user_id = %s
-                AND (hi.humid_date IS NULL OR hi.humid_date = (
-                    SELECT MAX(hi2.humid_date) 
-                    FROM humid_info hi2 
-                    JOIN device_info di2 ON hi2.device_id = di2.device_id 
-                    WHERE di2.plant_id = up.plant_id
+                AND (h.humid_date IS NULL OR h.humid_date = (
+                    SELECT MAX(h2.humid_date) 
+                    FROM humid h2 
+                    WHERE h2.device_id = 1
                 ))
                 ORDER BY up.plant_id
                 """,

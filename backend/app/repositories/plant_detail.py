@@ -34,19 +34,17 @@ async def get_plant_detail(plant_idx: int, user_id: str) -> PlantDetailResponse:
             up.species,
             up.meet_day,
             
-            -- 최신 습도 정보 (device_info와 humid_info 조인)
-            (SELECT hi.humidity 
-             FROM device_info di 
-             JOIN humid_info hi ON di.device_id = hi.device_id 
-             WHERE di.plant_id = up.plant_id 
-             ORDER BY hi.humid_date DESC, hi.device_id DESC
+            -- 최신 습도 정보 (humid 테이블에서 직접 조회, device_id=1 공통 사용)
+            (SELECT h.humidity 
+             FROM humid h 
+             WHERE h.device_id = 1 
+             ORDER BY h.humid_date DESC 
              LIMIT 1) as current_humidity,
              
-            (SELECT hi.humid_date 
-             FROM device_info di 
-             JOIN humid_info hi ON di.device_id = hi.device_id 
-             WHERE di.plant_id = up.plant_id 
-             ORDER BY hi.humid_date DESC, hi.device_id DESC
+            (SELECT h.humid_date 
+             FROM humid h 
+             WHERE h.device_id = 1 
+             ORDER BY h.humid_date DESC 
              LIMIT 1) as humidity_date,
             
             -- 식물 위키 정보 (새로운 기본키 사용)
@@ -247,17 +245,16 @@ async def get_plant_humidity_history(plant_idx: int, user_id: str, limit: int = 
         
         query = """
         SELECT 
-            hi.humidity,
-            hi.humid_date
-        FROM humid_info hi
-        JOIN user_plant up ON hi.plant_id = up.plant_id
-        WHERE up.plant_id = %s AND up.user_id = %s
-        ORDER BY hi.humid_date DESC
+            h.humidity,
+            h.humid_date
+        FROM humid h
+        WHERE h.device_id = 1
+        ORDER BY h.humid_date DESC
         LIMIT %s
         """
         
         async with connection.cursor(aiomysql.DictCursor) as cursor:
-            await cursor.execute(query, (plant_idx, user_id, limit))
+            await cursor.execute(query, (limit,))
             results = await cursor.fetchall()
             return results
             
@@ -396,20 +393,19 @@ async def check_humidity_increase_and_record_watering(plant_idx: int, user_id: s
     try:
         connection = await get_db_connection()
         
-        # 최근 2개의 습도 기록 조회
+        # 최근 2개의 습도 기록 조회 (공통 데이터)
         query = """
         SELECT 
-            hi.humidity,
-            hi.humid_date
-        FROM humid_info hi
-        JOIN user_plant up ON hi.plant_id = up.plant_id
-        WHERE up.plant_id = %s AND up.user_id = %s
-        ORDER BY hi.humid_date DESC
+            h.humidity,
+            h.humid_date
+        FROM humid h
+        WHERE h.device_id = 1
+        ORDER BY h.humid_date DESC
         LIMIT 2
         """
         
         async with connection.cursor(aiomysql.DictCursor) as cursor:
-            await cursor.execute(query, (plant_idx, user_id))
+            await cursor.execute(query)
             results = await cursor.fetchall()
             
             if len(results) < 2:

@@ -231,7 +231,6 @@ export default function PlantDetail() {
 
       if (response.ok) {
         const data = await response.json();
-        console.log("🔍 식물 상세 정보 API 응답:", data);
         setPlantDetail({
           current_humidity: data.current_humidity,
           humidity_date: data.humidity_date,

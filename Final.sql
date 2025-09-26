@@ -54,21 +54,6 @@ create table pest_wiki (
     symptom text not null,
     cure text not null
 );
-create table device_info (
-	idx int auto_increment primary key,
-	plant_id int not null unique,
-    device_id int not null,
-    foreign key (plant_id) references user_plant(plant_id) on delete cascade on update cascade
-);
-create table humid_info (
-	idx int auto_increment primary key,
-    device_fk int not null,
-	device_id int not null,
-    humidity int not null,
-    sensor_digit int not null,
-    humid_date datetime default now(),
-    foreign key (device_fk) references device_info(idx) on delete cascade on update cascade
-);
 create table plant_wiki (
 	wiki_plant_id int auto_increment primary key,
     sci_name varchar(100),
@@ -119,4 +104,12 @@ create table best_humid_cali (
     min_humid int,
     max_humid int,
     foreign key (wiki_plant_id) references plant_wiki(wiki_plant_id) on delete cascade on update cascade
+);
+
+create table humid (
+	idx int auto_increment primary key,
+	device_id int not null,
+    humidity int not null,
+    sensor_digit int not null,
+    humid_date datetime default now()
 );

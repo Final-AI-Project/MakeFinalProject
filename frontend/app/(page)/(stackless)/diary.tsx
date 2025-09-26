@@ -666,8 +666,8 @@ export default function Diary() {
   // 수정/삭제 관련 함수 제거 (새 일기 작성 전용)
 
   // 버튼 라벨/핸들러 (새 일기 작성 전용)
-  const primaryLabel = isSubmitted ? "수정하기" : "등록하기";
-  const primaryOnPress = isSubmitted ? handleSubmit : handleSubmit;
+  const primaryLabel = isSubmitted ? "등록 완료" : "등록하기";
+  const primaryOnPress = isSubmitted ? () => {} : handleSubmit; // 등록 후에는 빈 함수
 
   // 바텀시트 타이틀 (실제 식물 별명 사용)
   const selectedPlantData = plantsData.find(
@@ -876,10 +876,6 @@ export default function Diary() {
                 { color: theme.text, borderColor: theme.border, opacity: 0.85 },
               ]}
             />
-            {/* 디버깅용 날씨 상태 표시 */}
-            <Text style={{ fontSize: 10, color: "#999", marginTop: 2 }}>
-              Debug: weather={weather}, loading={weatherLoading.toString()}
-            </Text>
           </View>
 
           {/* 오늘 한 일 (체크박스 스타일 토글) */}
@@ -991,7 +987,9 @@ export default function Diary() {
             {/* 삭제 버튼 제거 (새 일기 작성 전용) */}
 
             <Pressable
-              disabled={!canSubmit || isSubmitting || isGeneratingAI}
+              disabled={
+                !canSubmit || isSubmitting || isGeneratingAI || isSubmitted
+              }
               onPress={() => {
                 Keyboard.dismiss();
                 primaryOnPress();
@@ -1000,7 +998,7 @@ export default function Diary() {
                 styles.submitBtn,
                 {
                   backgroundColor:
-                    !canSubmit || isSubmitting || isGeneratingAI
+                    !canSubmit || isSubmitting || isGeneratingAI || isSubmitted
                       ? theme.graybg
                       : theme.primary,
                 },
@@ -1146,7 +1144,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     left: 0,
     right: 0,
-    bottom: 65,
+    bottom: 0,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingTop: 10,
