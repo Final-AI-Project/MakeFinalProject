@@ -192,6 +192,7 @@ pland/
 각 서버를 실행하기 전에 환경 변수 파일을 설정해야 합니다:
 
 #### 백엔드 환경 변수
+
 ```bash
 # backend/.env 파일 생성
 cd backend
@@ -199,6 +200,7 @@ touch .env  # Windows: type nul > .env
 ```
 
 `.env` 파일 내용:
+
 ```bash
 # 데이터베이스 설정
 DB_HOST=your-database-host
@@ -220,6 +222,7 @@ MQTT_BROKER_PORT=1883
 ```
 
 #### 프론트엔드 환경 변수
+
 ```bash
 # frontend/.env 파일 생성
 cd frontend
@@ -227,12 +230,14 @@ touch .env  # Windows: type nul > .env
 ```
 
 `.env` 파일 내용:
+
 ```bash
 # API 서버 주소 (IP 주소를 실제 환경에 맞게 변경)
 EXPO_PUBLIC_API_BASE_URL="http://192.168.0.7:8000"
 ```
 
 #### AI 모델 서버 환경 변수
+
 ```bash
 # models/.env 파일 생성
 cd models
@@ -240,6 +245,7 @@ touch .env  # Windows: type nul > .env
 ```
 
 `.env` 파일 내용:
+
 ```bash
 # 모델 서버 설정
 API_HOST=0.0.0.0
@@ -320,12 +326,14 @@ ifconfig
 각 폴더에 `.env` 파일을 생성하거나 수정합니다:
 
 **프로젝트 루트 (선택사항)**
+
 ```bash
 # 프로젝트 루트/.env
 EXPO_PUBLIC_API_BASE_URL="192.168.0.7:3000"
 ```
 
 **백엔드 폴더**
+
 ```bash
 # backend/.env
 DB_HOST=your-database-host
@@ -336,12 +344,14 @@ JWT_SECRET_KEY=your-jwt-secret-key
 ```
 
 **프론트엔드 폴더**
+
 ```bash
 # frontend/.env
 EXPO_PUBLIC_API_BASE_URL="192.168.0.7:3000"
 ```
 
 **AI 모델 서버 폴더**
+
 ```bash
 # models/.env
 MODEL_PATH=./weight
