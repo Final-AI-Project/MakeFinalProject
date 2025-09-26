@@ -25,27 +25,24 @@ async def get_user_plants_with_status(user_id: str) -> DashboardResponse:
              WHERE ia.plant_id = up.plant_id 
              ORDER BY ia.img_url 
              LIMIT 1) as user_plant_image,
-            -- 최신 습도 정보 (device_info와 humid_info 조인, 가장 최근 데이터만)
-            (SELECT hi.humidity 
-             FROM device_info di 
-             JOIN humid_info hi ON di.device_id = hi.device_id 
-             WHERE di.plant_id = up.plant_id 
-             ORDER BY hi.humid_date DESC, hi.device_id DESC
+            -- 최신 습도 정보 (humid 테이블에서 직접 조회, device_id=1 공통 사용)
+            (SELECT h.humidity 
+             FROM humid h 
+             WHERE h.device_id = 1 
+             ORDER BY h.humid_date DESC 
              LIMIT 1) as current_humidity,
              
-            -- 최신 습도 측정 시간 (가장 최근 데이터만)
-            (SELECT hi.humid_date 
-             FROM device_info di 
-             JOIN humid_info hi ON di.device_id = hi.device_id 
-             WHERE di.plant_id = up.plant_id 
-             ORDER BY hi.humid_date DESC, hi.device_id DESC
+            -- 최신 습도 측정 시간
+            (SELECT h.humid_date 
+             FROM humid h 
+             WHERE h.device_id = 1 
+             ORDER BY h.humid_date DESC 
              LIMIT 1) as humidity_date,
              
             -- 습도 데이터 존재 여부 확인
             (SELECT COUNT(*) 
-             FROM device_info di 
-             JOIN humid_info hi ON di.device_id = hi.device_id 
-             WHERE di.plant_id = up.plant_id) as humidity_data_count,
+             FROM humid h 
+             WHERE h.device_id = 1) as humidity_data_count,
             -- 품종별 최적 습도 범위 (plant_wiki와 best_humid 조인)
             (SELECT bh.min_humid 
              FROM plant_wiki pw 
@@ -93,11 +90,11 @@ async def get_user_plants_with_status(user_id: str) -> DashboardResponse:
                 humidity = 50  # 기본값
                 print(f"[DEBUG] 식물 {row['plant_id']}: 습도 데이터 없음, 기본값 50% 사용")
             elif current_humidity is None:
-                # device_info는 있지만 humid_info가 없는 경우
+                # 습도 데이터가 없는 경우
                 humidity = 50  # 기본값
-                print(f"[DEBUG] 식물 {row['plant_id']}: device_info는 있지만 humid_info 없음, 기본값 50% 사용")
+                print(f"[DEBUG] 식물 {row['plant_id']}: 습도 데이터 없음, 기본값 50% 사용")
             else:
-                # 실제 습도 데이터가 있는 경우
+                # 실제 습도 데이터가 있는 경우 (0값도 포함)
                 humidity = int(current_humidity)
                 # 습도 데이터 신선도 검증
                 freshness_info = await validate_humidity_data_freshness(row['plant_id'])
@@ -173,13 +170,13 @@ async def get_plant_humidity_history(plant_id: int, limit: int = 7) -> List[dict
         SELECT 
             humidity,
             humid_date
-        FROM humid_info
-        WHERE plant_id = %s
+        FROM humid
+        WHERE device_id = 1
         ORDER BY humid_date DESC
         LIMIT %s
         """
         
-        await cursor.execute(query, (plant_id, limit))
+        await cursor.execute(query, (limit,))
         results = await cursor.fetchall()
         return results
 
@@ -206,17 +203,16 @@ async def validate_humidity_data_freshness(plant_id: int) -> dict:
     async with get_db_connection() as (conn, cursor):
         query = """
         SELECT 
-            hi.humidity,
-            hi.humid_date,
-            TIMESTAMPDIFF(MINUTE, hi.humid_date, NOW()) as minutes_ago
-        FROM device_info di 
-        JOIN humid_info hi ON di.device_id = hi.device_id 
-        WHERE di.plant_id = %s 
-        ORDER BY hi.humid_date DESC 
+            h.humidity,
+            h.humid_date,
+            TIMESTAMPDIFF(MINUTE, h.humid_date, NOW()) as minutes_ago
+        FROM humid h 
+        WHERE h.device_id = 1 
+        ORDER BY h.humid_date DESC 
         LIMIT 1
         """
         
-        await cursor.execute(query, (plant_id,))
+        await cursor.execute(query)
         result = await cursor.fetchone()
         
         if not result:

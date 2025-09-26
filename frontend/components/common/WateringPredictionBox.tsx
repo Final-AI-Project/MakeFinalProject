@@ -75,6 +75,20 @@ export default function WateringPredictionBox({
       setLoading(true);
       setError(null);
 
+      // 습도가 0%인 경우 급수 예측 모델 호출하지 않음
+      if (currentHumidity === 0) {
+        setPrediction({
+          success: true,
+          plant_idx: plantIdx,
+          current_humidity: 0,
+          predicted_hours: 0,
+          next_watering_date: new Date().toISOString(),
+          message: "현재 습도 0% - 급수가 필요합니다",
+        });
+        setLoading(false);
+        return;
+      }
+
       const token = await getToken();
       if (!token) {
         throw new Error("인증 토큰이 없습니다.");

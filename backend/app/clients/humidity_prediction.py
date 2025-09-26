@@ -5,15 +5,16 @@ import httpx
 import logging
 from typing import Dict, Any, Optional
 from datetime import datetime, timedelta
+from core.config import settings
 
 logger = logging.getLogger(__name__)
 
 class HumidityPredictionClient:
     """습도 예측 모델 서버 클라이언트"""
     
-    def __init__(self, base_url: str = "http://localhost:4000"):
-        self.base_url = base_url
-        self.timeout = 30.0
+    def __init__(self, base_url: str = None):
+        self.base_url = base_url or settings.MODEL_SERVER_URL
+        self.timeout = settings.MODEL_SERVER_TIMEOUT
     
     async def predict_watering_time(
         self, 
@@ -47,6 +48,8 @@ class HumidityPredictionClient:
             
             if s_ref is not None:
                 request_data["S_ref"] = s_ref
+            
+            logger.info(f"습도 예측 요청 - URL: {self.base_url}/predict, 데이터: {request_data}")
             
             # 모델 서버에 요청
             async with httpx.AsyncClient(timeout=self.timeout) as client:

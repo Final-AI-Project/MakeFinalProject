@@ -40,7 +40,7 @@ export default function HomeTimelapsePage() {
       {
         id: "p2",
         name: "토리",
-        species: "올리브나무",
+        species: "호접란",
       },
       {
         id: "p3",

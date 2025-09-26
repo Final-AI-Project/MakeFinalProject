@@ -495,37 +495,7 @@ export default function Home() {
                       <View
                         style={[styles.slot3, { backgroundColor: theme.bg }]}
                       />
-
-                      {/* 적정 습도 범위 - 초록색 실선 (slotBox 안에 올바르게 배치) */}
-                      {true && (
-                        <View
-                          style={{
-                            position: "absolute",
-                            top: 0,
-                            left: 0,
-                            width: 250,
-                            height: 250,
-                            zIndex: 1000,
-                          }}
-                        >
-                          {/* 초록색 실선 - 게이지 위에 호 모양으로 */}
-                          <View
-                            style={{
-                              position: "absolute",
-                              top: 0,
-                              left: 0,
-                              width: 250,
-                              height: 250,
-                              borderWidth: 4,
-                              borderColor: "#4CAF50",
-                              borderRadius: 125,
-                              borderTopWidth: 0,
-                              borderLeftWidth: 0,
-                              borderRightWidth: 0,
-                            }}
-                          />
-                        </View>
-                      )}
+                      <View style={styles.slot5} />
                     </View>
 
                     <View
@@ -726,6 +696,7 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
     backgroundColor: "#6a9eff",
+    zIndex: 1,
   },
   slot3: {
     position: "absolute",
@@ -735,6 +706,7 @@ const styles = StyleSheet.create({
     width: 170,
     height: 170,
     borderRadius: 85,
+    zIndex: 3,
   },
   slot4: {
     position: "absolute",
@@ -743,62 +715,22 @@ const styles = StyleSheet.create({
     height: 290,
     transform: [{ translateX: -20 }],
   },
-
-  // ── 적정 습도 범위 테두리
-  optimalRangeBorder: {
-    position: "absolute",
-    top: 125,
-    left: 125,
-    width: 250,
-    height: 250,
-    transformOrigin: "center center",
-    zIndex: 1000,
-  },
-  optimalRangeArc: {
+  slot5: {
     position: "absolute",
     top: 0,
-    left: 0,
-    width: 250,
-    height: 250,
-    borderWidth: 3,
-    borderColor: "#4CAF50", // 녹색 테두리
-    borderTopColor: "transparent",
-    borderRightColor: "transparent",
-    borderBottomColor: "transparent",
-    borderRadius: 125,
-    transformOrigin: "center center",
-  },
-
-  // V자 표시 스타일
-  rangeMarker: {
-    position: "absolute",
-    top: 125,
-    left: 125,
-    width: 250,
-    height: 250,
-    transformOrigin: "center center",
-    zIndex: 2000, // 더 높은 zIndex로 다른 요소 위에 표시
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  rangeMarkerV: {
-    position: "absolute",
+    left: "50%",
     width: 0,
     height: 0,
-    borderLeftWidth: 15,
-    borderRightWidth: 15,
-    borderBottomWidth: 30,
+    borderLeftWidth: 75,
+    borderRightWidth: 75,
+    borderTopWidth: 150,
     borderLeftColor: "transparent",
     borderRightColor: "transparent",
-    borderBottomColor: "#FF0000", // 빨간색으로 변경해서 잘 보이게
-    top: 125, // 게이지 중심 높이
-    left: 0, // 게이지 왼쪽 끝에서 시작
-    zIndex: 9999, // 최고 zIndex
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 1.0,
-    shadowRadius: 8,
-    elevation: 20,
+    borderTopColor: "#8EDC73",
+    borderStyle: "solid",
+    opacity: 0.5,
+    transform: [{ translateX: -75 }],
+    zIndex: 2,
   },
 
   // ── Carousel wrapper

@@ -81,15 +81,14 @@ async def get_db_connection():
                         yield conn, cursor
                         await conn.commit()
                         return
-                    except Exception:
+                    except Exception as e:
                         # 연결 상태를 확인하고 안전하게 rollback
                         try:
-                            if conn and not conn._closed:
+                            if conn and hasattr(conn, '_closed') and not conn._closed:
                                 await conn.rollback()
                         except Exception as rollback_error:
-                            # rollback 실패 시 로그만 출력하고 계속 진행
                             print(f"Rollback failed: {rollback_error}")
-                        raise
+                        raise e
         except Exception as e:
             if attempt < max_retries - 1:
                 print(f"[DB] 연결 시도 {attempt + 1} 실패, 재시도 중...: {e}")
