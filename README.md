@@ -39,10 +39,12 @@ Pland_model_structure/
 ├── README.md                    # 프로젝트 개요 (이 파일)
 ├── Final.sql                    # 데이터베이스 스키마
 ├── sample1.jpg                  # 테스트용 이미지
+├── .env                         # 프로젝트 루트 환경 변수 (선택사항)
 │
 ├── backend/                     # 🌐 백엔드 API 서버
 │   ├── README.md               # 백엔드 실행 가이드
 │   ├── requirements.txt        # Python 의존성 (최신 버전)
+│   ├── .env                    # 백엔드 환경 변수 (필수)
 │   ├── venv/                   # 가상환경
 │   └── app/                    # FastAPI 애플리케이션
 │       ├── main.py             # 메인 애플리케이션
@@ -58,6 +60,7 @@ Pland_model_structure/
 ├── frontend/                    # 📱 React Native 모바일 앱
 │   ├── README.md               # 프론트엔드 실행 가이드
 │   ├── package.json            # Node.js 의존성 (최신 버전)
+│   ├── .env                    # 프론트엔드 환경 변수 (필수)
 │   ├── app.json                # Expo 설정
 │   ├── app/                    # Expo Router 앱 구조
 │   │   ├── (auth)/             # 인증 화면
@@ -73,6 +76,7 @@ Pland_model_structure/
 └── models/                      # 🤖 AI 모델 서버
     ├── README.md               # 모델 서버 실행 가이드
     ├── requirements.txt        # ML 의존성 (최신 버전)
+    ├── .env                    # AI 모델 서버 환경 변수 (필수)
     ├── main.py                 # FastAPI 모델 서버
     ├── classifier/             # 식물 분류 모델
     │   ├── cascade/            # 캐스케이드 분류기
@@ -183,6 +187,77 @@ pland/
 
 ## 🚀 빠른 시작
 
+### 0. 환경 변수 설정
+
+각 서버를 실행하기 전에 환경 변수 파일을 설정해야 합니다:
+
+#### 백엔드 환경 변수
+
+```bash
+# backend/.env 파일 생성
+cd backend
+touch .env  # Windows: type nul > .env
+```
+
+`.env` 파일 내용:
+
+```bash
+# 데이터베이스 설정
+DB_HOST=your-database-host
+DB_USER=your-database-user
+DB_PASSWORD=your-database-password
+DB_NAME=your-database-name
+
+# JWT 설정
+JWT_SECRET_KEY=your-super-secret-jwt-key-here
+ACCESS_TOKEN_EXPIRE_MINUTES=30
+
+# API 설정
+API_HOST=0.0.0.0
+API_PORT=8000
+
+# MQTT 설정 (선택사항)
+MQTT_BROKER_HOST=localhost
+MQTT_BROKER_PORT=1883
+```
+
+#### 프론트엔드 환경 변수
+
+```bash
+# frontend/.env 파일 생성
+cd frontend
+touch .env  # Windows: type nul > .env
+```
+
+`.env` 파일 내용:
+
+```bash
+# API 서버 주소 (IP 주소를 실제 환경에 맞게 변경)
+EXPO_PUBLIC_API_BASE_URL="http://192.168.0.7:8000"
+```
+
+#### AI 모델 서버 환경 변수
+
+```bash
+# models/.env 파일 생성
+cd models
+touch .env  # Windows: type nul > .env
+```
+
+`.env` 파일 내용:
+
+```bash
+# 모델 서버 설정
+API_HOST=0.0.0.0
+API_PORT=8001
+MODEL_PATH=./weight
+
+# 모델 파일 경로
+CLASSIFIER_MODEL_PATH=./classifier/cascade/weight/plant_classifier.pth
+PEST_MODEL_PATH=./pestcase/pest_classifier.pt
+HEALTHY_MODEL_PATH=./healthy/healthy.pt
+```
+
 ### 1. 백엔드 서버 실행
 
 ```bash
@@ -248,11 +323,40 @@ ifconfig
 
 #### 2. 환경 변수 파일 수정
 
-프로젝트 루트에 `.env` 파일을 생성하거나 수정합니다:
+각 폴더에 `.env` 파일을 생성하거나 수정합니다:
+
+**프로젝트 루트 (선택사항)**
 
 ```bash
-# .env 파일 예시
+# 프로젝트 루트/.env
 EXPO_PUBLIC_API_BASE_URL="192.168.0.7:3000"
+```
+
+**백엔드 폴더**
+
+```bash
+# backend/.env
+DB_HOST=your-database-host
+DB_USER=your-database-user
+DB_PASSWORD=your-database-password
+DB_NAME=your-database-name
+JWT_SECRET_KEY=your-jwt-secret-key
+```
+
+**프론트엔드 폴더**
+
+```bash
+# frontend/.env
+EXPO_PUBLIC_API_BASE_URL="192.168.0.7:3000"
+```
+
+**AI 모델 서버 폴더**
+
+```bash
+# models/.env
+MODEL_PATH=./weight
+API_HOST=0.0.0.0
+API_PORT=8001
 ```
 
 #### 3. 백엔드 서버 재시작
@@ -281,6 +385,8 @@ npx expo start --clear
 - **포트**: 백엔드와 프론트엔드가 같은 포트를 사용하는지 확인
 - **방화벽**: Windows 방화벽에서 해당 포트 허용 필요할 수 있음
 - **캐시**: 변경 후 `--clear` 옵션으로 캐시 삭제 권장
+- **환경 변수**: `.env` 파일은 Git에 커밋하지 마세요 (보안상 중요)
+- **파일 위치**: 각 폴더(`backend/`, `frontend/`, `models/`)에 해당하는 `.env` 파일 생성
 
 ## 📊 프로젝트 진행 상황
 
