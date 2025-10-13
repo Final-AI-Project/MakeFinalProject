@@ -90,7 +90,7 @@ models/
 ├── healthy/                 # 건강 상태 모델
 │   ├── healthy.py          # 건강 상태 분류
 │   └── healthy.pt          # 모델 가중치
-├── LMM/                     # 대화형 AI 모델
+├── llm/                     # 대화형 AI 모델
 └── weight/                  # 공통 모델 가중치
     └── seg_best.pt         # 세그멘테이션 모델
 ```
