@@ -59,31 +59,32 @@ npx expo start --tunnel
 
 ```
 frontend/
-├── app/                     # Expo Router 앱 구조
-│   ├── (auth)/             # 인증 관련 화면
-│   │   ├── login.tsx       # 로그인 화면
-│   │   └── signup.tsx      # 회원가입 화면
-│   ├── (page)/             # 메인 앱 화면
-│   │   ├── home.tsx        # 홈/대시보드 화면 (습도 아치형 바)
-│   │   ├── medical.tsx     # 병충해 진단 목록
-│   │   ├── diaryList.tsx   # 일기 목록
-│   │   └── (stackless)/    # 스택리스 화면들
-│   │       ├── plant-detail.tsx    # 식물 상세
-│   │       ├── plant-new.tsx       # 식물 등록
-│   │       ├── medical-detail.tsx  # 병충해 진단
-│   │       ├── diary.tsx           # 일기 작성
-│   │       └── info-room.tsx       # 정보방
-│   ├── common/             # 공통 컴포넌트
-│   │   ├── loading.tsx     # 로딩 컴포넌트
-│   │   └── weatherBox.tsx  # 날씨 정보 컴포넌트
-│   └── index.tsx           # 앱 진입점
-├── assets/                 # 이미지, 폰트 등 리소스
-├── constants/              # 상수 정의
-├── hooks/                  # 커스텀 훅
-├── libs/                   # 라이브러리 및 유틸리티
-├── types/                  # TypeScript 타입 정의
-├── package.json            # 의존성 및 스크립트 (최신 버전)
-└── app.json               # Expo 설정
+├── app/                         # Expo Router 앱 구조
+│   ├── (auth)/                  # 인증 화면
+│   │   ├── login.tsx
+│   │   └── signup.tsx
+│   ├── (page)/                  # 주요 화면 그룹
+│   │   ├── home.tsx             # 홈/대시보드
+│   │   ├── medical.tsx          # 병충해 진단 목록
+│   │   ├── diaryList.tsx        # 일기 목록
+│   │   ├── camera.tsx           # 카메라 촬영
+│   │   ├── menu.tsx             # 메뉴
+│   │   ├── index.tsx            # 엔트리
+│   │   ├── medical.tsx          # 병충해
+│   │   └── (stackless)/         # 스택 없는 단일 화면들
+│   │       ├── plant-detail.tsx # 식물 상세
+│   │       └── info-room.tsx    # 정보방
+│   ├── index.tsx                # 루트 엔트리
+│   └── splash.tsx               # 스플래시
+├── components/                  # 공통 컴포넌트
+│   └── common/                  # 공용 UI (loading, weatherBox 등)
+├── config/                      # API 설정 등
+├── constants/                   # 상수 정의
+├── hooks/                       # 커스텀 훅
+├── libs/                        # 인증/분류 등 클라이언트 로직
+├── assets/                      # 이미지/폰트
+├── package.json                 # 의존성 및 스크립트
+└── app.json                     # Expo 설정
 ```
 
 ## 🛠️ 개발 환경 설정
