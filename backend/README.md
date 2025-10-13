@@ -202,23 +202,18 @@ uvicorn main:app --reload --host 0.0.0.0 --port 3000
 backend/
 ├── app/
 │   ├── main.py              # FastAPI 메인 애플리케이션
-│   ├── routers/             # API 라우터
-│   │   ├── auth.py         # 인증 관련 API
-│   │   ├── plants.py       # 식물 관리 API
-│   │   ├── dashboard.py    # 대시보드 API
-│   │   └── images.py       # 이미지 업로드 API
-│   ├── services/            # 비즈니스 로직
-│   │   ├── auth_service.py # 인증 서비스
-│   │   ├── plants_service.py # 식물 관리 서비스
-│   │   └── dashboard_service.py # 대시보드 서비스
-│   ├── crud/               # 데이터베이스 CRUD
-│   ├── models/             # 데이터 모델
-│   ├── schemas/            # Pydantic 스키마
-│   ├── core/               # 핵심 설정 (DB, Config)
-│   ├── ml/                 # 머신러닝 관련 기능
-│   └── utils/              # 유틸리티 함수
-├── requirements.txt         # Python 의존성 (최신 버전)
-└── venv/                    # 가상환경
+│   ├── core/                # 설정, 로깅, 환경 변수
+│   ├── db/                  # aiomysql 풀 및 트랜잭션 유틸
+│   ├── clients/             # 외부 HTTP 연동 클라이언트(httpx)
+│   ├── features/            # 기능 단위 엔드포인트(auth, plants, diary, medical 등)
+│   ├── pages/               # 페이지 단위 라우터(home, dashboard, info-room, diary-list)
+│   ├── repositories/        # SQL 기반 DAO (데이터 접근 계층)
+│   ├── schemas/             # Pydantic 입력/출력 모델
+│   ├── services/            # 비즈니스 로직 및 모델 서버 연동
+│   └── utils/               # 공통 유틸리티(보안, 이미지 등)
+├── static/                  # 정적 파일 (이미지 등)
+├── requirements.txt         # Python 의존성
+└── README.md                # 프로젝트 문서
 ```
 
 ## 🛠️ 개발 환경 설정
